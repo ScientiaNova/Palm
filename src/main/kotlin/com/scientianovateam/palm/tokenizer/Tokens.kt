@@ -8,7 +8,16 @@ interface IToken {
 
 typealias PositionedToken = Positioned<IToken>
 
-sealed class OperatorToken(private val symbol: String, val precedence: Int) : IToken {
+enum class OperatorType {
+    ARITHMETIC,
+    COMPARISON,
+    BOOLEAN,
+    LIST,
+    TYPE,
+    NULLABILITY
+}
+
+sealed class OperatorToken(private val symbol: String, val precedence: Int, val type: OperatorType) : IToken {
     override fun toString() = "Operator(symbol=$symbol)"
 }
 
@@ -41,10 +50,10 @@ object WhenToken : KeywordToken("when")
 object WhereToken : KeywordToken("where")
 object ForToken : KeywordToken("for")
 
-object InToken : OperatorToken("in", 5)
-object NotInToken : OperatorToken("!in", 5)
-object IsToken : OperatorToken("is", 5)
-object NotIsToken : OperatorToken("!is", 5)
+object InToken : OperatorToken("in", 5, OperatorType.LIST)
+object NotInToken : OperatorToken("!in", 5, OperatorType.LIST)
+object IsToken : OperatorToken("is", 5, OperatorType.TYPE)
+object IsNotToken : OperatorToken("!is", 5, OperatorType.TYPE)
 
 private val specialWords = mapOf(
     "true" to TrueToken,
@@ -81,23 +90,23 @@ object DoubleDotToken : SpecialSymbol("..")
 object SafeAccessToken : SpecialSymbol("?.")
 object ArrowToken : SpecialSymbol("->")
 
-object OrToken : OperatorToken("||", 1)
-object AndToken : OperatorToken("&&", 2)
-object EqualToken : OperatorToken("==", 3)
-object NotEqualToken : OperatorToken("!=", 3)
-object LessToken : OperatorToken("<", 4)
-object LessOrEqualToken : OperatorToken("<=", 4)
-object GreaterToken : OperatorToken(">", 4)
-object GreaterOrEqualToken : OperatorToken("<=", 4)
-object ElvisToken : OperatorToken("?:", 6)
-object PlusToken : OperatorToken("+", 7)
-object MinusToken : OperatorToken("-", 7)
-object TimesToken : OperatorToken("*", 8)
-object DivideToken : OperatorToken("/", 8)
-object ModulusToken : OperatorToken("%", 8)
-object FloorDivideToken : OperatorToken("//", 8)
-object ExponentToken : OperatorToken("^", 9)
-object NotToken : OperatorToken("!", 10)
+object OrToken : OperatorToken("||", 1, OperatorType.BOOLEAN)
+object AndToken : OperatorToken("&&", 2, OperatorType.BOOLEAN)
+object EqualToken : OperatorToken("==", 3, OperatorType.COMPARISON)
+object NotEqualToken : OperatorToken("!=", 3, OperatorType.COMPARISON)
+object LessToken : OperatorToken("<", 4, OperatorType.COMPARISON)
+object LessOrEqualToken : OperatorToken("<=", 4, OperatorType.COMPARISON)
+object GreaterToken : OperatorToken(">", 4, OperatorType.COMPARISON)
+object GreaterOrEqualToken : OperatorToken("<=", 4, OperatorType.COMPARISON)
+object ElvisToken : OperatorToken("?:", 6, OperatorType.NULLABILITY)
+object PlusToken : OperatorToken("+", 7, OperatorType.ARITHMETIC)
+object MinusToken : OperatorToken("-", 7, OperatorType.ARITHMETIC)
+object TimesToken : OperatorToken("*", 8, OperatorType.ARITHMETIC)
+object DivideToken : OperatorToken("/", 8, OperatorType.ARITHMETIC)
+object ModulusToken : OperatorToken("%", 8, OperatorType.ARITHMETIC)
+object FloorDivideToken : OperatorToken("//", 8, OperatorType.ARITHMETIC)
+object ExponentToken : OperatorToken("^", 9, OperatorType.ARITHMETIC)
+object NotToken : OperatorToken("!", 10, OperatorType.BOOLEAN)
 
 private val symbolMap = mapOf(
     "=" to AssignmentToken,

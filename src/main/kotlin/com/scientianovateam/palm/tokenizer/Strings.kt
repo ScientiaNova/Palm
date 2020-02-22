@@ -101,7 +101,7 @@ fun handleInterpolation(traverser: StringTraverser, char: Char?, stack: TokenSta
     }
     else -> {
         val row = traverser.row
-        val (token, next) = handleToken(traverser, char)
+        val (token, next) = handleToken(traverser, char, stack)
         stack.push(token on row..traverser.lastRow)
         handleInterpolation(traverser, next, stack)
     }
