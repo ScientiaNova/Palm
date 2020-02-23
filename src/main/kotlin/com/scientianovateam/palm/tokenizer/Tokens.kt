@@ -10,6 +10,7 @@ typealias PositionedToken = Positioned<IToken>
 
 enum class OperatorType {
     ARITHMETIC,
+    EQUALITY,
     COMPARISON,
     BOOLEAN,
     LIST,
@@ -25,8 +26,8 @@ data class NumberToken(val number: Double) : IToken {
     constructor(number: Number) : this(number.toDouble())
 }
 
-sealed class BoolToken(val value: Boolean) : IToken {
-    override fun toString() = "BoolToken(value=$value)"
+sealed class BoolToken(val bool: Boolean) : IToken {
+    override fun toString() = "BoolToken(value=$bool)"
 }
 
 object TrueToken : BoolToken(true)
@@ -87,13 +88,14 @@ object CommaToken : SpecialSymbol(",")
 object ColonToken : SpecialSymbol(":")
 object SemicolonToken : SpecialSymbol(";")
 object DoubleDotToken : SpecialSymbol("..")
+object QuestionMarkToken : SpecialSymbol("?")
 object SafeAccessToken : SpecialSymbol("?.")
 object ArrowToken : SpecialSymbol("->")
 
 object OrToken : OperatorToken("||", 1, OperatorType.BOOLEAN)
 object AndToken : OperatorToken("&&", 2, OperatorType.BOOLEAN)
-object EqualToken : OperatorToken("==", 3, OperatorType.COMPARISON)
-object NotEqualToken : OperatorToken("!=", 3, OperatorType.COMPARISON)
+object EqualToken : OperatorToken("==", 3, OperatorType.EQUALITY)
+object NotEqualToken : OperatorToken("!=", 3, OperatorType.EQUALITY)
 object LessToken : OperatorToken("<", 4, OperatorType.COMPARISON)
 object LessOrEqualToken : OperatorToken("<=", 4, OperatorType.COMPARISON)
 object GreaterToken : OperatorToken(">", 4, OperatorType.COMPARISON)
@@ -125,6 +127,7 @@ private val symbolMap = mapOf(
     "<=" to LessOrEqualToken,
     ">" to GreaterToken,
     ">=" to GreaterOrEqualToken,
+    "?" to QuestionMarkToken,
     "?:" to ElvisToken,
     "+" to PlusToken,
     "-" to MinusToken,

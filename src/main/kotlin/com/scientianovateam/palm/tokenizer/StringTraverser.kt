@@ -1,9 +1,9 @@
 package com.scientianovateam.palm.tokenizer
 
 class StringTraverser(private val code: String) {
-    private var index = -1;
+    private var index = 0;
     fun peek() = code.getOrNull(index)
-    fun pop() = code.getOrNull(++index).also {
+    fun pop() = code.getOrNull(index++).also {
         if (lastRow != row) ++lastRow
         if (it == '\n') ++row
     }
