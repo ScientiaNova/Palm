@@ -9,7 +9,7 @@ fun handleNumber(
     '_' ->
         if (traverser.peek()?.isDigit() == true) handleNumber(traverser, traverser.pop(), builder)
         else NumberToken(builder.toString().toDouble()) to char
-    '.' -> handleDecimalNumber(traverser, char, builder.append(char))
+    '.' -> handleDecimalNumber(traverser, traverser.pop(), builder.append(char))
     else -> NumberToken(builder.toString().toDouble()) to char
 }
 

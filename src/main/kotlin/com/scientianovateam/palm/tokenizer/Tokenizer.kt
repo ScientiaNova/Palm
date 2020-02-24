@@ -1,6 +1,6 @@
 package com.scientianovateam.palm.tokenizer
 
-import com.scientianovateam.palm.on
+import com.scientianovateam.palm.util.on
 import java.util.*
 
 typealias TokenStack = Stack<PositionedToken>

@@ -1,9 +1,11 @@
 package com.scientianovateam.palm.parser
 
-import com.scientianovateam.palm.Positioned
-import com.scientianovateam.palm.on
-import com.scientianovateam.palm.safePop
 import com.scientianovateam.palm.tokenizer.*
+import com.scientianovateam.palm.util.Positioned
+import com.scientianovateam.palm.util.on
+import com.scientianovateam.palm.util.pushing
+import com.scientianovateam.palm.util.safePop
+import java.util.*
 
 interface IExpression {
     override fun toString(): String
@@ -16,8 +18,13 @@ data class Num(val num: Double) : IExpression
 data class Chr(val char: Char) : IExpression
 data class Bool(val bool: Boolean) : IExpression
 data class BinOp(val operator: OperatorToken, val first: IExpression, val second: IExpression) : IExpression
+data class Cast(val expr: IExpression, val type: IType) : IExpression
 data class TypeCheck(val expr: IExpression, val type: IType, val inverted: Boolean = false) : IExpression
 data class UnOp(val operator: OperatorToken, val expr: IExpression) : IExpression
+
+object Null : IExpression {
+    override fun toString() = "Null"
+}
 
 data class Lis(val expressions: List<IExpression> = emptyList()) : IExpression {
     constructor(expr: IExpression) : this(listOf(expr))
@@ -45,15 +52,26 @@ data class Where(val expr: IExpression, val definitions: List<Pair<String, IExpr
 data class When(val branches: List<Pair<IExpression, IExpression>>, val elseBranch: IExpression?) : IExpression
 data class WhenSwitch(val value: IExpression, val branches: List<SwitchBranch>, val elseBranch: IExpression?) :
     IExpression
-typealias SwitchBranch = Pair<List<Pair<OperatorToken, IExpression>>, IExpression>
+typealias SwitchBranch = Pair<List<Pattern>, IExpression>
 
-object Null : IExpression {
-    override fun toString() = "Null"
-}
+sealed class Pattern
+data class ExpressionPattern(val expression: IExpression) : Pattern()
+data class TypePattern(val type: IType, val inverted: Boolean = false) : Pattern()
+data class ContainingPattern(val collection: IExpression, val inverted: Boolean = false) : Pattern()
+data class ComparisonPattern(val operator: ComparisonOperatorToken, val expression: IExpression) : Pattern()
 
 fun handleExpression(stack: TokenStack, token: PositionedToken?): Pair<PositionedExpression, PositionedToken?> {
     val (first, op) = handleExpressionPart(stack, token)
-    val (expr, next) = handleBinOps(stack, op, first)
+    val expr: PositionedExpression
+    val next: PositionedToken?
+    if (op != null && op.value is OperatorToken && op.rows.last == first.rows.first) {
+        val res = handleBinOps(stack, op.value, first.rows.first, Stack<IExpression>().pushing(first.value))
+        expr = res.first
+        next = res.second
+    } else {
+        expr = first
+        next = op
+    }
     return if (next?.value is WhereToken) {
         if (stack.safePop()?.value is OpenCurlyBracketToken) handleWhere(
             stack,
@@ -67,39 +85,56 @@ fun handleExpression(stack: TokenStack, token: PositionedToken?): Pair<Positione
 
 fun handleBinOps(
     stack: TokenStack,
-    token: PositionedToken?,
-    first: PositionedExpression
-): Pair<PositionedExpression, PositionedToken?> =
-    if (token != null && first.rows.last == token.rows.first && token.value is OperatorToken) {
-        val (expr, next) = handleBinOp(stack, stack.safePop(), first.value, token.value, first.rows.first)
-        handleBinOps(stack, next, expr)
-    } else first to token
-
-fun handleBinOp(
-    stack: TokenStack,
-    token: PositionedToken?,
-    firstExpr: IExpression,
     op: OperatorToken,
-    startRow: Int
-): Pair<PositionedExpression, PositionedToken?> = when (op) {
-    is IsToken -> {
-        val (type, next) = handleType(stack, stack.safePop())
-        TypeCheck(firstExpr, type.value) on startRow..type.rows.last to next
+    startRow: Int,
+    operandStack: Stack<IExpression>,
+    operatorStack: Stack<OperatorToken> = Stack()
+): Pair<PositionedExpression, PositionedToken?> =
+    if (operatorStack.isEmpty() || op.precedence > operatorStack.peek().precedence)
+        when (op) {
+            is TypeOperatorToken -> {
+                val (type, next) = handleType(stack, stack.safePop())
+                operandStack.push(TypeCheck(operandStack.pop(), type.value, op is IsNotToken))
+                if (next != null && next.value is OperatorToken && next.rows.last == type.rows.first)
+                    handleBinOps(stack, next.value, startRow, operandStack, operatorStack)
+                else emptyStacks(next, startRow..type.rows.last, operandStack, operatorStack)
+            }
+            is AsToken -> {
+                val (type, next) = handleType(stack, stack.safePop())
+                operandStack.push(Cast(operandStack.pop(), type.value))
+                if (next != null && next.value is OperatorToken && next.rows.last == type.rows.first)
+                    handleBinOps(stack, next.value, startRow, operandStack, operatorStack)
+                else emptyStacks(next, startRow..type.rows.last, operandStack, operatorStack)
+            }
+            else -> {
+                val (operand, next) = handleExpressionPart(stack, stack.safePop())
+                operatorStack.push(op)
+                operandStack.push(operand.value)
+                if (next != null && next.value is OperatorToken && next.rows.last == operand.rows.first) {
+                    if (op is ComparisonOperatorToken && next.value is ComparisonOperatorToken) {
+                        operatorStack.push(AndToken)
+                        operandStack.push(operand.value)
+                    }
+                    handleBinOps(stack, next.value, startRow, operandStack, operatorStack)
+                } else emptyStacks(next, startRow..operand.rows.last, operandStack, operatorStack)
+            }
+        }
+    else {
+        val second = operandStack.pop()
+        handleBinOps(
+            stack, op, startRow, operandStack.pushing(BinOp(operatorStack.pop(), operandStack.pop(), second)),
+            operatorStack
+        )
     }
-    is IsNotToken -> {
-        val (type, next) = handleType(stack, stack.safePop())
-        TypeCheck(firstExpr, type.value, true) on startRow..type.rows.last to next
-    }
-    else -> {
-        val (secondExpr, afterSecond) = handleExpressionPart(stack, token)
-        if (afterSecond != null && secondExpr.rows.last == afterSecond.rows.first &&
-            afterSecond.value is OperatorToken && op.precedence < afterSecond.value.precedence
-        ) {
-            val (nested, next) =
-                handleBinOp(stack, stack.safePop(), secondExpr.value, afterSecond.value, secondExpr.rows.first)
-            BinOp(op, firstExpr, nested.value) on startRow..nested.rows.last to next
-        } else BinOp(op, firstExpr, secondExpr.value) on startRow..secondExpr.rows.last to afterSecond
-    }
+
+fun emptyStacks(
+    next: PositionedToken?,
+    rows: IntRange,
+    operandStack: Stack<IExpression>,
+    operatorStack: Stack<OperatorToken> = Stack()
+): Pair<PositionedExpression, PositionedToken?> = if (operatorStack.isEmpty()) operandStack.pop() on rows to next else {
+    val second = operandStack.pop()
+    emptyStacks(next, rows, operandStack.pushing(BinOp(operatorStack.pop(), operandStack.pop(), second)), operatorStack)
 }
 
 fun handleExpressionPart(stack: TokenStack, token: PositionedToken?): Pair<PositionedExpression, PositionedToken?> {
@@ -114,6 +149,10 @@ fun handleExpressionPart(stack: TokenStack, token: PositionedToken?): Pair<Posit
             if (bracket?.value is OpenCurlyBracketToken)
                 handleObject(stack, stack.safePop(), token.rows.first, type.value)
             else error("Missing curly bracket after type name")
+        }
+        is OpenParenToken -> {
+            val (expr, closedParen) = handleExpression(stack, stack.safePop())
+            if (closedParen?.value is ClosedParenToken) expr to stack.safePop() else error("Unclosed parenthesis")
         }
         is OpenSquareBracketToken -> {
             val first = stack.safePop()
@@ -144,7 +183,8 @@ fun handleExpressionPart(stack: TokenStack, token: PositionedToken?): Pair<Posit
                 }
             }
         }
-        is StringToken -> Str(token.value.parts.map {
+        is PureStringToken -> Str(listOf(StrStringPart(token.value.name))) on token to stack.safePop()
+        is StringTemplateToken -> Str(token.value.parts.map {
             when (it) {
                 is StringPart -> StrStringPart(it.string)
                 is TokensPart -> {
@@ -296,7 +336,7 @@ fun handleObject(
     values: Map<String, IExpression> = emptyMap()
 ): Pair<Positioned<Object>, PositionedToken?> = if (token == null) error("Unclosed object") else when (token.value) {
     is ClosedCurlyBracketToken -> Object(values, type) on startRow..token.rows.last to stack.safePop()
-    is UncapitalizedIdentifierToken -> stack.safePop().let { assignToken ->
+    is IKeyToken -> stack.safePop().let { assignToken ->
         val (expr, next) = when (assignToken?.value) {
             is AssignmentToken -> handleExpression(stack, stack.safePop())
             is OpenCurlyBracketToken -> handleObject(stack, stack.safePop(), assignToken.rows.first)
@@ -362,7 +402,7 @@ fun handleWhere(
     values: List<Pair<String, IExpression>> = emptyList()
 ): Pair<Positioned<Where>, PositionedToken?> = if (token == null) error("Unclosed where") else when (token.value) {
     is ClosedCurlyBracketToken -> Where(expression, values) on startRow..token.rows.last to stack.safePop()
-    is UncapitalizedIdentifierToken -> stack.safePop().let { assignToken ->
+    is IKeyToken -> stack.safePop().let { assignToken ->
         val (expr, next) = when (assignToken?.value) {
             is AssignmentToken -> handleExpression(stack, stack.safePop())
             is OpenCurlyBracketToken -> handleObject(stack, stack.safePop(), assignToken.rows.first)
@@ -425,26 +465,35 @@ fun handleWhenSwitch(
     }
 }
 
-private val branchOperatorTypes = listOf(OperatorType.COMPARISON, OperatorType.TYPE, OperatorType.LIST)
-
 fun handleSwitchBranch(
     stack: TokenStack,
     token: PositionedToken?,
-    patterns: List<Pair<OperatorToken, IExpression>> = emptyList()
+    patterns: List<Pattern> = emptyList()
 ): Pair<SwitchBranch, PositionedToken?> {
-    val operator: OperatorToken
-    val (expr, separator) = if (token != null && token.value is OperatorToken && token.value.type in branchOperatorTypes) {
-        operator = token.value
-        handleExpression(stack, stack.safePop())
-    } else {
-        operator = EqualToken
-        handleExpression(stack, token)
+    if (token == null) error("Unclosed when expression")
+    val (pattern, separator) = when (token.value) {
+        is TypeOperatorToken -> {
+            val (type, next) = handleType(stack, stack.safePop())
+            TypePattern(type.value, token.value is IsNotToken) to next
+        }
+        is ContainingOperatorToken -> {
+            val (expr, next) = handleExpression(stack, stack.safePop())
+            ContainingPattern(expr.value, token.value is NotInToken) to next
+        }
+        is ComparisonOperatorToken -> {
+            val (expr, next) = handleExpression(stack, stack.safePop())
+            ComparisonPattern(token.value, expr.value) to next
+        }
+        else -> {
+            val (expr, next) = handleExpression(stack, token)
+            ExpressionPattern(expr.value) to next
+        }
     }
     return when (separator?.value) {
-        is CommaToken -> handleSwitchBranch(stack, stack.safePop(), patterns + (operator to expr.value))
+        is CommaToken -> handleSwitchBranch(stack, stack.safePop(), patterns + pattern)
         is ArrowToken -> {
             val (res, next) = handleExpression(stack, stack.safePop())
-            ((patterns + (operator to expr.value)) to res.value) to next
+            patterns + pattern to res.value to next
         }
         else -> error("Missing arrow in when expression")
     }

@@ -1,24 +1,18 @@
 package com.scientianovateam.palm.tokenizer
 
-import com.scientianovateam.palm.Positioned
+import com.scientianovateam.palm.util.Positioned
 
 interface IToken {
     override fun toString(): String
 }
 
-typealias PositionedToken = Positioned<IToken>
-
-enum class OperatorType {
-    ARITHMETIC,
-    EQUALITY,
-    COMPARISON,
-    BOOLEAN,
-    LIST,
-    TYPE,
-    NULLABILITY
+interface IKeyToken : IToken {
+    val name: String
 }
 
-sealed class OperatorToken(private val symbol: String, val precedence: Int, val type: OperatorType) : IToken {
+typealias PositionedToken = Positioned<IToken>
+
+sealed class OperatorToken(private val symbol: String, val precedence: Int) : IToken {
     override fun toString() = "Operator(symbol=$symbol)"
 }
 
@@ -38,7 +32,7 @@ object NullToken : IToken {
 }
 
 data class CapitalizedIdentifierToken(val name: String) : IToken
-data class UncapitalizedIdentifierToken(val name: String) : IToken
+data class UncapitalizedIdentifierToken(override val name: String) : IKeyToken
 
 sealed class KeywordToken(private val word: String) : IToken {
     override fun toString() = "KeywordToken(word=$word)"
@@ -51,10 +45,13 @@ object WhenToken : KeywordToken("when")
 object WhereToken : KeywordToken("where")
 object ForToken : KeywordToken("for")
 
-object InToken : OperatorToken("in", 5, OperatorType.LIST)
-object NotInToken : OperatorToken("!in", 5, OperatorType.LIST)
-object IsToken : OperatorToken("is", 5, OperatorType.TYPE)
-object IsNotToken : OperatorToken("!is", 5, OperatorType.TYPE)
+sealed class ContainingOperatorToken(symbol: String, precedence: Int) : OperatorToken(symbol, precedence)
+object InToken : ContainingOperatorToken("in", 5)
+object NotInToken : ContainingOperatorToken("!in", 5)
+sealed class TypeOperatorToken(symbol: String, precedence: Int) : OperatorToken(symbol, precedence)
+object IsToken : TypeOperatorToken("is", 5)
+object IsNotToken : TypeOperatorToken("!is", 5)
+object AsToken : OperatorToken("as", 10)
 
 private val specialWords = mapOf(
     "true" to TrueToken,
@@ -67,7 +64,8 @@ private val specialWords = mapOf(
     "where" to WhereToken,
     "for" to ForToken,
     "in" to InToken,
-    "is" to IsToken
+    "is" to IsToken,
+    "as" to AsToken
 )
 
 fun handleUncapitalizedString(string: String) = specialWords[string] ?: UncapitalizedIdentifierToken(string)
@@ -76,7 +74,9 @@ sealed class SpecialSymbol(private val symbol: String) : IToken {
     override fun toString() = "SpecialSymbol(symbol=$symbol)"
 }
 
-object AssignmentToken : SpecialSymbol("=")
+sealed class AssignmentToken(symbol: String) : SpecialSymbol(symbol)
+object IsEqualToToken : AssignmentToken("=")
+object ColonToken : AssignmentToken(":")
 object OpenParenToken : SpecialSymbol("(")
 object ClosedParenToken : SpecialSymbol(")")
 object OpenCurlyBracketToken : SpecialSymbol("{")
@@ -85,33 +85,33 @@ object OpenSquareBracketToken : SpecialSymbol("[")
 object ClosedSquareBracketToken : SpecialSymbol("]")
 object DotToken : SpecialSymbol(".")
 object CommaToken : SpecialSymbol(",")
-object ColonToken : SpecialSymbol(":")
 object SemicolonToken : SpecialSymbol(";")
 object DoubleDotToken : SpecialSymbol("..")
 object QuestionMarkToken : SpecialSymbol("?")
 object SafeAccessToken : SpecialSymbol("?.")
 object ArrowToken : SpecialSymbol("->")
 
-object OrToken : OperatorToken("||", 1, OperatorType.BOOLEAN)
-object AndToken : OperatorToken("&&", 2, OperatorType.BOOLEAN)
-object EqualToken : OperatorToken("==", 3, OperatorType.EQUALITY)
-object NotEqualToken : OperatorToken("!=", 3, OperatorType.EQUALITY)
-object LessToken : OperatorToken("<", 4, OperatorType.COMPARISON)
-object LessOrEqualToken : OperatorToken("<=", 4, OperatorType.COMPARISON)
-object GreaterToken : OperatorToken(">", 4, OperatorType.COMPARISON)
-object GreaterOrEqualToken : OperatorToken("<=", 4, OperatorType.COMPARISON)
-object ElvisToken : OperatorToken("?:", 6, OperatorType.NULLABILITY)
-object PlusToken : OperatorToken("+", 7, OperatorType.ARITHMETIC)
-object MinusToken : OperatorToken("-", 7, OperatorType.ARITHMETIC)
-object TimesToken : OperatorToken("*", 8, OperatorType.ARITHMETIC)
-object DivideToken : OperatorToken("/", 8, OperatorType.ARITHMETIC)
-object ModulusToken : OperatorToken("%", 8, OperatorType.ARITHMETIC)
-object FloorDivideToken : OperatorToken("//", 8, OperatorType.ARITHMETIC)
-object ExponentToken : OperatorToken("^", 9, OperatorType.ARITHMETIC)
-object NotToken : OperatorToken("!", 10, OperatorType.BOOLEAN)
+object OrToken : OperatorToken("||", 1)
+object AndToken : OperatorToken("&&", 2)
+object EqualToken : OperatorToken("==", 3)
+object NotEqualToken : OperatorToken("!=", 3)
+sealed class ComparisonOperatorToken(symbol: String, precedence: Int) : OperatorToken(symbol, precedence)
+object LessToken : ComparisonOperatorToken("<", 4)
+object LessOrEqualToken : ComparisonOperatorToken("<=", 4)
+object GreaterToken : ComparisonOperatorToken(">", 4)
+object GreaterOrEqualToken : ComparisonOperatorToken("<=", 4)
+object ElvisToken : OperatorToken("?:", 6)
+object PlusToken : OperatorToken("+", 7)
+object MinusToken : OperatorToken("-", 7)
+object TimesToken : OperatorToken("*", 8)
+object DivideToken : OperatorToken("/", 8)
+object ModulusToken : OperatorToken("%", 8)
+object FloorDivideToken : OperatorToken("//", 8)
+object ExponentToken : OperatorToken("^", 9)
+object NotToken : OperatorToken("!", 11)
 
 private val symbolMap = mapOf(
-    "=" to AssignmentToken,
+    "=" to IsEqualToToken,
     "." to DotToken,
     "," to CommaToken,
     ":" to ColonToken,
@@ -141,7 +141,9 @@ private val symbolMap = mapOf(
 
 fun handleSymbol(symbol: String) = symbolMap[symbol] ?: error("Unsupported symbol $symbol")
 
-data class StringToken(val parts: List<StringTokenPart>) : IToken
+sealed class StringToken : IToken
+data class PureStringToken(override val name: String) : StringToken(), IKeyToken
+data class StringTemplateToken(val parts: List<StringTokenPart>) : StringToken()
 
 sealed class StringTokenPart
 data class StringPart(val string: String) : StringTokenPart() {

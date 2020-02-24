@@ -1,6 +1,6 @@
 package com.scientianovateam.palm.tokenizer
 
-import com.scientianovateam.palm.on
+import com.scientianovateam.palm.util.on
 
 fun handleSingleLineString(
     traverser: StringTraverser,
@@ -9,7 +9,9 @@ fun handleSingleLineString(
     builder: StringBuilder = StringBuilder()
 ): Pair<StringToken, Char?> = when (char) {
     null, '\n' -> error("Missing Double quote")
-    '"' -> StringToken(if (builder.isEmpty()) parts else parts + StringPart(builder)) to traverser.pop()
+    '"' ->
+        (if (parts.isEmpty()) PureStringToken(builder.toString())
+        else StringTemplateToken(if (builder.isEmpty()) parts else parts + StringPart(builder))) to traverser.pop()
     '$' -> traverser.pop().let { next ->
         when {
             next?.isJavaIdentifierStart() == true && next.isLowerCase() -> {
@@ -37,11 +39,11 @@ fun handleMultiLineString(
     char: Char?,
     parts: List<StringTokenPart> = emptyList(),
     builder: StringBuilder = StringBuilder()
-): Pair<StringToken, Char?> = when (char) {
+): Pair<StringTemplateToken, Char?> = when (char) {
     null, '\n' -> error("Missing Double quote")
     '"' -> traverser.pop().let { second ->
         if (second == '"') traverser.pop().let { third ->
-            if (second == '"') StringToken(if (builder.isEmpty()) parts else parts + StringPart(builder)) to traverser.pop()
+            if (second == '"') StringTemplateToken(if (builder.isEmpty()) parts else parts + StringPart(builder)) to traverser.pop()
             else handleMultiLineString(traverser, third, parts, builder.append("\"\""))
         }
         else handleMultiLineString(traverser, second, parts, builder.append('"'))

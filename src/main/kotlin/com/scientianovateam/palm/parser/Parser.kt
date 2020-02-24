@@ -1,7 +1,7 @@
 package com.scientianovateam.palm.parser
 
-import com.scientianovateam.palm.flip
-import com.scientianovateam.palm.safePop
+import com.scientianovateam.palm.util.flip
+import com.scientianovateam.palm.util.safePop
 import com.scientianovateam.palm.tokenizer.*
 
 fun parse(code: String): Object {
@@ -19,7 +19,7 @@ fun handleFreeObject(
     token: PositionedToken?,
     values: Map<String, IExpression> = emptyMap()
 ): Object = if (token == null) Object(values) else when (token.value) {
-    is UncapitalizedIdentifierToken -> stack.safePop().let { assignToken ->
+    is IKeyToken -> stack.safePop().let { assignToken ->
         val (expr, next) = when (assignToken?.value) {
             is AssignmentToken -> handleExpression(stack, stack.safePop())
             is OpenCurlyBracketToken -> handleObject(stack, stack.safePop(), assignToken.rows.first)
