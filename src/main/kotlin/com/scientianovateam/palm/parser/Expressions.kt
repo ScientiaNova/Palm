@@ -20,7 +20,9 @@ data class Bool(val bool: Boolean) : IExpression
 data class BinOp(val operator: OperatorToken, val first: IExpression, val second: IExpression) : IExpression
 data class Cast(val expr: IExpression, val type: IType) : IExpression
 data class TypeCheck(val expr: IExpression, val type: IType, val inverted: Boolean = false) : IExpression
-data class UnOp(val operator: OperatorToken, val expr: IExpression) : IExpression
+data class Negation(val expr: IExpression) : IExpression
+data class UnaryPlus(val expr: IExpression) : IExpression
+data class UnaryMinus(val expr: IExpression) : IExpression
 
 object Null : IExpression {
     override fun toString() = "Null"
@@ -64,7 +66,7 @@ fun handleExpression(stack: TokenStack, token: PositionedToken?): Pair<Positione
     val (first, op) = handleExpressionPart(stack, token)
     val expr: PositionedExpression
     val next: PositionedToken?
-    if (op != null && op.value is OperatorToken && op.rows.last == first.rows.first) {
+    if (op != null && op.value is OperatorToken && (op.value !is IUnaryOperatorToken || op.rows.last == first.rows.first)) {
         val res = handleBinOps(stack, op.value, first.rows.first, Stack<IExpression>().pushing(first.value))
         expr = res.first
         next = res.second
@@ -95,14 +97,14 @@ fun handleBinOps(
             is TypeOperatorToken -> {
                 val (type, next) = handleType(stack, stack.safePop())
                 operandStack.push(TypeCheck(operandStack.pop(), type.value, op is IsNotToken))
-                if (next != null && next.value is OperatorToken && next.rows.last == type.rows.first)
+                if (next != null && next.value is OperatorToken && (next.value !is IUnaryOperatorToken || next.rows.last == type.rows.first))
                     handleBinOps(stack, next.value, startRow, operandStack, operatorStack)
                 else emptyStacks(next, startRow..type.rows.last, operandStack, operatorStack)
             }
             is AsToken -> {
                 val (type, next) = handleType(stack, stack.safePop())
                 operandStack.push(Cast(operandStack.pop(), type.value))
-                if (next != null && next.value is OperatorToken && next.rows.last == type.rows.first)
+                if (next != null && next.value is OperatorToken && (next.value !is IUnaryOperatorToken || next.rows.last == type.rows.first))
                     handleBinOps(stack, next.value, startRow, operandStack, operatorStack)
                 else emptyStacks(next, startRow..type.rows.last, operandStack, operatorStack)
             }
@@ -110,7 +112,7 @@ fun handleBinOps(
                 val (operand, next) = handleExpressionPart(stack, stack.safePop())
                 operatorStack.push(op)
                 operandStack.push(operand.value)
-                if (next != null && next.value is OperatorToken && next.rows.last == operand.rows.first) {
+                if (next != null && next.value is OperatorToken && (next.value !is IUnaryOperatorToken || next.rows.last == operand.rows.first)) {
                     if (op is ComparisonOperatorToken && next.value is ComparisonOperatorToken) {
                         operatorStack.push(AndToken)
                         operandStack.push(operand.value)
@@ -195,9 +197,17 @@ fun handleExpressionPart(stack: TokenStack, token: PositionedToken?): Pair<Posit
             }
         }) on token to stack.safePop()
         is OpenCurlyBracketToken -> handleObject(stack, stack.safePop(), token.rows.first)
-        is OperatorToken -> {
+        is NotToken -> {
             val (expr, next) = handleExpressionPart(stack, stack.safePop())
-            UnOp(token.value, expr.value) on token.rows.first..expr.rows.last to next
+            Negation(expr.value) on token.rows.first..expr.rows.last to next
+        }
+        is MinusToken -> {
+            val (expr, next) = handleExpressionPart(stack, stack.safePop())
+            UnaryMinus(expr.value) on token.rows.first..expr.rows.last to next
+        }
+        is PlusToken -> {
+            val (expr, next) = handleExpressionPart(stack, stack.safePop())
+            UnaryPlus(expr.value) on token.rows.first..expr.rows.last to next
         }
         is IfToken -> handleIf(stack, stack.safePop(), token.rows.first)
         is WhenToken -> {
@@ -346,7 +356,7 @@ fun handleObject(
             is ClosedCurlyBracketToken ->
                 Object(values + (token.value.name to expr.value), type) on
                         startRow..token.rows.last to stack.safePop()
-            is CommaToken ->
+            is OperatorToken ->
                 handleObject(stack, stack.safePop(), startRow, type, values + (token.value.name to expr.value))
             else -> handleObject(stack, next, startRow, type, values + (token.value.name to expr.value))
         }
@@ -412,7 +422,7 @@ fun handleWhere(
             is ClosedCurlyBracketToken ->
                 Where(expression, values + (token.value.name to expr.value)) on
                         startRow..token.rows.last to stack.safePop()
-            is CommaToken ->
+            is OperatorToken ->
                 handleWhere(stack, stack.safePop(), expression, startRow, values + (token.value.name to expr.value))
             else -> handleWhere(stack, next, expression, startRow, values + (token.value.name to expr.value))
         }

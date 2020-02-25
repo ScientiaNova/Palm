@@ -12,6 +12,8 @@ interface IKeyToken : IToken {
 
 typealias PositionedToken = Positioned<IToken>
 
+interface IUnaryOperatorToken : IToken
+
 sealed class OperatorToken(private val symbol: String, val precedence: Int) : IToken {
     override fun toString() = "Operator(symbol=$symbol)"
 }
@@ -84,8 +86,9 @@ object ClosedCurlyBracketToken : SpecialSymbol("}")
 object OpenSquareBracketToken : SpecialSymbol("[")
 object ClosedSquareBracketToken : SpecialSymbol("]")
 object DotToken : SpecialSymbol(".")
-object CommaToken : SpecialSymbol(",")
-object SemicolonToken : SpecialSymbol(";")
+sealed class SeparatorToken(symbol: String) : SpecialSymbol(symbol)
+object CommaToken : SeparatorToken(",")
+object SemicolonToken : SeparatorToken(";")
 object DoubleDotToken : SpecialSymbol("..")
 object QuestionMarkToken : SpecialSymbol("?")
 object SafeAccessToken : SpecialSymbol("?.")
@@ -101,14 +104,16 @@ object LessOrEqualToken : ComparisonOperatorToken("<=", 4)
 object GreaterToken : ComparisonOperatorToken(">", 4)
 object GreaterOrEqualToken : ComparisonOperatorToken("<=", 4)
 object ElvisToken : OperatorToken("?:", 6)
-object PlusToken : OperatorToken("+", 7)
-object MinusToken : OperatorToken("-", 7)
+object PlusToken : OperatorToken("+", 7), IUnaryOperatorToken
+object MinusToken : OperatorToken("-", 7), IUnaryOperatorToken
 object TimesToken : OperatorToken("*", 8)
 object DivideToken : OperatorToken("/", 8)
 object ModulusToken : OperatorToken("%", 8)
 object FloorDivideToken : OperatorToken("//", 8)
 object ExponentToken : OperatorToken("^", 9)
-object NotToken : OperatorToken("!", 11)
+object NotToken : IUnaryOperatorToken {
+    override fun toString() = "NotToken"
+}
 
 private val symbolMap = mapOf(
     "=" to IsEqualToToken,
