@@ -27,7 +27,7 @@ fun handleFreeObject(
         }
         when (next?.value) {
             null -> Object(values + (token.value.name to expr.value))
-            is OperatorToken ->
+            is SeparatorToken ->
                 handleFreeObject(stack, stack.safePop(), values + (token.value.name to expr.value))
             else -> handleFreeObject(stack, next, values + (token.value.name to expr.value))
         }

@@ -1,5 +1,6 @@
 package com.scientianovateam.palm.tokenizer
 
+import com.scientianovateam.palm.parser.*
 import com.scientianovateam.palm.util.Positioned
 
 interface IToken {
@@ -16,6 +17,7 @@ interface IUnaryOperatorToken : IToken
 
 sealed class OperatorToken(private val symbol: String, val precedence: Int) : IToken {
     override fun toString() = "Operator(symbol=$symbol)"
+    open fun handleExpression(first: IExpression, second: IExpression): IExpression = BinOp(this, first, second)
 }
 
 data class NumberToken(val number: Double) : IToken {
@@ -94,8 +96,12 @@ object QuestionMarkToken : SpecialSymbol("?")
 object SafeAccessToken : SpecialSymbol("?.")
 object ArrowToken : SpecialSymbol("->")
 
-object OrToken : OperatorToken("||", 1)
-object AndToken : OperatorToken("&&", 2)
+object OrToken : OperatorToken("||", 1) {
+    override fun handleExpression(first: IExpression, second: IExpression) = Disjunction(first, second)
+}
+object AndToken : OperatorToken("&&", 2) {
+    override fun handleExpression(first: IExpression, second: IExpression) = Conjunction(first, second)
+}
 object EqualToken : OperatorToken("==", 3)
 object NotEqualToken : OperatorToken("!=", 3)
 sealed class ComparisonOperatorToken(symbol: String, precedence: Int) : OperatorToken(symbol, precedence)
@@ -103,7 +109,9 @@ object LessToken : ComparisonOperatorToken("<", 4)
 object LessOrEqualToken : ComparisonOperatorToken("<=", 4)
 object GreaterToken : ComparisonOperatorToken(">", 4)
 object GreaterOrEqualToken : ComparisonOperatorToken("<=", 4)
-object ElvisToken : OperatorToken("?:", 6)
+object ElvisToken : OperatorToken("?:", 6) {
+    override fun handleExpression(first: IExpression, second: IExpression) = Elvis(first, second)
+}
 object PlusToken : OperatorToken("+", 7), IUnaryOperatorToken
 object MinusToken : OperatorToken("-", 7), IUnaryOperatorToken
 object TimesToken : OperatorToken("*", 8)

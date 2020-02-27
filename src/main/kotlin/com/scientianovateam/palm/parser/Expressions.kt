@@ -18,6 +18,9 @@ data class Num(val num: Double) : IExpression
 data class Chr(val char: Char) : IExpression
 data class Bool(val bool: Boolean) : IExpression
 data class BinOp(val operator: OperatorToken, val first: IExpression, val second: IExpression) : IExpression
+data class Elvis(val first: IExpression, val second: IExpression) : IExpression
+data class Conjunction(val first: IExpression, val second: IExpression) : IExpression
+data class Disjunction(val first: IExpression, val second: IExpression) : IExpression
 data class Cast(val expr: IExpression, val type: IType) : IExpression
 data class TypeCheck(val expr: IExpression, val type: IType, val inverted: Boolean = false) : IExpression
 data class Negation(val expr: IExpression) : IExpression
@@ -124,7 +127,7 @@ fun handleBinOps(
     else {
         val second = operandStack.pop()
         handleBinOps(
-            stack, op, startRow, operandStack.pushing(BinOp(operatorStack.pop(), operandStack.pop(), second)),
+            stack, op, startRow, operandStack.pushing(operatorStack.pop().handleExpression(operandStack.pop(), second)),
             operatorStack
         )
     }
@@ -136,7 +139,7 @@ fun emptyStacks(
     operatorStack: Stack<OperatorToken> = Stack()
 ): Pair<PositionedExpression, PositionedToken?> = if (operatorStack.isEmpty()) operandStack.pop() on rows to next else {
     val second = operandStack.pop()
-    emptyStacks(next, rows, operandStack.pushing(BinOp(operatorStack.pop(), operandStack.pop(), second)), operatorStack)
+    emptyStacks(next, rows, operandStack.pushing(operatorStack.pop().handleExpression(operandStack.pop(), second)), operatorStack)
 }
 
 fun handleExpressionPart(stack: TokenStack, token: PositionedToken?): Pair<PositionedExpression, PositionedToken?> {
@@ -149,9 +152,10 @@ fun handleExpressionPart(stack: TokenStack, token: PositionedToken?): Pair<Posit
         is CapitalizedIdentifierToken -> {
             val (type, bracket) = handleType(stack, token)
             if (bracket?.value is OpenCurlyBracketToken)
-                handleObject(stack, stack.safePop(), token.rows.first, type.value)
+                handleTypedObject(stack, stack.safePop(), token.rows.first, type.value)
             else error("Missing curly bracket after type name")
         }
+        is OpenCurlyBracketToken -> handleObject(stack, stack.safePop(), token.rows.first)
         is OpenParenToken -> {
             val (expr, closedParen) = handleExpression(stack, stack.safePop())
             if (closedParen?.value is ClosedParenToken) expr to stack.safePop() else error("Unclosed parenthesis")
@@ -196,7 +200,6 @@ fun handleExpressionPart(stack: TokenStack, token: PositionedToken?): Pair<Posit
                 }
             }
         }) on token to stack.safePop()
-        is OpenCurlyBracketToken -> handleObject(stack, stack.safePop(), token.rows.first)
         is NotToken -> {
             val (expr, next) = handleExpressionPart(stack, stack.safePop())
             Negation(expr.value) on token.rows.first..expr.rows.last to next
@@ -342,7 +345,42 @@ fun handleObject(
     stack: TokenStack,
     token: PositionedToken?,
     startRow: Int,
-    type: IType? = null,
+    values: Map<String, IExpression> = emptyMap()
+): Pair<Positioned<Object>, PositionedToken?> = if (token == null) error("Unclosed object") else when (token.value) {
+    is ClosedCurlyBracketToken -> Object(values) on startRow..token.rows.last to stack.safePop()
+    is IKeyToken -> stack.safePop().let { assignToken ->
+        val (expr, next) = when (assignToken?.value) {
+            is AssignmentToken -> {
+                val exprStart = stack.safePop()
+                if (token.value.name == "type" && exprStart != null && exprStart.value is PureStringToken) {
+                    val afterType = stack.safePop()
+                    return handleTypedObject(
+                        stack, if (afterType?.value is SeparatorToken) stack.safePop() else afterType, startRow,
+                        RegularType(exprStart.value.name.split(':', '.').map(String::capitalize))
+                    )
+                }
+                handleExpression(stack, exprStart)
+            }
+            is OpenCurlyBracketToken -> handleObject(stack, stack.safePop(), assignToken.rows.first)
+            else -> error("Missing colon or equals sign")
+        }
+        when (next?.value) {
+            is ClosedCurlyBracketToken ->
+                Object(values + (token.value.name to expr.value)) on
+                        startRow..token.rows.last to stack.safePop()
+            is SeparatorToken ->
+                handleObject(stack, stack.safePop(), startRow, values + (token.value.name to expr.value))
+            else -> handleObject(stack, next, startRow, values + (token.value.name to expr.value))
+        }
+    }
+    else -> error("Invalid key name")
+}
+
+fun handleTypedObject(
+    stack: TokenStack,
+    token: PositionedToken?,
+    startRow: Int,
+    type: IType,
     values: Map<String, IExpression> = emptyMap()
 ): Pair<Positioned<Object>, PositionedToken?> = if (token == null) error("Unclosed object") else when (token.value) {
     is ClosedCurlyBracketToken -> Object(values, type) on startRow..token.rows.last to stack.safePop()
@@ -350,15 +388,15 @@ fun handleObject(
         val (expr, next) = when (assignToken?.value) {
             is AssignmentToken -> handleExpression(stack, stack.safePop())
             is OpenCurlyBracketToken -> handleObject(stack, stack.safePop(), assignToken.rows.first)
-            else -> error("Missing equals sign")
+            else -> error("Missing colon or  equals sign")
         }
         when (next?.value) {
             is ClosedCurlyBracketToken ->
                 Object(values + (token.value.name to expr.value), type) on
                         startRow..token.rows.last to stack.safePop()
-            is OperatorToken ->
-                handleObject(stack, stack.safePop(), startRow, type, values + (token.value.name to expr.value))
-            else -> handleObject(stack, next, startRow, type, values + (token.value.name to expr.value))
+            is SeparatorToken ->
+                handleTypedObject(stack, stack.safePop(), startRow, type, values + (token.value.name to expr.value))
+            else -> handleTypedObject(stack, next, startRow, type, values + (token.value.name to expr.value))
         }
     }
     else -> error("Invalid key name")
@@ -422,7 +460,7 @@ fun handleWhere(
             is ClosedCurlyBracketToken ->
                 Where(expression, values + (token.value.name to expr.value)) on
                         startRow..token.rows.last to stack.safePop()
-            is OperatorToken ->
+            is SeparatorToken ->
                 handleWhere(stack, stack.safePop(), expression, startRow, values + (token.value.name to expr.value))
             else -> handleWhere(stack, next, expression, startRow, values + (token.value.name to expr.value))
         }

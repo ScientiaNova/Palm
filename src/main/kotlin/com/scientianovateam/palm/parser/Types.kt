@@ -1,9 +1,9 @@
 package com.scientianovateam.palm.parser
 
+import com.scientianovateam.palm.tokenizer.*
 import com.scientianovateam.palm.util.Positioned
 import com.scientianovateam.palm.util.on
 import com.scientianovateam.palm.util.safePop
-import com.scientianovateam.palm.tokenizer.*
 
 interface IType {
     override fun toString(): String
