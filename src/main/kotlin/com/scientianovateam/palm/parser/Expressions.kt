@@ -7,7 +7,9 @@ import com.scientianovateam.palm.util.pushing
 import com.scientianovateam.palm.util.safePop
 import java.util.*
 
-interface IExpression {
+interface IOperationPart
+
+interface IExpression : IOperationPart {
     override fun toString(): String
 }
 
@@ -17,15 +19,6 @@ data class Constant(val name: String) : IExpression
 data class Num(val num: Double) : IExpression
 data class Chr(val char: Char) : IExpression
 data class Bool(val bool: Boolean) : IExpression
-data class BinOp(val operator: OperatorToken, val first: IExpression, val second: IExpression) : IExpression
-data class Elvis(val first: IExpression, val second: IExpression) : IExpression
-data class Conjunction(val first: IExpression, val second: IExpression) : IExpression
-data class Disjunction(val first: IExpression, val second: IExpression) : IExpression
-data class Cast(val expr: IExpression, val type: IType) : IExpression
-data class TypeCheck(val expr: IExpression, val type: IType, val inverted: Boolean = false) : IExpression
-data class Negation(val expr: IExpression) : IExpression
-data class UnaryPlus(val expr: IExpression) : IExpression
-data class UnaryMinus(val expr: IExpression) : IExpression
 
 object Null : IExpression {
     override fun toString() = "Null"
@@ -35,9 +28,7 @@ data class Lis(val expressions: List<IExpression> = emptyList()) : IExpression {
     constructor(expr: IExpression) : this(listOf(expr))
 }
 
-data class Getter(val expression: IExpression, val params: List<IExpression>) : IExpression
 data class Dict(val values: Map<IExpression, IExpression>) : IExpression
-data class Range(val first: IExpression, val second: IExpression?, val last: IExpression) : IExpression
 data class Comprehension(
     val expression: IExpression,
     val name: String,
@@ -70,7 +61,7 @@ fun handleExpression(stack: TokenStack, token: PositionedToken?): Pair<Positione
     val expr: PositionedExpression
     val next: PositionedToken?
     if (op != null && op.value is OperatorToken && (op.value !is IUnaryOperatorToken || op.rows.last == first.rows.first)) {
-        val res = handleBinOps(stack, op.value, first.rows.first, Stack<IExpression>().pushing(first.value))
+        val res = handleBinOps(stack, op.value, first.rows.first, Stack<IOperationPart>().pushing(first.value))
         expr = res.first
         next = res.second
     } else {
@@ -78,12 +69,8 @@ fun handleExpression(stack: TokenStack, token: PositionedToken?): Pair<Positione
         next = op
     }
     return if (next?.value is WhereToken) {
-        if (stack.safePop()?.value is OpenCurlyBracketToken) handleWhere(
-            stack,
-            stack.safePop(),
-            expr.value,
-            expr.rows.first
-        )
+        if (stack.safePop()?.value is OpenCurlyBracketToken)
+            handleWhere(stack, stack.safePop(), expr.value, expr.rows.first)
         else error("Missing open curly bracket after where")
     } else expr to next
 }
@@ -92,39 +79,23 @@ fun handleBinOps(
     stack: TokenStack,
     op: OperatorToken,
     startRow: Int,
-    operandStack: Stack<IExpression>,
+    operandStack: Stack<IOperationPart>,
     operatorStack: Stack<OperatorToken> = Stack()
 ): Pair<PositionedExpression, PositionedToken?> =
-    if (operatorStack.isEmpty() || op.precedence > operatorStack.peek().precedence)
-        when (op) {
-            is TypeOperatorToken -> {
-                val (type, next) = handleType(stack, stack.safePop())
-                operandStack.push(TypeCheck(operandStack.pop(), type.value, op is IsNotToken))
-                if (next != null && next.value is OperatorToken && (next.value !is IUnaryOperatorToken || next.rows.last == type.rows.first))
-                    handleBinOps(stack, next.value, startRow, operandStack, operatorStack)
-                else emptyStacks(next, startRow..type.rows.last, operandStack, operatorStack)
-            }
-            is AsToken -> {
-                val (type, next) = handleType(stack, stack.safePop())
-                operandStack.push(Cast(operandStack.pop(), type.value))
-                if (next != null && next.value is OperatorToken && (next.value !is IUnaryOperatorToken || next.rows.last == type.rows.first))
-                    handleBinOps(stack, next.value, startRow, operandStack, operatorStack)
-                else emptyStacks(next, startRow..type.rows.last, operandStack, operatorStack)
-            }
-            else -> {
-                val (operand, next) = handleExpressionPart(stack, stack.safePop())
-                operatorStack.push(op)
+    if (operatorStack.isEmpty() || op.precedence > operatorStack.peek().precedence) {
+        val (operand, next) =
+            if (op is TypeOperatorToken) handleType(stack, stack.safePop())
+            else handleExpressionPart(stack, stack.safePop())
+        operatorStack.push(op)
+        operandStack.push(operand.value)
+        if (next != null && next.value is OperatorToken && (next.value !is IUnaryOperatorToken || next.rows.last == operand.rows.first)) {
+            if (op is ComparisonOperatorToken && next.value is ComparisonOperatorToken) {
+                operatorStack.push(AndToken)
                 operandStack.push(operand.value)
-                if (next != null && next.value is OperatorToken && (next.value !is IUnaryOperatorToken || next.rows.last == operand.rows.first)) {
-                    if (op is ComparisonOperatorToken && next.value is ComparisonOperatorToken) {
-                        operatorStack.push(AndToken)
-                        operandStack.push(operand.value)
-                    }
-                    handleBinOps(stack, next.value, startRow, operandStack, operatorStack)
-                } else emptyStacks(next, startRow..operand.rows.last, operandStack, operatorStack)
             }
-        }
-    else {
+            handleBinOps(stack, next.value, startRow, operandStack, operatorStack)
+        } else emptyStacks(next, startRow..operand.rows.last, operandStack, operatorStack)
+    } else {
         val second = operandStack.pop()
         handleBinOps(
             stack, op, startRow, operandStack.pushing(operatorStack.pop().handleExpression(operandStack.pop(), second)),
@@ -135,12 +106,16 @@ fun handleBinOps(
 fun emptyStacks(
     next: PositionedToken?,
     rows: IntRange,
-    operandStack: Stack<IExpression>,
+    operandStack: Stack<IOperationPart>,
     operatorStack: Stack<OperatorToken> = Stack()
-): Pair<PositionedExpression, PositionedToken?> = if (operatorStack.isEmpty()) operandStack.pop() on rows to next else {
-    val second = operandStack.pop()
-    emptyStacks(next, rows, operandStack.pushing(operatorStack.pop().handleExpression(operandStack.pop(), second)), operatorStack)
-}
+): Pair<PositionedExpression, PositionedToken?> =
+    if (operatorStack.isEmpty()) operandStack.pop() as IExpression on rows to next else {
+        val second = operandStack.pop()
+        emptyStacks(
+            next, rows, operandStack.pushing(operatorStack.pop().handleExpression(operandStack.pop(), second)),
+            operatorStack
+        )
+    }
 
 fun handleExpressionPart(stack: TokenStack, token: PositionedToken?): Pair<PositionedExpression, PositionedToken?> {
     val (expr, afterExpr) = if (token == null) error("Missing expression part") else when (token.value) {
@@ -180,8 +155,8 @@ fun handleExpressionPart(stack: TokenStack, token: PositionedToken?): Pair<Posit
                     is DoubleDotToken -> {
                         val (last, closedBracket) = handleExpression(stack, stack.safePop())
                         if (closedBracket?.value is ClosedSquareBracketToken)
-                            Range(expr.value, null, last.value) on token.rows.first..closedBracket.rows.last to
-                                    stack.safePop()
+                            MultiOp(ToRange, expr.value, listOf(last.value)) on
+                                    token.rows.first..closedBracket.rows.last to stack.safePop()
                         else error("Unclosed square bracket")
                     }
                     is ForToken -> handleComprehension(stack, stack.safePop(), expr.value, token.rows.first)
@@ -202,15 +177,15 @@ fun handleExpressionPart(stack: TokenStack, token: PositionedToken?): Pair<Posit
         }) on token to stack.safePop()
         is NotToken -> {
             val (expr, next) = handleExpressionPart(stack, stack.safePop())
-            Negation(expr.value) on token.rows.first..expr.rows.last to next
+            UnaryOp(Not, expr.value) on token.rows.first..expr.rows.last to next
         }
         is MinusToken -> {
             val (expr, next) = handleExpressionPart(stack, stack.safePop())
-            UnaryMinus(expr.value) on token.rows.first..expr.rows.last to next
+            UnaryOp(UnaryMinus, expr.value) on token.rows.first..expr.rows.last to next
         }
         is PlusToken -> {
             val (expr, next) = handleExpressionPart(stack, stack.safePop())
-            UnaryPlus(expr.value) on token.rows.first..expr.rows.last to next
+            UnaryOp(UnaryPlus, expr.value) on token.rows.first..expr.rows.last to next
         }
         is IfToken -> handleIf(stack, stack.safePop(), token.rows.first)
         is WhenToken -> {
@@ -225,10 +200,26 @@ fun handleExpressionPart(stack: TokenStack, token: PositionedToken?): Pair<Posit
         }
         else -> error("Invalid expression part")
     }
-    val (accessed, next) = handleAccess(stack, afterExpr, expr)
-    return if (next != null && next.rows.first == accessed.rows.last && next.value is OpenSquareBracketToken)
-        handleGetter(stack, stack.safePop(), accessed.value, accessed.rows.first)
-    else accessed to next
+    return handlePostfixOperations(stack, afterExpr, expr)
+}
+
+fun handlePostfixOperations(
+    stack: TokenStack,
+    token: PositionedToken?,
+    expr: PositionedExpression
+): Pair<PositionedExpression, PositionedToken?> = when (token?.value) {
+    is DotToken -> {
+        val name = stack.safePop()
+        if (name == null || name.value !is UncapitalizedIdentifierToken) error("Invalid field name")
+        handlePostfixOperations(
+            stack, stack.safePop(), ValAccess(expr.value, name.value.name) on expr.rows.first..name.rows.last
+        )
+    }
+    is OpenSquareBracketToken -> {
+        val (getter, next) = handleGetter(stack, stack.safePop(), expr.value, expr.rows.first)
+        handlePostfixOperations(stack, next, getter)
+    }
+    else -> expr to token
 }
 
 fun handleSecondInList(
@@ -251,7 +242,8 @@ fun handleSecondInList(
             is DoubleDotToken -> {
                 val (last, closedBracket) = handleExpression(stack, stack.safePop())
                 if (closedBracket?.value is ClosedSquareBracketToken)
-                    Range(first, expr.value, last.value) on startRow..closedBracket.rows.last to stack.safePop()
+                    MultiOp(ToRange, first, listOf(expr.value, last.value)) on startRow..closedBracket.rows.last to
+                            stack.safePop()
                 else error("Unclosed square bracket")
             }
             else -> handleList(stack, next, startRow, listOf(first, expr.value))
@@ -356,7 +348,7 @@ fun handleObject(
                     val afterType = stack.safePop()
                     return handleTypedObject(
                         stack, if (afterType?.value is SeparatorToken) stack.safePop() else afterType, startRow,
-                        RegularType(exprStart.value.name.split(':', '.').map(String::capitalize))
+                        handleTypeString(exprStart.value.name)
                     )
                 }
                 handleExpression(stack, exprStart)
@@ -411,16 +403,6 @@ fun handleIf(stack: TokenStack, token: PositionedToken?, startRow: Int): Pair<Po
     return If(cond.value, thenExpr.value, elseExpr.value) on startRow..elseExpr.rows.last to next
 }
 
-fun handleAccess(
-    stack: TokenStack,
-    token: PositionedToken?,
-    expr: PositionedExpression
-): Pair<PositionedExpression, PositionedToken?> = if (token?.value is DotToken) {
-    val name = stack.safePop()
-    if (name == null || name.value !is UncapitalizedIdentifierToken) error("Invalid accessor name")
-    handleAccess(stack, stack.safePop(), ValAccess(expr.value, name.value.name) on expr.rows.first..name.rows.last)
-} else expr to token
-
 fun handleGetter(
     stack: TokenStack,
     token: PositionedToken?,
@@ -429,12 +411,13 @@ fun handleGetter(
     params: List<IExpression> = emptyList()
 ): Pair<PositionedExpression, PositionedToken?> = when {
     token == null -> error("Unclosed square bracket")
-    token.value is ClosedSquareBracketToken -> Getter(expr, params) on startRow..token.rows.last to stack.safePop()
+    token.value is ClosedSquareBracketToken ->
+        MultiOp(Get, expr, params) on startRow..token.rows.last to stack.safePop()
     else -> {
         val (currentExpr, next) = handleExpression(stack, token)
         when (next?.value) {
             is ClosedSquareBracketToken ->
-                Getter(expr, params + currentExpr.value) on startRow..token.rows.last to stack.safePop()
+                MultiOp(Get, expr, params + currentExpr.value) on startRow..next.rows.last to stack.safePop()
             is CommaToken ->
                 handleGetter(stack, stack.safePop(), expr, startRow, params + currentExpr.value)
             else -> handleGetter(stack, next, expr, startRow, params + currentExpr.value)

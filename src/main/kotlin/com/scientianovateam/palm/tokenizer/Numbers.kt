@@ -9,7 +9,9 @@ fun handleNumber(
     '_' ->
         if (traverser.peek()?.isDigit() == true) handleNumber(traverser, traverser.pop(), builder)
         else NumberToken(builder.toString().toDouble()) to char
-    '.' -> handleDecimalNumber(traverser, traverser.pop(), builder.append(char))
+    '.' ->
+        if (traverser.peek()?.isDigit() == true) handleDecimalNumber(traverser, traverser.pop(), builder.append(char))
+        else NumberToken(builder.toString().toDouble()) to char
     else -> NumberToken(builder.toString().toDouble()) to char
 }
 
@@ -22,7 +24,6 @@ fun handleDecimalNumber(
     '_' ->
         if (traverser.peek()?.isDigit() == true) handleDecimalNumber(traverser, traverser.pop(), builder)
         else NumberToken(builder.toString().toDouble()) to char
-    '.' -> error("Unexpected second dot in a decimal number")
     'e' -> when (traverser.peek()) {
         '+', '-' -> {
             val symbol = traverser.pop()
@@ -48,7 +49,6 @@ fun handleDecimalExponent(
     '_' ->
         if (traverser.peek()?.isDigit() == true) handleDecimalExponent(traverser, traverser.pop(), builder)
         else NumberToken(builder.toString().toDouble()) to char
-    '.' -> error("Unexpected second dot in a decimal number")
     else -> NumberToken(builder.toString().toDouble()) to char
 }
 

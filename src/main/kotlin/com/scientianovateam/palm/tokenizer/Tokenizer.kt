@@ -64,7 +64,7 @@ fun handleToken(traverser: StringTraverser, char: Char, stack: TokenStack): Pair
         val row = traverser.row
         val numRes = handleNumber(traverser, char)
         val second = numRes.second
-        if (second != null && second.isLetter() && second.isLowerCase()) {
+        if (second != null && (second.isLetter() || second == '(')) {
             stack.push(numRes.first on row)
             val identifier = handleUncapitalizedIdentifier(traverser, char)
             if (identifier.first is UncapitalizedIdentifierToken) stack.push(TimesToken on row)
