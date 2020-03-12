@@ -1,28 +1,19 @@
 package com.scientianovateam.palm.registry
 
 import com.scientianovateam.palm.parser.BinaryOperation
-import com.scientianovateam.palm.parser.IType
 import com.scientianovateam.palm.parser.MultiOperation
 import com.scientianovateam.palm.parser.UnaryOperation
-import com.scientianovateam.palm.util.HashTable
-import com.scientianovateam.palm.util.MultiHashMap
-import java.lang.reflect.Method
+import com.scientianovateam.palm.util.HashMultiMap
+import java.lang.invoke.MethodHandle
+import kotlin.reflect.KType
 
-class PalmType(val constructor: PalmConstructor?) {
-    val setters = HashTable<String, String, PalmSetter>()
-    val getters = hashMapOf<String, PalmGetter>()
-    val autoCaster = hashMapOf<IType, Method>()
-    val operators = Operators()
+data class PalmType(val constructor: PalmConstructor? = null) {
+    val getters = hashMapOf<String, MethodHandle>()
+    val setters = hashMapOf<String, MethodHandle>()
+    val unaryOps = hashMapOf<UnaryOperation, MethodHandle>()
+    val binaryOps = HashMultiMap<BinaryOperation, MethodHandle>()
+    val multiOps = HashMultiMap<MultiOperation, MethodHandle>()
+    val autoCaster = hashMapOf<Class<*>, MethodHandle>()
 }
 
-class Operators {
-    val unary = hashMapOf<UnaryOperation, Method>()
-    val binary = HashTable<BinaryOperation, IType, PalmBinaryOperator>()
-    val multi = MultiHashMap<MultiOperation, PalmMultiOperator>()
-}
-
-class PalmConstructor(val method: Method, val params: Array<String>, val paramTypes: Array<IType>)
-class PalmGetter(val method: Method, val paramTypes: Array<IType>, val returnType: IType)
-class PalmSetter(val method: Method, val valueType: IType)
-class PalmBinaryOperator(val method: Method, val returnType: IType)
-class PalmMultiOperator(val method: Method, val paramTypes: Array<IType>, val returnType: IType)
+data class PalmConstructor(val handle: MethodHandle, val args: Map<String, Class<*>>)

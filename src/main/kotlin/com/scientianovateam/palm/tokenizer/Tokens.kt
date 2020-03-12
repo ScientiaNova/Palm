@@ -63,17 +63,17 @@ object NotInToken : ContainingOperatorToken("!in", 5) {
 sealed class TypeOperatorToken(symbol: String, precedence: Int) : OperatorToken(symbol, precedence)
 object IsToken : TypeOperatorToken("is", 5) {
     override fun handleExpression(first: IOperationPart, second: IOperationPart): IExpression =
-        TypeCheck(first as IExpression, second as IType)
+        TypeCheck(first as IExpression, second as PalmType)
 }
 
 object IsNotToken : TypeOperatorToken("!is", 5) {
     override fun handleExpression(first: IOperationPart, second: IOperationPart): IExpression =
-        UnaryOp(Not, TypeCheck(first as IExpression, second as IType))
+        UnaryOp(Not, TypeCheck(first as IExpression, second as PalmType))
 }
 
 object AsToken : TypeOperatorToken("as", 10) {
     override fun handleExpression(first: IOperationPart, second: IOperationPart): IExpression =
-        Cast(first as IExpression, second as IType)
+        Cast(first as IExpression, second as PalmType)
 }
 
 private val specialWords = mapOf(
@@ -127,12 +127,12 @@ object AndToken : OperatorToken("&&", 2) {
 
 object EqualToken : OperatorToken("==", 3) {
     override fun handleExpression(first: IOperationPart, second: IOperationPart) =
-        BinaryOp(Equals, first as IExpression, second as IExpression)
+        EqualityCheck(first as IExpression, second as IExpression)
 }
 
 object NotEqualToken : OperatorToken("!=", 3) {
     override fun handleExpression(first: IOperationPart, second: IOperationPart) =
-        UnaryOp(Not, BinaryOp(Equals, first as IExpression, second as IExpression))
+        UnaryOp(Not, EqualityCheck(first as IExpression, second as IExpression))
 }
 
 sealed class ComparisonOperatorToken(symbol: String, precedence: Int) : OperatorToken(symbol, precedence)

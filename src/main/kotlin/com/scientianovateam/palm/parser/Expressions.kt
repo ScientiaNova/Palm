@@ -41,7 +41,7 @@ sealed class StrPart
 data class StrStringPart(val string: String) : StrPart()
 data class StrExpressionPart(val expr: IExpression) : StrPart()
 
-data class Object(val values: Map<String, IExpression> = emptyMap(), val type: IType? = null) : IExpression
+data class Object(val values: Map<String, IExpression> = emptyMap(), val type: PalmType? = null) : IExpression
 data class ValAccess(val expr: IExpression, val field: String) : IExpression
 data class If(val condExpr: IExpression, val thenExpr: IExpression, val elseExpr: IExpression) : IExpression
 data class Where(val expr: IExpression, val definitions: List<Pair<String, IExpression>>) : IExpression
@@ -52,7 +52,7 @@ typealias SwitchBranch = Pair<List<Pattern>, IExpression>
 
 sealed class Pattern
 data class ExpressionPattern(val expression: IExpression) : Pattern()
-data class TypePattern(val type: IType, val inverted: Boolean = false) : Pattern()
+data class TypePattern(val type: PalmType, val inverted: Boolean = false) : Pattern()
 data class ContainingPattern(val collection: IExpression, val inverted: Boolean = false) : Pattern()
 data class ComparisonPattern(val operator: ComparisonOperatorToken, val expression: IExpression) : Pattern()
 
@@ -372,7 +372,7 @@ fun handleTypedObject(
     stack: TokenStack,
     token: PositionedToken?,
     startRow: Int,
-    type: IType,
+    type: PalmType,
     values: Map<String, IExpression> = emptyMap()
 ): Pair<Positioned<Object>, PositionedToken?> = if (token == null) error("Unclosed object") else when (token.value) {
     is ClosedCurlyBracketToken -> Object(values, type) on startRow..token.rows.last to stack.safePop()

@@ -2,26 +2,22 @@ package com.scientianovateam.palm.registry
 
 object Palm {
     @Target(AnnotationTarget.CONSTRUCTOR)
+    @Retention(AnnotationRetention.RUNTIME)
     annotation class Constructor(val paramNames: Array<String> = [])
 
     @Target(AnnotationTarget.CLASS)
+    @Retention(AnnotationRetention.RUNTIME)
     annotation class Extension(val extending: String)
 
     @Target(AnnotationTarget.CLASS)
+    @Retention(AnnotationRetention.RUNTIME)
     annotation class Type(val registryPath: String)
 
-    @Target(AnnotationTarget.CLASS, AnnotationTarget.FUNCTION, AnnotationTarget.PROPERTY)
+    @Target(AnnotationTarget.CLASS, AnnotationTarget.FUNCTION)
+    @Retention(AnnotationRetention.RUNTIME)
     annotation class Name(val name: String)
 
     @Target(AnnotationTarget.FUNCTION)
-    annotation class Operator
-
-    @Target(AnnotationTarget.FUNCTION, AnnotationTarget.PROPERTY_GETTER)
-    annotation class Setter
-
-    @Target(AnnotationTarget.FUNCTION, AnnotationTarget.PROPERTY_SETTER)
-    annotation class Getter
-
-    @Target(AnnotationTarget.FUNCTION)
-    annotation class AutoCaster
+    @Retention(AnnotationRetention.RUNTIME)
+    annotation class Ignore
 }

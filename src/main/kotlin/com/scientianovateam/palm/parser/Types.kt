@@ -6,62 +6,41 @@ import com.scientianovateam.palm.util.Positioned
 import com.scientianovateam.palm.util.on
 import com.scientianovateam.palm.util.safePop
 
-interface IType : IOperationPart {
-    override fun toString(): String
+data class PalmType(val clazz: Class<*>, val nullable: Boolean = false) : IOperationPart {
+    fun withNullability(being: Boolean = true) = if (this.nullable == being) this else PalmType(clazz, !nullable)
 }
 
-typealias PositionedType = Positioned<IType>
+val NULL_TYPE = PalmType(Nothing::class.java, true)
 
-data class RegularType(val clazz: Class<*>, val generics: List<IType> = emptyList()) : IType {
-    constructor(clazz: Class<*>, vararg generics: IType) : this(clazz, generics.toList())
-}
+typealias PositionedType = Positioned<PalmType>
 
-data class NullableType(val type: IType) : IType
-
-fun handleType(stack: TokenStack, token: PositionedToken?): Pair<PositionedType, PositionedToken?> {
-    val (type, next) = when (token?.value) {
-        is CapitalizedIdentifierToken -> handleRegularType(stack, token, token.rows.first)
-        is OpenSquareBracketToken -> {
-            val (inner, bracketOrColon) = handleType(stack, stack.safePop())
-            when (bracketOrColon?.value) {
-                is ClosedSquareBracketToken -> RegularType(List::class.java, inner.value) on
-                        token.rows.first..bracketOrColon.rows.last to stack.safePop()
-                is ColonToken -> {
-                    val (valType, next) = handleType(stack, stack.safePop())
-                    if (next?.value !is ClosedSquareBracketToken) error("Unclosed dict type")
-                    RegularType(Map::class.java, inner.value, valType.value) on
-                            token.rows.first..next.rows.last to stack.safePop()
-                }
-                else -> error("Unclosed list type")
-            }
-        }
-        is OpenParenToken -> {
-            val (inner, next) = handleType(stack, stack.safePop())
-            if (next?.value !is ClosedParenToken) error("Unclosed parenthesis")
-            inner.value on token.rows.first..next.rows.last to stack.safePop()
-        }
-        else -> error("Invalid type")
-    }
-    return if (next?.value is QuestionMarkToken) NullableType(type.value) on type.rows.first..next.rows.last to stack.safePop()
-    else type to next
-}
-
-fun handleRegularType(
+fun handleType(
     stack: TokenStack,
     token: PositionedToken?,
     startRow: Int,
     path: String = ""
 ): Pair<PositionedType, PositionedToken?> = if (token != null && token.value is CapitalizedIdentifierToken) {
     val next = stack.safePop()
-    if (next?.value is DotToken) handleRegularType(stack, stack.safePop(), startRow, "$path.${token.value.name}")
-    else RegularType(
-        TypeRegistry.classFromName(token.value.name, path) ?: error("Unknown type: $path.${token.value.name}")
-    ) on startRow..token.rows.last to next
+    if (next?.value is DotToken) handleType(stack, stack.safePop(), startRow, "$path.${token.value.name}")
+    else handleNullableType(
+        stack, next, PalmType(
+            TypeRegistry.classFromName(token.value.name, path) ?: error("Unknown type: $path.${token.value.name}")
+        ) on startRow..token.rows.last
+    )
 } else error("Expected capitalized identifier, but instead got ${token?.javaClass}")
 
-fun handleTypeString(string: String): RegularType {
+fun handleNullableType(
+    stack: TokenStack,
+    token: PositionedToken?,
+    type: PositionedType
+): Pair<PositionedType, PositionedToken?> =
+    if (token?.value is QuestionMarkToken)
+        handleNullableType(stack, stack.safePop(), type.value.withNullability(true) on type.rows.first..token.rows.last)
+    else type to token
+
+fun handleTypeString(string: String): PalmType {
     val parts = string.split(':', '.').map(String::capitalize)
     val name = parts.last()
     val path = parts.dropLast(1).joinToString(".") { it }
-    return RegularType(TypeRegistry.classFromName(name, path) ?: error("Unknown type: $path.$name"))
+    return PalmType(TypeRegistry.classFromName(name, path) ?: error("Unknown type: $path.$name"))
 }
