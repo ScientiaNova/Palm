@@ -35,8 +35,7 @@ object NullToken : IToken {
     override fun toString() = "NullToken"
 }
 
-data class CapitalizedIdentifierToken(val name: String) : IToken
-data class UncapitalizedIdentifierToken(override val name: String) : IKeyToken
+data class IdentifierToken(override val name: String) : IKeyToken
 
 sealed class KeywordToken(private val word: String) : IToken {
     override fun toString() = "KeywordToken(word=$word)"
@@ -63,17 +62,17 @@ object NotInToken : ContainingOperatorToken("!in", 5) {
 sealed class TypeOperatorToken(symbol: String, precedence: Int) : OperatorToken(symbol, precedence)
 object IsToken : TypeOperatorToken("is", 5) {
     override fun handleExpression(first: IOperationPart, second: IOperationPart): IExpression =
-        TypeCheck(first as IExpression, second as PalmType)
+        TypeCheck(first as IExpression, (second as PalmType).clazz)
 }
 
 object IsNotToken : TypeOperatorToken("!is", 5) {
     override fun handleExpression(first: IOperationPart, second: IOperationPart): IExpression =
-        UnaryOp(Not, TypeCheck(first as IExpression, second as PalmType))
+        UnaryOp(Not, TypeCheck(first as IExpression, (second as PalmType).clazz))
 }
 
 object AsToken : TypeOperatorToken("as", 10) {
     override fun handleExpression(first: IOperationPart, second: IOperationPart): IExpression =
-        Cast(first as IExpression, second as PalmType)
+        Cast(first as IExpression, (second as PalmType).clazz)
 }
 
 private val specialWords = mapOf(
@@ -91,7 +90,7 @@ private val specialWords = mapOf(
     "as" to AsToken
 )
 
-fun handleUncapitalizedString(string: String) = specialWords[string] ?: UncapitalizedIdentifierToken(string)
+fun handleUncapitalizedString(string: String) = specialWords[string] ?: IdentifierToken(string)
 
 sealed class SpecialSymbol(private val symbol: String) : IToken {
     override fun toString() = "SpecialSymbol(symbol=$symbol)"
@@ -135,26 +134,19 @@ object NotEqualToken : OperatorToken("!=", 3) {
         UnaryOp(Not, EqualityCheck(first as IExpression, second as IExpression))
 }
 
-sealed class ComparisonOperatorToken(symbol: String, precedence: Int) : OperatorToken(symbol, precedence)
-object LessToken : ComparisonOperatorToken("<", 4) {
+sealed class ComparisonOperatorToken(
+    symbol: String,
+    precedence: Int,
+    val comparisonType: ComparisonType
+) : OperatorToken(symbol, precedence) {
     override fun handleExpression(first: IOperationPart, second: IOperationPart) =
-        Comparison(ComparisonType.L, BinaryOp(Compare, first as IExpression, second as IExpression))
+        Comparison(comparisonType, BinaryOp(Compare, first as IExpression, second as IExpression))
 }
 
-object LessOrEqualToken : ComparisonOperatorToken("<=", 4) {
-    override fun handleExpression(first: IOperationPart, second: IOperationPart) =
-        Comparison(ComparisonType.LE, BinaryOp(Compare, first as IExpression, second as IExpression))
-}
-
-object GreaterToken : ComparisonOperatorToken(">", 4) {
-    override fun handleExpression(first: IOperationPart, second: IOperationPart) =
-        Comparison(ComparisonType.G, BinaryOp(Compare, first as IExpression, second as IExpression))
-}
-
-object GreaterOrEqualToken : ComparisonOperatorToken("<=", 4) {
-    override fun handleExpression(first: IOperationPart, second: IOperationPart) =
-        Comparison(ComparisonType.GE, BinaryOp(Compare, first as IExpression, second as IExpression))
-}
+object LessToken : ComparisonOperatorToken("<", 4, ComparisonType.L)
+object LessOrEqualToken : ComparisonOperatorToken("<=", 4, ComparisonType.LE)
+object GreaterToken : ComparisonOperatorToken(">", 4, ComparisonType.G)
+object GreaterOrEqualToken : ComparisonOperatorToken("<=", 4, ComparisonType.GE)
 
 object ComparisonToken : OperatorToken("<=>", 4) {
     override fun handleExpression(first: IOperationPart, second: IOperationPart) =

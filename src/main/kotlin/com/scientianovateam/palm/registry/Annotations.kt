@@ -11,13 +11,13 @@ object Palm {
 
     @Target(AnnotationTarget.CLASS)
     @Retention(AnnotationRetention.RUNTIME)
-    annotation class Type(val registryPath: String)
+    annotation class Type
 
     @Target(AnnotationTarget.CLASS, AnnotationTarget.FUNCTION)
     @Retention(AnnotationRetention.RUNTIME)
     annotation class Name(val name: String)
 
-    @Target(AnnotationTarget.FUNCTION)
+    @Target(AnnotationTarget.FUNCTION, AnnotationTarget.FIELD)
     @Retention(AnnotationRetention.RUNTIME)
     annotation class Ignore
 }

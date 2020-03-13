@@ -1,5 +1,10 @@
 package com.scientianovateam.palm.parser
 
+import com.scientianovateam.palm.evaluator.Scope
+import com.scientianovateam.palm.evaluator.cast
+import com.scientianovateam.palm.evaluator.palm
+import com.scientianovateam.palm.evaluator.palmType
+import com.scientianovateam.palm.registry.TypeRegistry
 import com.scientianovateam.palm.tokenizer.*
 import com.scientianovateam.palm.util.Positioned
 import com.scientianovateam.palm.util.on
@@ -11,50 +16,155 @@ interface IOperationPart
 
 interface IExpression : IOperationPart {
     override fun toString(): String
+    fun handleForType(type: Class<*>, scope: Scope) = if (this is Object && type == null) {
+        val palmType = TypeRegistry.getOrRegister(type)
+        palmType.createInstance(values, scope)
+    } else evaluate(scope).cast(type)
+
+    fun evaluate(scope: Scope): Any?
 }
 
 typealias PositionedExpression = Positioned<IExpression>
 
-data class Constant(val name: String) : IExpression
-data class Num(val num: Double) : IExpression
-data class Chr(val char: Char) : IExpression
-data class Bool(val bool: Boolean) : IExpression
+data class Constant(val name: String) : IExpression {
+    override fun evaluate(scope: Scope) = scope[name]
+}
+
+data class Num(val num: Double) : IExpression {
+    override fun evaluate(scope: Scope) = num
+}
+
+data class Chr(val char: Char) : IExpression {
+    override fun evaluate(scope: Scope) = char
+}
+
+data class Bool(val bool: Boolean) : IExpression {
+    override fun evaluate(scope: Scope) = bool
+}
 
 object Null : IExpression {
     override fun toString() = "Null"
+    override fun evaluate(scope: Scope) = null
 }
 
 data class Lis(val expressions: List<IExpression> = emptyList()) : IExpression {
     constructor(expr: IExpression) : this(listOf(expr))
+
+    override fun evaluate(scope: Scope) = expressions.map { it.evaluate(scope) }
 }
 
-data class Dict(val values: Map<IExpression, IExpression>) : IExpression
+data class Dict(val values: Map<IExpression, IExpression>) : IExpression {
+    override fun evaluate(scope: Scope) =
+        values.map { it.key.evaluate(scope) to it.value.evaluate(scope) }.toMap()
+}
+
 data class Comprehension(
     val expression: IExpression,
     val name: String,
     val list: IExpression,
     val filter: IExpression? = null
-) : IExpression
+) : IExpression {
+    override fun evaluate(scope: Scope): Any? {
+        val collection = list.evaluate(scope)
+        val result = mutableListOf<Any?>()
+        for (thing in collection.palmType.iterator?.invoke(collection) as? Iterator<*>
+            ?: error("Couldn't find iterator for ${collection.palmType}")) {
+            val newScope = Scope(mutableMapOf(name to thing), scope)
+            if (filter == null || filter.evaluate(newScope) == true)
+                result += expression.evaluate(newScope)
+        }
+        return result
+    }
+}
 
-data class Str(val parts: List<StrPart>) : IExpression
 sealed class StrPart
 data class StrStringPart(val string: String) : StrPart()
 data class StrExpressionPart(val expr: IExpression) : StrPart()
+data class Str(val parts: List<StrPart>) : IExpression {
+    override fun evaluate(scope: Scope) = parts.joinToString("") {
+        when (it) {
+            is StrStringPart -> it.string
+            is StrExpressionPart -> it.expr.evaluate(scope).toString()
+        }
+    }
+}
 
-data class Object(val values: Map<String, IExpression> = emptyMap(), val type: PalmType? = null) : IExpression
-data class ValAccess(val expr: IExpression, val field: String) : IExpression
-data class If(val condExpr: IExpression, val thenExpr: IExpression, val elseExpr: IExpression) : IExpression
-data class Where(val expr: IExpression, val definitions: List<Pair<String, IExpression>>) : IExpression
-data class When(val branches: List<Pair<IExpression, IExpression>>, val elseBranch: IExpression?) : IExpression
-data class WhenSwitch(val value: IExpression, val branches: List<SwitchBranch>, val elseBranch: IExpression?) :
-    IExpression
-typealias SwitchBranch = Pair<List<Pattern>, IExpression>
+data class Object(val values: Map<String, IExpression> = emptyMap(), val type: Class<*>? = null) : IExpression {
+    override fun evaluate(scope: Scope) =
+        type?.palm?.createInstance(values, scope) ?: error("Typeless object")
+}
+
+data class ValAccess(val expr: IExpression, val field: String) : IExpression {
+    override fun evaluate(scope: Scope): Any? {
+        val value = expr.evaluate(scope)
+        return value.palmType.get(value, field)
+    }
+}
+
+data class SafeValAccess(val expr: IExpression, val field: String) : IExpression {
+    override fun evaluate(scope: Scope): Any? {
+        val value = expr.evaluate(scope) ?: return null
+        return value.palmType.get(value, field)
+    }
+}
+
+data class If(val condExpr: IExpression, val thenExpr: IExpression, val elseExpr: IExpression) : IExpression {
+    override fun evaluate(scope: Scope) =
+        if (condExpr.evaluate(scope) == true) thenExpr.evaluate(scope) else elseExpr.evaluate(scope)
+}
+
+data class Where(val expr: IExpression, val definitions: List<Pair<String, IExpression>>) : IExpression {
+    override fun evaluate(scope: Scope): Any? {
+        val newScope = Scope(parent = scope)
+        definitions.forEach { (name, expr) ->
+            newScope[name] = expr.evaluate(newScope)
+        }
+        return expr.evaluate(newScope)
+    }
+}
+
+data class When(val branches: List<Pair<IExpression, IExpression>>, val elseBranch: IExpression?) : IExpression {
+    override fun evaluate(scope: Scope) =
+        branches.firstOrNull { it.first.evaluate(scope) == true }?.second?.evaluate(scope)
+            ?: elseBranch?.evaluate(scope)
+            ?: error("Not exhaustive when statement")
+}
 
 sealed class Pattern
 data class ExpressionPattern(val expression: IExpression) : Pattern()
-data class TypePattern(val type: PalmType, val inverted: Boolean = false) : Pattern()
+data class TypePattern(val type: Class<*>, val inverted: Boolean = false) : Pattern()
 data class ContainingPattern(val collection: IExpression, val inverted: Boolean = false) : Pattern()
 data class ComparisonPattern(val operator: ComparisonOperatorToken, val expression: IExpression) : Pattern()
+typealias SwitchBranch = Pair<List<Pattern>, IExpression>
+
+data class WhenSwitch(
+    val expr: IExpression,
+    val branches: List<SwitchBranch>,
+    val elseBranch: IExpression?
+) : IExpression {
+    override fun evaluate(scope: Scope): Any? {
+        val evaluated = expr.evaluate(scope)
+        return branches.firstOrNull { branch ->
+            branch.first.any { pattern ->
+                when (pattern) {
+                    is ExpressionPattern -> evaluated == pattern.expression.evaluate(scope)
+                    is TypePattern -> pattern.inverted != pattern.type.isInstance(evaluated)
+                    is ContainingPattern -> {
+                        val collection = pattern.collection.evaluate(scope)
+                        pattern.inverted != collection.palmType.execute(Contains, collection, evaluated)
+                    }
+                    is ComparisonPattern -> {
+                        val second = pattern.expression.evaluate(scope)
+                        pattern.operator.comparisonType.handle(
+                            evaluated.palmType.execute(Compare, evaluated, second) as Int
+                        )
+                    }
+                }
+            }
+        }?.second?.evaluate(scope) ?: elseBranch?.evaluate(scope) ?: error("Not exhaustive when statement")
+    }
+}
+
 
 fun handleExpression(stack: TokenStack, token: PositionedToken?): Pair<PositionedExpression, PositionedToken?> {
     val (first, op) = handleExpressionPart(stack, token)
@@ -123,14 +233,10 @@ fun handleExpressionPart(stack: TokenStack, token: PositionedToken?): Pair<Posit
         is CharToken -> Chr(token.value.char) on token to stack.safePop()
         is BoolToken -> Bool(token.value.bool) on token to stack.safePop()
         is NullToken -> Null on token to stack.safePop()
-        is UncapitalizedIdentifierToken -> Constant(token.value.name) on token to stack.safePop()
-        is CapitalizedIdentifierToken -> {
-            val (type, bracket) = handleType(stack, token)
-            if (bracket?.value is OpenCurlyBracketToken)
-                handleTypedObject(stack, stack.safePop(), token.rows.first, type.value)
-            else error("Missing curly bracket after type name")
-        }
-        is OpenCurlyBracketToken -> handleObject(stack, stack.safePop(), token.rows.first)
+        is IdentifierToken ->
+            handleIdentifierSequence(stack, stack.safePop(), token.rows.first, listOf(token.value.name))
+        is OpenCurlyBracketToken ->
+            handleObject(stack, stack.safePop(), token.rows.first)
         is OpenParenToken -> {
             val (expr, closedParen) = handleExpression(stack, stack.safePop())
             if (closedParen?.value is ClosedParenToken) expr to stack.safePop() else error("Unclosed parenthesis")
@@ -210,9 +316,16 @@ fun handlePostfixOperations(
 ): Pair<PositionedExpression, PositionedToken?> = when (token?.value) {
     is DotToken -> {
         val name = stack.safePop()
-        if (name == null || name.value !is UncapitalizedIdentifierToken) error("Invalid field name")
+        if (name == null || name.value !is IdentifierToken) error("Invalid field name")
         handlePostfixOperations(
             stack, stack.safePop(), ValAccess(expr.value, name.value.name) on expr.rows.first..name.rows.last
+        )
+    }
+    is SafeAccessToken -> {
+        val name = stack.safePop()
+        if (name == null || name.value !is IdentifierToken) error("Invalid field name")
+        handlePostfixOperations(
+            stack, stack.safePop(), SafeValAccess(expr.value, name.value.name) on expr.rows.first..name.rows.last
         )
     }
     is OpenSquareBracketToken -> {
@@ -220,6 +333,22 @@ fun handlePostfixOperations(
         handlePostfixOperations(stack, next, getter)
     }
     else -> expr to token
+}
+
+fun handleIdentifierSequence(
+    stack: TokenStack,
+    token: PositionedToken?,
+    starRow: Int,
+    list: List<String>
+): Pair<PositionedExpression, PositionedToken?> = when (token?.value) {
+    is DotToken -> {
+        val top = stack.safePop()?.value as? IdentifierToken ?: error("Invalid field name")
+        handleIdentifierSequence(stack, stack.safePop(), starRow, list + top.name)
+    }
+    is OpenCurlyBracketToken ->
+        handleTypedObject(stack, stack.safePop(), starRow, handleTypeString(list.joinToString(".") { it }))
+    else -> list.drop(1).fold(Constant(list.first()) as IExpression) { acc, s -> ValAccess(acc, s) } on
+            starRow to stack.safePop()
 }
 
 fun handleSecondInList(
@@ -304,7 +433,7 @@ fun handleComprehension(
     expr: IExpression,
     startRow: Int
 ): Pair<PositionedExpression, PositionedToken?> {
-    if (token == null || token.value !is UncapitalizedIdentifierToken)
+    if (token == null || token.value !is IdentifierToken)
         error("Invalid variable name in list comprehension")
     val name = token.value.name
     if (stack.safePop()?.value !is InToken) error("Missing `in` in list comprehension")
@@ -372,7 +501,7 @@ fun handleTypedObject(
     stack: TokenStack,
     token: PositionedToken?,
     startRow: Int,
-    type: PalmType,
+    type: Class<*>,
     values: Map<String, IExpression> = emptyMap()
 ): Pair<Positioned<Object>, PositionedToken?> = if (token == null) error("Unclosed object") else when (token.value) {
     is ClosedCurlyBracketToken -> Object(values, type) on startRow..token.rows.last to stack.safePop()
@@ -505,7 +634,7 @@ fun handleSwitchBranch(
     val (pattern, separator) = when (token.value) {
         is TypeOperatorToken -> {
             val (type, next) = handleType(stack, stack.safePop())
-            TypePattern(type.value, token.value is IsNotToken) to next
+            TypePattern(type.value.clazz, token.value is IsNotToken) to next
         }
         is ContainingOperatorToken -> {
             val (expr, next) = handleExpression(stack, stack.safePop())
