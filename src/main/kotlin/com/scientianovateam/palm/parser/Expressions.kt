@@ -16,12 +16,21 @@ interface IOperationPart
 
 interface IExpression : IOperationPart {
     override fun toString(): String
+
     fun handleForType(type: Class<*>, scope: Scope) = if (this is Object && type == null) {
         val palmType = TypeRegistry.getOrRegister(type)
         palmType.createInstance(values, scope)
     } else evaluate(scope).cast(type)
 
     fun evaluate(scope: Scope): Any?
+
+    fun <T : IExpression> find(type: Class<out T>, predicate: (T) -> Boolean): List<T> {
+        if (type.isInstance(this)) {
+            val casted = type.cast(this)
+            if (predicate(casted)) return listOf(casted)
+        }
+        return emptyList()
+    }
 }
 
 typealias PositionedExpression = Positioned<IExpression>
@@ -51,30 +60,51 @@ data class Lis(val expressions: List<IExpression> = emptyList()) : IExpression {
     constructor(expr: IExpression) : this(listOf(expr))
 
     override fun evaluate(scope: Scope) = expressions.map { it.evaluate(scope) }
+
+    override fun <T : IExpression> find(type: Class<out T>, predicate: (T) -> Boolean) =
+        super.find(type, predicate) + expressions.flatMap { it.find(type, predicate) }
 }
 
 data class Dict(val values: Map<IExpression, IExpression>) : IExpression {
     override fun evaluate(scope: Scope) =
         values.map { it.key.evaluate(scope) to it.value.evaluate(scope) }.toMap()
+
+    override fun <T : IExpression> find(type: Class<out T>, predicate: (T) -> Boolean) =
+        super.find(type, predicate) + values.flatMap { it.key.find(type, predicate) + it.value.find(type, predicate) }
 }
 
 data class Comprehension(
     val expression: IExpression,
     val name: String,
-    val list: IExpression,
+    val collection: IExpression,
     val filter: IExpression? = null
 ) : IExpression {
     override fun evaluate(scope: Scope): Any? {
-        val collection = list.evaluate(scope)
+        val collection = collection.evaluate(scope)
         val result = mutableListOf<Any?>()
-        for (thing in collection.palmType.iterator?.invoke(collection) as? Iterator<*>
-            ?: error("Couldn't find iterator for ${collection.palmType}")) {
+        if (expression is Comprehension)
+            for (thing in collection.palmType.iterator(collection)) {
+                val newScope = Scope(mutableMapOf(name to thing), scope)
+                if (filter == null || filter.evaluate(newScope) == true)
+                    expression.evaluate(newScope, result)
+            }
+        else evaluate(scope, result)
+        return result
+    }
+
+    fun evaluate(scope: Scope, result: MutableList<Any?>): Any? {
+        val collection = collection.evaluate(scope)
+        for (thing in collection.palmType.iterator(collection)) {
             val newScope = Scope(mutableMapOf(name to thing), scope)
             if (filter == null || filter.evaluate(newScope) == true)
-                result += expression.evaluate(newScope)
+                result.add(expression.evaluate(newScope))
         }
         return result
     }
+
+    override fun <T : IExpression> find(type: Class<out T>, predicate: (T) -> Boolean) =
+        super.find(type, predicate) + expression.find(type, predicate) +
+                collection.find(type, predicate) + (filter?.find(type, predicate) ?: emptyList())
 }
 
 sealed class StrPart
@@ -87,11 +117,18 @@ data class Str(val parts: List<StrPart>) : IExpression {
             is StrExpressionPart -> it.expr.evaluate(scope).toString()
         }
     }
+
+    override fun <T : IExpression> find(type: Class<out T>, predicate: (T) -> Boolean) =
+        super.find(type, predicate) + parts.filterIsInstance<StrExpressionPart>()
+            .flatMap { it.expr.find(type, predicate) }
 }
 
 data class Object(val values: Map<String, IExpression> = emptyMap(), val type: Class<*>? = null) : IExpression {
     override fun evaluate(scope: Scope) =
         type?.palm?.createInstance(values, scope) ?: error("Typeless object")
+
+    override fun <T : IExpression> find(type: Class<out T>, predicate: (T) -> Boolean) =
+        super.find(type, predicate) + values.values.flatMap { it.find(type, predicate) }
 }
 
 data class ValAccess(val expr: IExpression, val field: String) : IExpression {
@@ -99,6 +136,9 @@ data class ValAccess(val expr: IExpression, val field: String) : IExpression {
         val value = expr.evaluate(scope)
         return value.palmType.get(value, field)
     }
+
+    override fun <T : IExpression> find(type: Class<out T>, predicate: (T) -> Boolean) =
+        super.find(type, predicate) + expr.find(type, predicate)
 }
 
 data class SafeValAccess(val expr: IExpression, val field: String) : IExpression {
@@ -106,11 +146,18 @@ data class SafeValAccess(val expr: IExpression, val field: String) : IExpression
         val value = expr.evaluate(scope) ?: return null
         return value.palmType.get(value, field)
     }
+
+    override fun <T : IExpression> find(type: Class<out T>, predicate: (T) -> Boolean) =
+        super.find(type, predicate) + expr.find(type, predicate)
 }
 
 data class If(val condExpr: IExpression, val thenExpr: IExpression, val elseExpr: IExpression) : IExpression {
     override fun evaluate(scope: Scope) =
         if (condExpr.evaluate(scope) == true) thenExpr.evaluate(scope) else elseExpr.evaluate(scope)
+
+    override fun <T : IExpression> find(type: Class<out T>, predicate: (T) -> Boolean) =
+        super.find(type, predicate) + condExpr.find(type, predicate) +
+                thenExpr.find(type, predicate) + elseExpr.find(type, predicate)
 }
 
 data class Where(val expr: IExpression, val definitions: List<Pair<String, IExpression>>) : IExpression {
@@ -121,6 +168,9 @@ data class Where(val expr: IExpression, val definitions: List<Pair<String, IExpr
         }
         return expr.evaluate(newScope)
     }
+
+    override fun <T : IExpression> find(type: Class<out T>, predicate: (T) -> Boolean) = super.find(type, predicate) +
+            expr.find(type, predicate) + definitions.flatMap { it.second.find(type, predicate) }
 }
 
 data class When(val branches: List<Pair<IExpression, IExpression>>, val elseBranch: IExpression?) : IExpression {
@@ -128,6 +178,10 @@ data class When(val branches: List<Pair<IExpression, IExpression>>, val elseBran
         branches.firstOrNull { it.first.evaluate(scope) == true }?.second?.evaluate(scope)
             ?: elseBranch?.evaluate(scope)
             ?: error("Not exhaustive when statement")
+
+    override fun <T : IExpression> find(type: Class<out T>, predicate: (T) -> Boolean) = super.find(type, predicate) +
+            branches.flatMap { it.first.find(type, predicate) + it.second.find(type, predicate) } +
+            (elseBranch?.find(type, predicate) ?: emptyList())
 }
 
 sealed class Pattern
@@ -156,13 +210,25 @@ data class WhenSwitch(
                     is ComparisonPattern -> {
                         val second = pattern.expression.evaluate(scope)
                         pattern.operator.comparisonType.handle(
-                            evaluated.palmType.execute(Compare, evaluated, second) as Int
+                            evaluated.palmType.execute(CompareTo, evaluated, second) as Int
                         )
                     }
                 }
             }
         }?.second?.evaluate(scope) ?: elseBranch?.evaluate(scope) ?: error("Not exhaustive when statement")
     }
+
+    override fun <T : IExpression> find(type: Class<out T>, predicate: (T) -> Boolean) = super.find(type, predicate) +
+            branches.flatMap {
+                it.first.flatMap { pattern ->
+                    when (pattern) {
+                        is ExpressionPattern -> pattern.expression.find(type, predicate)
+                        is TypePattern -> emptyList()
+                        is ContainingPattern -> pattern.collection.find(type, predicate)
+                        is ComparisonPattern -> pattern.expression.find(type, predicate)
+                    }
+                } + it.second.find(type, predicate)
+            } + (elseBranch?.find(type, predicate) ?: emptyList())
 }
 
 

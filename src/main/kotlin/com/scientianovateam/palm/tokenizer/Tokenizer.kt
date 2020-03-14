@@ -16,9 +16,7 @@ fun tokenize(traverser: StringTraverser, char: Char?, stack: TokenStack): TokenS
     char.isWhitespace() -> tokenize(traverser, traverser.pop(), stack)
     char.isJavaIdentifierStart() -> {
         val row = traverser.row
-        val (identifier, next) =
-            if (char.isUpperCase()) handleCapitalizedIdentifier(traverser, char)
-            else handleUncapitalizedIdentifier(traverser, char)
+        val (identifier, next) = handleIdentifier(traverser, char)
         stack.push(identifier on row)
         tokenize(traverser, next, stack)
     }
@@ -66,7 +64,7 @@ fun handleToken(traverser: StringTraverser, char: Char, stack: TokenStack): Pair
         val second = numRes.second
         if (second != null && (second.isLetter() || second == '(')) {
             stack.push(numRes.first on row)
-            val identifier = handleUncapitalizedIdentifier(traverser, char)
+            val identifier = handleIdentifier(traverser, char)
             if (identifier.first is IdentifierToken) stack.push(TimesToken on row)
             identifier
         } else numRes
@@ -101,7 +99,7 @@ private fun handleMisc(traverser: StringTraverser, char: Char, stack: TokenStack
     val symbolRes = handleSymbol(traverser, char)
     val second = symbolRes.second
     return if (symbolRes.first is NotToken && second != null && second.isLetter() && second.isLowerCase()) {
-        val identifierRes = handleUncapitalizedIdentifier(traverser, char)
+        val identifierRes = handleIdentifier(traverser, char)
         when (identifierRes.first) {
             is IsToken -> IsNotToken to identifierRes.second
             is InToken -> NotInToken to identifierRes.second

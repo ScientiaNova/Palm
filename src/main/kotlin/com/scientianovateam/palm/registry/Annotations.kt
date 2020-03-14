@@ -3,15 +3,7 @@ package com.scientianovateam.palm.registry
 object Palm {
     @Target(AnnotationTarget.CONSTRUCTOR)
     @Retention(AnnotationRetention.RUNTIME)
-    annotation class Constructor(val paramNames: Array<String> = [])
-
-    @Target(AnnotationTarget.CLASS)
-    @Retention(AnnotationRetention.RUNTIME)
-    annotation class Extension(val extending: String)
-
-    @Target(AnnotationTarget.CLASS)
-    @Retention(AnnotationRetention.RUNTIME)
-    annotation class Type
+    annotation class Constructor(val paramNames: Array<String> = [], val defaults: Array<String> = [])
 
     @Target(AnnotationTarget.CLASS, AnnotationTarget.FUNCTION)
     @Retention(AnnotationRetention.RUNTIME)

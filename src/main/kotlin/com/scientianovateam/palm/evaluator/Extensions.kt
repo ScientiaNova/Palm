@@ -1,13 +1,17 @@
 package com.scientianovateam.palm.evaluator
 
 import com.scientianovateam.palm.registry.TypeRegistry
+import kotlin.reflect.KClass
 
 infix fun Any?.instanceOf(clazz: Class<*>) = this == null || clazz.isInstance(this)
 
-infix fun Any?.cast(newType: Class<*>) =
-    if (instanceOf(newType)) this
-    else palmType.autoCasters[newType]?.invoke(this) ?: newType.cast(this)
+infix fun Any?.cast(type: Class<*>) = when {
+    instanceOf(type) -> this
+    type == String::class.java -> toString()
+    else -> palmType.cast(this, type)
+}
 
 val Class<out Any>.palm get() = TypeRegistry.getOrRegister(this)
+val KClass<out Any>.palm get() = java.palm
 
 val Any?.palmType get() = TypeRegistry.getOrRegister(this?.javaClass ?: Any::class.java)

@@ -140,7 +140,7 @@ sealed class ComparisonOperatorToken(
     val comparisonType: ComparisonType
 ) : OperatorToken(symbol, precedence) {
     override fun handleExpression(first: IOperationPart, second: IOperationPart) =
-        Comparison(comparisonType, BinaryOp(Compare, first as IExpression, second as IExpression))
+        Comparison(comparisonType, BinaryOp(CompareTo, first as IExpression, second as IExpression))
 }
 
 object LessToken : ComparisonOperatorToken("<", 4, ComparisonType.L)
@@ -150,7 +150,7 @@ object GreaterOrEqualToken : ComparisonOperatorToken("<=", 4, ComparisonType.GE)
 
 object ComparisonToken : OperatorToken("<=>", 4) {
     override fun handleExpression(first: IOperationPart, second: IOperationPart) =
-        BinaryOp(Compare, first as IExpression, second as IExpression)
+        BinaryOp(CompareTo, first as IExpression, second as IExpression)
 }
 
 object ElvisToken : OperatorToken("?:", 6) {
@@ -160,12 +160,12 @@ object ElvisToken : OperatorToken("?:", 6) {
 
 object PlusToken : OperatorToken("+", 7), IUnaryOperatorToken {
     override fun handleExpression(first: IOperationPart, second: IOperationPart) =
-        BinaryOp(Add, first as IExpression, second as IExpression)
+        BinaryOp(Plus, first as IExpression, second as IExpression)
 }
 
 object MinusToken : OperatorToken("-", 7), IUnaryOperatorToken {
     override fun handleExpression(first: IOperationPart, second: IOperationPart) =
-        BinaryOp(Sub, first as IExpression, second as IExpression)
+        BinaryOp(Minus, first as IExpression, second as IExpression)
 }
 
 object TimesToken : OperatorToken("*", 8) {

@@ -16,7 +16,7 @@ fun handleSingleLineString(
         when {
             next?.isJavaIdentifierStart() == true && next.isLowerCase() -> {
                 val row = traverser.row
-                val (identifier, newNext) = handleUncapitalizedIdentifier(traverser, next)
+                val (identifier, newNext) = handleIdentifier(traverser, next)
                 handleSingleLineString(traverser, newNext, parts + StringPart(builder) + TokensPart(identifier on row))
             }
             next == '{' -> {
@@ -52,7 +52,7 @@ fun handleMultiLineString(
         when {
             next?.isJavaIdentifierStart() == true && next.isLowerCase() -> {
                 val row = traverser.row
-                val (identifier, newNext) = handleUncapitalizedIdentifier(traverser, next)
+                val (identifier, newNext) = handleIdentifier(traverser, next)
                 handleMultiLineString(traverser, newNext, parts + StringPart(builder) + TokensPart(identifier on row))
             }
             next == '{' -> {
@@ -70,14 +70,9 @@ fun handleInterpolation(traverser: StringTraverser, char: Char?, stack: TokenSta
     char == null -> error("Open interpolated expression")
     char == '}' -> Unit
     char.isWhitespace() -> handleInterpolation(traverser, traverser.pop(), stack)
-    char.isJavaIdentifierStart() -> if (char.isUpperCase()) {
+    char.isJavaIdentifierStart() -> {
         val row = traverser.row
-        val (identifier, next) = handleCapitalizedIdentifier(traverser, char)
-        stack.push(identifier on row)
-        handleInterpolation(traverser, next, stack)
-    } else {
-        val row = traverser.row
-        val (identifier, next) = handleUncapitalizedIdentifier(traverser, char)
+        val (identifier, next) = handleIdentifier(traverser, char)
         stack.push(identifier on row)
         handleInterpolation(traverser, next, stack)
     }
