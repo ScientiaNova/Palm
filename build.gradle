@@ -1,12 +1,12 @@
 plugins {
     id 'java'
+    id 'maven-publish'
     id 'org.jetbrains.kotlin.jvm' version '1.3.61'
 }
 
-apply plugin: 'maven-publish'
-
-group 'com.scientianovateam.palm'
-version palm_version
+group =  'com.scientianovateam.palm'
+archivesBaseName = 'Palm'
+version = palm_version
 
 sourceCompatibility = 1.8
 
@@ -33,8 +33,8 @@ publishing {
             name = "GitHubPackages"
             url = uri("https://maven.pkg.github.com/ScientiaNovaTeam/Palm")
             credentials {
-                username = System.getenv("ACTOR")
-                password = System.getenv("TOKEN")
+                username = System.getenv("GITHUB_ACTOR")
+                password = System.getenv("GITHUB_TOKEN")
             }
         }
     }
