@@ -8,11 +8,17 @@ fun handleNumber(
     in '0'..'9' -> handleNumber(traverser, traverser.pop(), builder.append(char))
     '_' ->
         if (traverser.peek()?.isDigit() == true) handleNumber(traverser, traverser.pop(), builder)
-        else NumberToken(builder.toString().toDouble()) to char
+        else NumberToken(convertIntString(builder)) to char
     '.' ->
         if (traverser.peek()?.isDigit() == true) handleDecimalNumber(traverser, traverser.pop(), builder.append(char))
-        else NumberToken(builder.toString().toDouble()) to char
-    else -> NumberToken(builder.toString().toDouble()) to char
+        else NumberToken(convertIntString(builder)) to char
+    else -> NumberToken(convertIntString(builder)) to char
+}
+
+fun convertIntString(builder: StringBuilder): Number = when {
+    builder.length <= 10 -> builder.toString().toInt()
+    builder.length <= 19 -> builder.toString().toLong()
+    else -> builder.toString().toDouble()
 }
 
 fun handleDecimalNumber(
@@ -61,7 +67,9 @@ fun handleBinaryNumber(
     '_' ->
         if (traverser.peek()?.isDigit() == true) handleBinaryNumber(traverser, traverser.pop(), builder)
         else NumberToken(builder.toString().toDouble()) to char
-    else -> NumberToken(builder.toString().toInt(radix = 2)) to char
+    else -> NumberToken(
+        if (builder.length <= 32) builder.toString().toInt(radix = 2) else builder.toString().toLong(radix = 2)
+    ) to char
 }
 
 fun handleHexNumber(
@@ -73,5 +81,7 @@ fun handleHexNumber(
     '_' ->
         if (traverser.peek()?.isDigit() == true) handleHexNumber(traverser, traverser.pop(), builder)
         else NumberToken(builder.toString().toDouble()) to char
-    else -> NumberToken(builder.toString().toInt(radix = 16)) to char
+    else -> NumberToken(
+        if (builder.length <= 8) builder.toString().toInt(radix = 16) else builder.toString().toLong(radix = 16)
+    ) to char
 }

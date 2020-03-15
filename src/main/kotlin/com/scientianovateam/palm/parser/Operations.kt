@@ -98,15 +98,22 @@ sealed class MultiOperation(name: String) : Operation(name)
 val UNARY_OPS = mapOf(
     "unaryPlus" to UnaryPlus,
     "unaryMinus" to UnaryMinus,
-    "not" to Not
+    "not" to Not,
+    "inv" to Inv
 )
 
 object UnaryPlus : UnaryOperation("unary -")
 object UnaryMinus : UnaryOperation("unary +")
 object Not : UnaryOperation("not")
+object Inv : UnaryOperation("~")
 
 val BINARY_OPS = mapOf(
+    "or" to Or,
+    "and" to And,
     "compareTo" to CompareTo,
+    "shl" to Shl,
+    "shr" to Shr,
+    "ushr" to Ushr,
     "contains" to Contains,
     "plus" to Plus,
     "minus" to Minus,
@@ -118,7 +125,12 @@ val BINARY_OPS = mapOf(
     "pow" to Pow
 )
 
+object Or : BinaryOperation("|")
+object And : BinaryOperation("&")
 object CompareTo : BinaryOperation("<=>", Int::class.java)
+object Shl : BinaryOperation("<<")
+object Shr : BinaryOperation(">>")
+object Ushr : BinaryOperation(">>>")
 object Contains : BinaryOperation("in", Boolean::class.java)
 object Plus : BinaryOperation("+")
 object Minus : BinaryOperation("-")

@@ -39,7 +39,7 @@ data class Constant(val name: String) : IExpression {
     override fun evaluate(scope: Scope) = scope[name]
 }
 
-data class Num(val num: Double) : IExpression {
+data class Num(val num: Number) : IExpression {
     override fun evaluate(scope: Scope) = num
 }
 
@@ -79,27 +79,22 @@ data class Comprehension(
     val collection: IExpression,
     val filter: IExpression? = null
 ) : IExpression {
-    override fun evaluate(scope: Scope): Any? {
+    override fun evaluate(scope: Scope) = mutableListOf<Any?>().apply { evaluate(scope, this) }
+
+    fun evaluate(scope: Scope, result: MutableList<Any?>) {
         val collection = collection.evaluate(scope)
-        val result = mutableListOf<Any?>()
         if (expression is Comprehension)
             for (thing in collection.palmType.iterator(collection)) {
                 val newScope = Scope(mutableMapOf(name to thing), scope)
                 if (filter == null || filter.evaluate(newScope) == true)
                     expression.evaluate(newScope, result)
             }
-        else evaluate(scope, result)
-        return result
-    }
-
-    fun evaluate(scope: Scope, result: MutableList<Any?>): Any? {
-        val collection = collection.evaluate(scope)
-        for (thing in collection.palmType.iterator(collection)) {
-            val newScope = Scope(mutableMapOf(name to thing), scope)
-            if (filter == null || filter.evaluate(newScope) == true)
-                result.add(expression.evaluate(newScope))
-        }
-        return result
+        else
+            for (thing in collection.palmType.iterator(collection)) {
+                val newScope = Scope(mutableMapOf(name to thing), scope)
+                if (filter == null || filter.evaluate(newScope) == true)
+                    result.add(expression.evaluate(newScope))
+            }
     }
 
     override fun <T : IExpression> find(type: Class<out T>, predicate: (T) -> Boolean) =
@@ -259,18 +254,22 @@ fun handleBinOps(
     operatorStack: Stack<OperatorToken> = Stack()
 ): Pair<PositionedExpression, PositionedToken?> =
     if (operatorStack.isEmpty() || op.precedence > operatorStack.peek().precedence) {
-        val (operand, next) =
-            if (op is TypeOperatorToken) handleType(stack, stack.safePop())
-            else handleExpressionPart(stack, stack.safePop())
-        operatorStack.push(op)
-        operandStack.push(operand.value)
-        if (next != null && next.value is OperatorToken && (next.value !is IUnaryOperatorToken || next.rows.last == operand.rows.first)) {
-            if (op is ComparisonOperatorToken && next.value is ComparisonOperatorToken) {
-                operatorStack.push(AndToken)
-                operandStack.push(operand.value)
-            }
-            handleBinOps(stack, next.value, startRow, operandStack, operatorStack)
-        } else emptyStacks(next, startRow..operand.rows.last, operandStack, operatorStack)
+        if (op == TernaryOperatorToken)
+            handleTernary(stack, stack.safePop(), operandStack.pop() as IExpression, startRow)
+        else {
+            val (operand, next) =
+                if (op is TypeOperatorToken) handleType(stack, stack.safePop())
+                else handleExpressionPart(stack, stack.safePop())
+            operatorStack.push(op)
+            operandStack.push(operand.value)
+            if (next != null && next.value is OperatorToken && (next.value !is IUnaryOperatorToken || next.rows.last == operand.rows.first)) {
+                if (op is ComparisonOperatorToken && next.value is ComparisonOperatorToken) {
+                    operatorStack.push(AndToken)
+                    operandStack.push(operand.value)
+                }
+                handleBinOps(stack, next.value, startRow, operandStack, operatorStack)
+            } else emptyStacks(next, startRow..operand.rows.last, operandStack, operatorStack)
+        }
     } else {
         val second = operandStack.pop()
         handleBinOps(
@@ -596,6 +595,18 @@ fun handleIf(stack: TokenStack, token: PositionedToken?, startRow: Int): Pair<Po
     if (elseToken?.value !is ElseToken) error("Missing else")
     val (elseExpr, next) = handleExpression(stack, stack.safePop())
     return If(cond.value, thenExpr.value, elseExpr.value) on startRow..elseExpr.rows.last to next
+}
+
+fun handleTernary(
+    stack: TokenStack,
+    token: PositionedToken?,
+    condExpr: IExpression,
+    startRow: Int
+): Pair<Positioned<If>, PositionedToken?> {
+    val (thenExpr, colon) = handleExpression(stack, token)
+    if (colon?.value !is ColonToken) error("Missing colon in ternary operation")
+    val (elseExpr, next) = handleExpression(stack, stack.safePop())
+    return If(condExpr, thenExpr.value, elseExpr.value) on startRow..elseExpr.rows.last to next
 }
 
 fun handleGetter(

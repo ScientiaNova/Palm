@@ -29,6 +29,10 @@ interface IPalmType {
     fun cast(obj: Any?, type: Class<*>): Any?
 }
 
+operator fun IPalmType.invoke(builder: PalmType.() -> Unit) {
+    if (this is PalmType) this.builder()
+}
+
 open class PalmType(override val name: TypeName, override val clazz: Class<*>) : IPalmType {
     var constructor: PalmConstructor? = null
 
@@ -51,7 +55,9 @@ open class PalmType(override val name: TypeName, override val clazz: Class<*>) :
 
     override fun toString() = name.toString()
 
-    override fun get(obj: Any?, name: String) = getters[name]?.invokeWithArguments(obj) ?: clazz.superclass?.palm?.get(obj, name)
+    override fun get(obj: Any?, name: String) =
+        getters[name]?.invokeWithArguments(obj) ?: clazz.superclass?.palm?.get(obj, name)
+
     override fun set(property: String, obj: Any?, expr: IExpression, scope: Scope) {
         setters[property]?.let { setter ->
             setter.invokeWithArguments(obj, expr.handleForType(setter.type().returnType(), scope))

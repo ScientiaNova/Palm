@@ -54,7 +54,7 @@ object TypeRegistry {
 
             override fun execute(op: BinaryOperation, obj: Any?, second: Any?) = when {
                 op == Pow && second is Number -> (obj as Number).toDouble().pow(second.toDouble())
-                op == FloorDiv && second is Number -> floor(obj.palmType.execute(Div, obj, second) as Double).toInt()
+                op == FloorDiv && second is Number -> floor(obj.palmType.execute(Div, obj, second) as Double)
                 else -> super.execute(op, obj, second)
             }
 
@@ -76,6 +76,10 @@ object TypeRegistry {
                     "asinh" -> asinh(obj.toDouble())
                     "acosh" -> acosh(obj.toDouble())
                     "atanh" -> atanh(obj.toDouble())
+                    "ln" -> ln(obj.toDouble())
+                    "log2" -> log2(obj.toDouble())
+                    "log10" -> log10(obj.toDouble())
+                    "exp" -> exp(obj.toDouble())
                     else -> super.get(obj, name)
                 }
             }
@@ -90,6 +94,7 @@ object TypeRegistry {
                 return when (op) {
                     is UnaryMinus -> -obj
                     is UnaryPlus -> obj
+                    is Inv -> obj.toInt().inv().toByte()
                     is Not -> super.execute(op, obj)
                 }
             }
@@ -142,8 +147,27 @@ object TypeRegistry {
                         is Double -> obj % second
                         else -> super.execute(op, obj, second)
                     }
+                    is Shl ->
+                        if (second is Number) obj.toInt().shl(second.toInt()).toByte()
+                        else super.execute(op, obj, second)
+                    is Shr ->
+                        if (second is Number) obj.toInt().shr(second.toInt()).toByte()
+                        else super.execute(op, obj, second)
+                    is Ushr ->
+                        if (second is Number) obj.toInt().ushr(second.toInt()).toByte()
+                        else super.execute(op, obj, second)
                     else -> super.execute(op, obj, second)
                 }
+            }
+
+            override fun execute(op: MultiOperation, obj: Any?, rest: List<Any?>): Any {
+                obj as Byte
+                val second = rest.first()
+                return if (op == ToRange && second is Number) when (val third = rest.getOrNull(1)) {
+                    null -> if (second.toInt() > obj) obj..second.toInt() else obj..second.toInt() step -1
+                    is Number -> obj..third.toInt() step second.toInt() - obj
+                    else -> super.execute(op, obj, rest)
+                } else super.execute(op, obj, rest)
             }
         })
         register(object : PalmType(TypeName("base", "short"), Short::class.javaObjectType) {
@@ -156,6 +180,7 @@ object TypeRegistry {
                 return when (op) {
                     is UnaryMinus -> -obj
                     is UnaryPlus -> obj
+                    is Inv -> obj.toInt().inv().toShort()
                     is Not -> super.execute(op, obj)
                 }
             }
@@ -208,8 +233,27 @@ object TypeRegistry {
                         is Double -> obj % second
                         else -> super.execute(op, obj, second)
                     }
+                    is Shl ->
+                        if (second is Number) obj.toInt().shl(second.toInt()).toShort()
+                        else super.execute(op, obj, second)
+                    is Shr ->
+                        if (second is Number) obj.toInt().shr(second.toInt()).toShort()
+                        else super.execute(op, obj, second)
+                    is Ushr ->
+                        if (second is Number) obj.toInt().ushr(second.toInt()).toShort()
+                        else super.execute(op, obj, second)
                     else -> super.execute(op, obj, second)
                 }
+            }
+
+            override fun execute(op: MultiOperation, obj: Any?, rest: List<Any?>): Any {
+                obj as Short
+                val second = rest.first()
+                return if (op == ToRange && second is Number) when (val third = rest.getOrNull(1)) {
+                    null -> if (second.toInt() > obj) obj..second.toInt() else obj..second.toInt() step -1
+                    is Number -> obj..third.toInt() step second.toInt() - obj
+                    else -> super.execute(op, obj, rest)
+                } else super.execute(op, obj, rest)
             }
         })
         register(object : PalmType(TypeName("base", "int"), Int::class.javaObjectType) {
@@ -222,6 +266,7 @@ object TypeRegistry {
                 return when (op) {
                     is UnaryMinus -> -obj
                     is UnaryPlus -> obj
+                    is Inv -> obj.inv()
                     is Not -> super.execute(op, obj)
                 }
             }
@@ -274,8 +319,27 @@ object TypeRegistry {
                         is Double -> obj % second
                         else -> super.execute(op, obj, second)
                     }
+                    is Shl ->
+                        if (second is Number) obj.shl(second.toInt())
+                        else super.execute(op, obj, second)
+                    is Shr ->
+                        if (second is Number) obj.shr(second.toInt())
+                        else super.execute(op, obj, second)
+                    is Ushr ->
+                        if (second is Number) obj.ushr(second.toInt())
+                        else super.execute(op, obj, second)
                     else -> super.execute(op, obj, second)
                 }
+            }
+
+            override fun execute(op: MultiOperation, obj: Any?, rest: List<Any?>): Any {
+                obj as Int
+                val second = rest.first()
+                return if (op == ToRange && second is Number) when (val third = rest.getOrNull(1)) {
+                    null -> if (second.toInt() > obj) obj..second.toInt() else obj..second.toInt() step -1
+                    is Number -> obj..third.toInt() step second.toInt() - obj
+                    else -> super.execute(op, obj, rest)
+                } else super.execute(op, obj, rest)
             }
         })
         register(object : PalmType(TypeName("base", "long"), Long::class.javaObjectType) {
@@ -288,6 +352,7 @@ object TypeRegistry {
                 return when (op) {
                     is UnaryMinus -> -obj
                     is UnaryPlus -> obj
+                    is Inv -> obj.inv()
                     is Not -> super.execute(op, obj)
                 }
             }
@@ -340,8 +405,27 @@ object TypeRegistry {
                         is Double -> obj % second
                         else -> super.execute(op, obj, second)
                     }
+                    is Shl ->
+                        if (second is Number) obj.shl(second.toInt())
+                        else super.execute(op, obj, second)
+                    is Shr ->
+                        if (second is Number) obj.shr(second.toInt())
+                        else super.execute(op, obj, second)
+                    is Ushr ->
+                        if (second is Number) obj.ushr(second.toInt())
+                        else super.execute(op, obj, second)
                     else -> super.execute(op, obj, second)
                 }
+            }
+
+            override fun execute(op: MultiOperation, obj: Any?, rest: List<Any?>): Any {
+                obj as Long
+                val second = rest.first()
+                return if (op == ToRange && second is Number) when (val third = rest.getOrNull(1)) {
+                    null -> if (second.toLong() > obj) obj..second.toLong() else obj..second.toLong() step -1
+                    is Number -> obj..third.toLong() step second.toLong() - obj
+                    else -> super.execute(op, obj, rest)
+                } else super.execute(op, obj, rest)
             }
         })
         register(object : PalmType(TypeName("base", "float"), Float::class.javaObjectType) {
@@ -354,6 +438,7 @@ object TypeRegistry {
                 return when (op) {
                     is UnaryMinus -> -obj
                     is UnaryPlus -> obj
+                    is Inv -> obj.toInt().inv().toFloat()
                     is Not -> super.execute(op, obj)
                 }
             }
@@ -406,6 +491,15 @@ object TypeRegistry {
                         is Double -> obj % second
                         else -> super.execute(op, obj, second)
                     }
+                    is Shl ->
+                        if (second is Number) obj.toInt().shl(second.toInt()).toFloat()
+                        else super.execute(op, obj, second)
+                    is Shr ->
+                        if (second is Number) obj.toInt().shr(second.toInt()).toFloat()
+                        else super.execute(op, obj, second)
+                    is Ushr ->
+                        if (second is Number) obj.toInt().ushr(second.toInt()).toFloat()
+                        else super.execute(op, obj, second)
                     else -> super.execute(op, obj, second)
                 }
             }
@@ -420,6 +514,7 @@ object TypeRegistry {
                 return when (op) {
                     is UnaryMinus -> -obj
                     is UnaryPlus -> obj
+                    is Inv -> obj.toLong().inv().toDouble()
                     is Not -> super.execute(op, obj)
                 }
             }
@@ -472,12 +567,55 @@ object TypeRegistry {
                         is Double -> obj % second
                         else -> super.execute(op, obj, second)
                     }
+                    is Shl ->
+                        if (second is Number) obj.toLong().shl(second.toInt()).toDouble()
+                        else super.execute(op, obj, second)
+                    is Shr ->
+                        if (second is Number) obj.toLong().shr(second.toInt()).toDouble()
+                        else super.execute(op, obj, second)
+                    is Ushr ->
+                        if (second is Number) obj.toLong().ushr(second.toInt()).toDouble()
+                        else super.execute(op, obj, second)
                     else -> super.execute(op, obj, second)
                 }
             }
         })
         register(Boolean::class.javaObjectType, "base", "bool")
-        register(Char::class.javaObjectType, "base", "char")
+        register(object : PalmType(TypeName("base", "char"), Char::class.javaObjectType) {
+            init {
+                populate()
+            }
+
+            override fun execute(op: BinaryOperation, obj: Any?, second: Any?): Any {
+                obj as Char
+                return when (op) {
+                    is Plus -> when (second) {
+                        is Byte -> obj + second.toInt()
+                        is Short -> obj + second.toInt()
+                        is Int -> obj + second
+                        else -> super.execute(op, obj, second)
+                    }
+                    is Minus -> when (second) {
+                        is Byte -> obj - second.toInt()
+                        is Short -> obj - second.toInt()
+                        is Int -> obj - second
+                        is Char -> obj - second
+                        else -> super.execute(op, obj, second)
+                    }
+                    else -> super.execute(op, obj, second)
+                }
+            }
+
+            override fun execute(op: MultiOperation, obj: Any?, rest: List<Any?>): Any {
+                obj as Char
+                val second = rest.first()
+                return if (op == ToRange && second is Char) when (val third = rest.getOrNull(1)) {
+                    null -> if (second > obj) obj..second else obj..second step -1
+                    is Char -> obj..third step second - obj
+                    else -> super.execute(op, obj, rest)
+                } else super.execute(op, obj, rest)
+            }
+        })
         register(object : PalmType(TypeName("base", "string"), String::class.java) {
             init {
                 populate()
