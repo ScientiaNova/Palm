@@ -2,8 +2,8 @@ package com.scientianovateam.palm.parser
 
 import com.scientianovateam.palm.evaluator.Scope
 import com.scientianovateam.palm.evaluator.cast
-import com.scientianovateam.palm.evaluator.palm
 import com.scientianovateam.palm.evaluator.palmType
+import com.scientianovateam.palm.registry.TypeName
 import com.scientianovateam.palm.registry.TypeRegistry
 import com.scientianovateam.palm.tokenizer.*
 import com.scientianovateam.palm.util.Positioned
@@ -118,9 +118,9 @@ data class Str(val parts: List<StrPart>) : IExpression {
             .flatMap { it.expr.find(type, predicate) }
 }
 
-data class Object(val values: Map<String, IExpression> = emptyMap(), val type: Class<*>? = null) : IExpression {
+data class Object(val values: Map<String, IExpression> = emptyMap(), val type: TypeName? = null) : IExpression {
     override fun evaluate(scope: Scope) =
-        type?.palm?.createInstance(values, scope) ?: error("Typeless object")
+        type?.toType()?.createInstance(values, scope) ?: error("Typeless object")
 
     override fun <T : IExpression> find(type: Class<out T>, predicate: (T) -> Boolean) =
         super.find(type, predicate) + values.values.flatMap { it.find(type, predicate) }
@@ -411,7 +411,9 @@ fun handleIdentifierSequence(
         handleIdentifierSequence(stack, stack.safePop(), starRow, list + top.name)
     }
     is OpenCurlyBracketToken ->
-        handleTypedObject(stack, stack.safePop(), starRow, handleTypeString(list.joinToString(".") { it }))
+        handleTypedObject(
+            stack, stack.safePop(), starRow, TypeName(list.dropLast(1).joinToString(".") { it }, list.last())
+        )
     else -> list.drop(1).fold(Constant(list.first()) as IExpression) { acc, s -> ValAccess(acc, s) } on
             starRow to stack.safePop()
 }
@@ -566,7 +568,7 @@ fun handleTypedObject(
     stack: TokenStack,
     token: PositionedToken?,
     startRow: Int,
-    type: Class<*>,
+    type: TypeName,
     values: Map<String, IExpression> = emptyMap()
 ): Pair<Positioned<Object>, PositionedToken?> = if (token == null) error("Unclosed object") else when (token.value) {
     is ClosedCurlyBracketToken -> Object(values, type) on startRow..token.rows.last to stack.safePop()

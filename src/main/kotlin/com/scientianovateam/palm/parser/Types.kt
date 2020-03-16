@@ -1,6 +1,7 @@
 package com.scientianovateam.palm.parser
 
 import com.scientianovateam.palm.evaluator.palmType
+import com.scientianovateam.palm.registry.TypeName
 import com.scientianovateam.palm.registry.TypeRegistry
 import com.scientianovateam.palm.tokenizer.DotToken
 import com.scientianovateam.palm.tokenizer.IdentifierToken
@@ -38,9 +39,9 @@ fun handleType(
     ) on startRow..token.rows.last to next
 } else error("Expected capitalized identifier, but instead got ${token.palmType}")
 
-fun handleTypeString(string: String): Class<*> {
-    val parts = string.split(':', '.').map(String::capitalize)
-    val name = parts.last()
-    val path = parts.dropLast(1).joinToString(".") { it }
-    return TypeRegistry.classFromName(name, path) ?: error("Unknown type: $path.$name")
+fun handleTypeString(string: String): TypeName {
+    val parts = string.replace(':', '.')
+    val name = parts.takeWhile { it != '.' }
+    val path = parts.dropLast(name.length + 1)
+    return TypeName(path, name)
 }
