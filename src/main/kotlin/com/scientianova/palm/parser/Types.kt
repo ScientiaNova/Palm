@@ -6,34 +6,33 @@ import com.scientianova.palm.registry.TypeRegistry
 import com.scientianova.palm.tokenizer.DotToken
 import com.scientianova.palm.tokenizer.IdentifierToken
 import com.scientianova.palm.tokenizer.PositionedToken
-import com.scientianova.palm.tokenizer.TokenStack
+import com.scientianova.palm.tokenizer.TokenList
 import com.scientianova.palm.util.Positioned
 import com.scientianova.palm.util.on
-import com.scientianova.palm.util.safePop
 
 data class PalmType(val clazz: Class<*>) : IOperationPart
 
 typealias PositionedType = Positioned<PalmType>
 
 fun handleType(
-    stack: TokenStack,
+    list: TokenList,
     token: PositionedToken?
 ): Pair<PositionedType, PositionedToken?> = if (token != null && token.value is IdentifierToken) {
-    val next = stack.safePop()
-    if (next?.value is DotToken) handleType(stack, stack.safePop(), token.rows.first, token.value.name)
+    val next = list.poll()
+    if (next?.value is DotToken) handleType(list, list.poll(), token.rows.first, token.value.name)
     else PalmType(
         TypeRegistry.classFromName(token.value.name) ?: error("Unknown type: ${token.value.name}")
     ) on token.rows.first..token.rows.last to next
 } else error("Expected capitalized identifier, but instead got ${token.palmType}")
 
 fun handleType(
-    stack: TokenStack,
+    list: TokenList,
     token: PositionedToken?,
     startRow: Int,
     path: String
 ): Pair<PositionedType, PositionedToken?> = if (token != null && token.value is IdentifierToken) {
-    val next = stack.safePop()
-    if (next?.value is DotToken) handleType(stack, stack.safePop(), startRow, "$path.${token.value.name}")
+    val next = list.poll()
+    if (next?.value is DotToken) handleType(list, list.poll(), startRow, "$path.${token.value.name}")
     else PalmType(
         TypeRegistry.classFromName(token.value.name, path) ?: error("Unknown type: $path.${token.value.name}")
     ) on startRow..token.rows.last to next

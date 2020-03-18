@@ -7,7 +7,6 @@ import com.scientianova.palm.evaluator.palmType
 import com.scientianova.palm.parser.*
 import com.scientianova.palm.tokenizer.tokenize
 import com.scientianova.palm.util.HashMultiMap
-import com.scientianova.palm.util.flip
 import java.lang.invoke.MethodHandle
 import java.lang.invoke.MethodHandles
 import java.lang.invoke.MethodType
@@ -102,7 +101,7 @@ open class PalmType(override val name: TypeName, override val clazz: Class<*>) :
                 ),
                 annotation.paramNames.zip(constructor.exceptionTypes).toMap(),
                 annotation.paramNames.zip(annotation.defaults) { paramName, string ->
-                    val tokens = tokenize(string).flip()
+                    val tokens = tokenize(string)
                     paramName to if (tokens.isEmpty()) null else handleExpression(tokens, tokens.pop()).first.value
                 }.toMap()
             )

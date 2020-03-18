@@ -3,50 +3,50 @@ package com.scientianova.palm.tokenizer
 import com.scientianova.palm.util.on
 import java.util.*
 
-typealias TokenStack = Stack<PositionedToken>
+typealias TokenList = LinkedList<PositionedToken>
 
-fun tokenize(code: String): TokenStack {
+fun tokenize(code: String): TokenList {
     val traverser = StringTraverser(code)
-    val stack = TokenStack()
-    return tokenize(traverser, traverser.pop(), stack)
+    val queue = LinkedList<PositionedToken>()
+    return tokenize(traverser, traverser.pop(), queue)
 }
 
-fun tokenize(traverser: StringTraverser, char: Char?, stack: TokenStack): TokenStack = when {
-    char == null -> stack
-    char.isWhitespace() -> tokenize(traverser, traverser.pop(), stack)
+fun tokenize(traverser: StringTraverser, char: Char?, list: TokenList): TokenList = when {
+    char == null -> list
+    char.isWhitespace() -> tokenize(traverser, traverser.pop(), list)
     char.isJavaIdentifierStart() -> {
         val row = traverser.row
         val (identifier, next) = handleIdentifier(traverser, char)
-        stack.push(identifier on row)
-        tokenize(traverser, next, stack)
+        list.offer(identifier on row)
+        tokenize(traverser, next, list)
     }
-    char == '#' -> tokenize(traverser, handleSingleLineComment(traverser, traverser.pop()), stack)
+    char == '#' -> tokenize(traverser, handleSingleLineComment(traverser, traverser.pop()), list)
     char == '{' -> if (traverser.peek() == '-') {
         traverser.pop()
         val next = handleMultiLineComment(traverser, traverser.pop())
-        tokenize(traverser, next, stack)
+        tokenize(traverser, next, list)
     } else {
-        stack.push(OpenCurlyBracketToken on traverser.row)
-        tokenize(traverser, traverser.pop(), stack)
+        list.offer(OpenCurlyBracketToken on traverser.row)
+        tokenize(traverser, traverser.pop(), list)
     }
     char == '-' -> if (traverser.peek() == '-') {
         traverser.pop()
-        tokenize(traverser, handleSingleLineComment(traverser, traverser.pop()), stack)
+        tokenize(traverser, handleSingleLineComment(traverser, traverser.pop()), list)
     } else {
         val row = traverser.row
-        val (token, next) = handleMisc(traverser, char, stack, row)
-        stack.push(token on row)
-        tokenize(traverser, next, stack)
+        val (token, next) = handleMisc(traverser, char, list, row)
+        list.offer(token on row)
+        tokenize(traverser, next, list)
     }
     else -> {
         val row = traverser.row
-        val (token, next) = handleToken(traverser, char, stack)
-        stack.push(token on row..traverser.lastRow)
-        tokenize(traverser, next, stack)
+        val (token, next) = handleToken(traverser, char, list)
+        list.offer(token on row..traverser.lastRow)
+        tokenize(traverser, next, list)
     }
 }
 
-fun handleToken(traverser: StringTraverser, char: Char, stack: TokenStack): Pair<IToken, Char?> = when (char) {
+fun handleToken(traverser: StringTraverser, char: Char, list: TokenList): Pair<IToken, Char?> = when (char) {
     '0' -> when (traverser.peek()) {
         'x', 'X' -> {
             traverser.pop()
@@ -65,14 +65,14 @@ fun handleToken(traverser: StringTraverser, char: Char, stack: TokenStack): Pair
         if (second != null && (second.isLetter() || second == '(')) {
             when {
                 second.isLetter() -> {
-                    stack.push(numRes.first on row)
+                    list.offer(numRes.first on row)
                     val identifier = handleIdentifier(traverser, second)
-                    stack.push(TimesToken on row)
+                    list.offer(TimesToken on row)
                     identifier
                 }
                 second == '(' -> {
-                    stack.push(numRes.first on row)
-                    stack.push(TimesToken on row)
+                    list.offer(numRes.first on row)
+                    list.offer(TimesToken on row)
                     OpenParenToken to traverser.pop()
                 }
                 else -> numRes
@@ -94,7 +94,7 @@ fun handleToken(traverser: StringTraverser, char: Char, stack: TokenStack): Pair
     ')' -> {
         val next = traverser.pop()
         if (next == '(') {
-            stack.push(ClosedParenToken on traverser.row)
+            list.offer(ClosedParenToken on traverser.row)
             TimesToken to traverser.pop()
         } else ClosedParenToken to next
     }
@@ -102,10 +102,10 @@ fun handleToken(traverser: StringTraverser, char: Char, stack: TokenStack): Pair
     ']' -> ClosedSquareBracketToken to traverser.pop()
     '{' -> OpenCurlyBracketToken to traverser.pop()
     '}' -> ClosedCurlyBracketToken to traverser.pop()
-    else -> handleMisc(traverser, char, stack, traverser.row)
+    else -> handleMisc(traverser, char, list, traverser.row)
 }
 
-private fun handleMisc(traverser: StringTraverser, char: Char, stack: TokenStack, row: Int): Pair<IToken, Char?> {
+private fun handleMisc(traverser: StringTraverser, char: Char, list: TokenList, row: Int): Pair<IToken, Char?> {
     val symbolRes = handleSymbol(traverser, char)
     val second = symbolRes.second
     return if (symbolRes.first is NotToken && second != null && second.isLetter() && second.isLowerCase()) {
@@ -114,7 +114,7 @@ private fun handleMisc(traverser: StringTraverser, char: Char, stack: TokenStack
             is IsToken -> IsNotToken to identifierRes.second
             is InToken -> NotInToken to identifierRes.second
             else -> {
-                stack.push(symbolRes.first on row)
+                list.offer(symbolRes.first on row)
                 identifierRes
             }
         }

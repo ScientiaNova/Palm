@@ -280,8 +280,8 @@ data class StringPart(val string: String) : StringTokenPart() {
     constructor(builder: StringBuilder) : this(builder.toString())
 }
 
-data class TokensPart(val tokens: TokenStack) : StringTokenPart() {
-    constructor(token: PositionedToken) : this(TokenStack().apply { push(token) })
+data class TokensPart(val tokens: TokenList) : StringTokenPart() {
+    constructor(token: PositionedToken) : this(TokenList().apply { offer(token) })
 }
 
 data class CharToken(val char: Char) : IToken

@@ -1,6 +1,7 @@
 package com.scientianova.palm.tokenizer
 
 import com.scientianova.palm.util.on
+import java.util.*
 
 fun handleSingleLineString(
     traverser: StringTraverser,
@@ -20,7 +21,7 @@ fun handleSingleLineString(
                 handleSingleLineString(traverser, newNext, parts + StringPart(builder) + TokensPart(identifier on row))
             }
             next == '{' -> {
-                val stack = TokenStack()
+                val stack = LinkedList<PositionedToken>()
                 handleInterpolation(traverser, traverser.pop(), stack)
                 handleSingleLineString(traverser, traverser.pop(), parts + StringPart(builder) + TokensPart(stack))
             }
@@ -56,7 +57,7 @@ fun handleMultiLineString(
                 handleMultiLineString(traverser, newNext, parts + StringPart(builder) + TokensPart(identifier on row))
             }
             next == '{' -> {
-                val stack = TokenStack()
+                val stack = TokenList()
                 handleInterpolation(traverser, traverser.pop(), stack)
                 handleMultiLineString(traverser, traverser.pop(), parts + StringPart(builder) + TokensPart(stack))
             }
@@ -66,40 +67,40 @@ fun handleMultiLineString(
     else -> handleMultiLineString(traverser, traverser.pop(), parts, builder.append(char))
 }
 
-fun handleInterpolation(traverser: StringTraverser, char: Char?, stack: TokenStack): Unit = when {
+fun handleInterpolation(traverser: StringTraverser, char: Char?, list: TokenList): Unit = when {
     char == null -> error("Open interpolated expression")
     char == '}' -> Unit
-    char.isWhitespace() -> handleInterpolation(traverser, traverser.pop(), stack)
+    char.isWhitespace() -> handleInterpolation(traverser, traverser.pop(), list)
     char.isJavaIdentifierStart() -> {
         val row = traverser.row
         val (identifier, next) = handleIdentifier(traverser, char)
-        stack.push(identifier on row)
-        handleInterpolation(traverser, next, stack)
+        list.offer(identifier on row)
+        handleInterpolation(traverser, next, list)
     }
-    char == '#' -> handleInterpolation(traverser, handleSingleLineComment(traverser, traverser.pop()), stack)
+    char == '#' -> handleInterpolation(traverser, handleSingleLineComment(traverser, traverser.pop()), list)
     char == '{' -> if (traverser.peek() == '-') {
         traverser.pop()
         val next = handleMultiLineComment(traverser, traverser.pop())
-        handleInterpolation(traverser, next, stack)
+        handleInterpolation(traverser, next, list)
     } else {
-        stack.push(OpenCurlyBracketToken on traverser.row)
-        handleInterpolation(traverser, traverser.pop(), stack)
-        stack.push(ClosedCurlyBracketToken on traverser.row)
-        handleInterpolation(traverser, traverser.pop(), stack)
+        list.offer(OpenCurlyBracketToken on traverser.row)
+        handleInterpolation(traverser, traverser.pop(), list)
+        list.offer(ClosedCurlyBracketToken on traverser.row)
+        handleInterpolation(traverser, traverser.pop(), list)
     }
     char == '-' -> if (traverser.peek() == '-') {
         traverser.pop()
-        handleInterpolation(traverser, handleSingleLineComment(traverser, traverser.pop()), stack)
+        handleInterpolation(traverser, handleSingleLineComment(traverser, traverser.pop()), list)
     } else {
         val row = traverser.row
         val (symbol, next) = handleSymbol(traverser, char)
-        stack.push(symbol on row)
-        handleInterpolation(traverser, next, stack)
+        list.offer(symbol on row)
+        handleInterpolation(traverser, next, list)
     }
     else -> {
         val row = traverser.row
-        val (token, next) = handleToken(traverser, char, stack)
-        stack.push(token on row..traverser.lastRow)
-        handleInterpolation(traverser, next, stack)
+        val (token, next) = handleToken(traverser, char, list)
+        list.offer(token on row..traverser.lastRow)
+        handleInterpolation(traverser, next, list)
     }
 }

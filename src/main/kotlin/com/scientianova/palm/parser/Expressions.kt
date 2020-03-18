@@ -9,7 +9,6 @@ import com.scientianova.palm.tokenizer.*
 import com.scientianova.palm.util.Positioned
 import com.scientianova.palm.util.on
 import com.scientianova.palm.util.pushing
-import com.scientianova.palm.util.safePop
 import java.util.*
 
 interface IOperationPart
@@ -227,12 +226,12 @@ data class WhenSwitch(
 }
 
 
-fun handleExpression(stack: TokenStack, token: PositionedToken?): Pair<PositionedExpression, PositionedToken?> {
-    val (first, op) = handleExpressionPart(stack, token)
+fun handleExpression(list: TokenList, token: PositionedToken?): Pair<PositionedExpression, PositionedToken?> {
+    val (first, op) = handleExpressionPart(list, token)
     val expr: PositionedExpression
     val next: PositionedToken?
     if (op != null && op.value is OperatorToken && (op.value !is IUnaryOperatorToken || op.rows.last == first.rows.first)) {
-        val res = handleBinOps(stack, op.value, first.rows.first, Stack<IOperationPart>().pushing(first.value))
+        val res = handleBinOps(list, op.value, first.rows.first, Stack<IOperationPart>().pushing(first.value))
         expr = res.first
         next = res.second
     } else {
@@ -240,14 +239,14 @@ fun handleExpression(stack: TokenStack, token: PositionedToken?): Pair<Positione
         next = op
     }
     return if (next?.value is WhereToken) {
-        if (stack.safePop()?.value is OpenCurlyBracketToken)
-            handleWhere(stack, stack.safePop(), expr.value, expr.rows.first)
+        if (list.poll()?.value is OpenCurlyBracketToken)
+            handleWhere(list, list.poll(), expr.value, expr.rows.first)
         else error("Missing open curly bracket after where")
     } else expr to next
 }
 
 fun handleBinOps(
-    stack: TokenStack,
+    list: TokenList,
     op: OperatorToken,
     startRow: Int,
     operandStack: Stack<IOperationPart>,
@@ -255,11 +254,11 @@ fun handleBinOps(
 ): Pair<PositionedExpression, PositionedToken?> =
     if (operatorStack.isEmpty() || op.precedence > operatorStack.peek().precedence) {
         if (op == TernaryOperatorToken)
-            handleTernary(stack, stack.safePop(), operandStack.pop() as IExpression, startRow)
+            handleTernary(list, list.poll(), operandStack.pop() as IExpression, startRow)
         else {
             val (operand, next) =
-                if (op is TypeOperatorToken) handleType(stack, stack.safePop())
-                else handleExpressionPart(stack, stack.safePop())
+                if (op is TypeOperatorToken) handleType(list, list.poll())
+                else handleExpressionPart(list, list.poll())
             operatorStack.push(op)
             operandStack.push(operand.value)
             if (next != null && next.value is OperatorToken && (next.value !is IUnaryOperatorToken || next.rows.last == operand.rows.first)) {
@@ -267,13 +266,13 @@ fun handleBinOps(
                     operatorStack.push(AndToken)
                     operandStack.push(operand.value)
                 }
-                handleBinOps(stack, next.value, startRow, operandStack, operatorStack)
+                handleBinOps(list, next.value, startRow, operandStack, operatorStack)
             } else emptyStacks(next, startRow..operand.rows.last, operandStack, operatorStack)
         }
     } else {
         val second = operandStack.pop()
         handleBinOps(
-            stack, op, startRow, operandStack.pushing(operatorStack.pop().handleExpression(operandStack.pop(), second)),
+            list, op, startRow, operandStack.pushing(operatorStack.pop().handleExpression(operandStack.pop(), second)),
             operatorStack
         )
     }
@@ -292,167 +291,167 @@ fun emptyStacks(
         )
     }
 
-fun handleExpressionPart(stack: TokenStack, token: PositionedToken?): Pair<PositionedExpression, PositionedToken?> {
+fun handleExpressionPart(list: TokenList, token: PositionedToken?): Pair<PositionedExpression, PositionedToken?> {
     val (expr, afterExpr) = if (token == null) error("Missing expression part") else when (token.value) {
-        is NumberToken -> Num(token.value.number) on token to stack.safePop()
-        is CharToken -> Chr(token.value.char) on token to stack.safePop()
-        is BoolToken -> Bool(token.value.bool) on token to stack.safePop()
-        is NullToken -> Null on token to stack.safePop()
+        is NumberToken -> Num(token.value.number) on token to list.poll()
+        is CharToken -> Chr(token.value.char) on token to list.poll()
+        is BoolToken -> Bool(token.value.bool) on token to list.poll()
+        is NullToken -> Null on token to list.poll()
         is IdentifierToken ->
-            handleIdentifierSequence(stack, stack.safePop(), token.rows.first, listOf(token.value.name))
+            handleIdentifierSequence(list, list.poll(), token.rows.first, listOf(token.value.name))
         is OpenCurlyBracketToken ->
-            handleObject(stack, stack.safePop(), token.rows.first)
+            handleObject(list, list.poll(), token.rows.first)
         is OpenParenToken -> {
-            val (expr, closedParen) = handleExpression(stack, stack.safePop())
-            if (closedParen?.value is ClosedParenToken) expr to stack.safePop() else error("Unclosed parenthesis")
+            val (expr, closedParen) = handleExpression(list, list.poll())
+            if (closedParen?.value is ClosedParenToken) expr to list.poll() else error("Unclosed parenthesis")
         }
         is OpenSquareBracketToken -> {
-            val first = stack.safePop()
+            val first = list.poll()
             if (first?.value is ClosedSquareBracketToken)
-                Lis() on token.rows.first..first.rows.last to stack.safePop()
+                Lis() on token.rows.first..first.rows.last to list.poll()
             else {
-                val (expr, next) = handleExpression(stack, first)
+                val (expr, next) = handleExpression(list, first)
                 when (next?.value) {
                     is CommaToken ->
-                        handleSecondInList(stack, stack.safePop(), token.rows.first, expr.value)
+                        handleSecondInList(list, list.poll(), token.rows.first, expr.value)
                     is SemicolonToken ->
-                        handleList(stack, stack.safePop(), token.rows.first, emptyList(), listOf(Lis(expr.value)))
+                        handleList(list, list.poll(), token.rows.first, emptyList(), listOf(Lis(expr.value)))
                     is ColonToken -> {
-                        val (value, newNext) = handleExpression(stack, stack.safePop())
+                        val (value, newNext) = handleExpression(list, list.poll())
                         if (newNext?.value is CommaToken)
-                            handleDict(stack, stack.safePop(), token.rows.first, mapOf(expr.value to value.value))
-                        else handleDict(stack, newNext, token.rows.first, mapOf(expr.value to value.value))
+                            handleDict(list, list.poll(), token.rows.first, mapOf(expr.value to value.value))
+                        else handleDict(list, newNext, token.rows.first, mapOf(expr.value to value.value))
                     }
                     is DoubleDotToken -> {
-                        val (last, closedBracket) = handleExpression(stack, stack.safePop())
+                        val (last, closedBracket) = handleExpression(list, list.poll())
                         if (closedBracket?.value is ClosedSquareBracketToken)
                             MultiOp(ToRange, expr.value, listOf(last.value)) on
-                                    token.rows.first..closedBracket.rows.last to stack.safePop()
+                                    token.rows.first..closedBracket.rows.last to list.poll()
                         else error("Unclosed square bracket")
                     }
-                    is ForToken -> handleComprehension(stack, stack.safePop(), expr.value, token.rows.first)
-                    else -> handleSecondInList(stack, next, token.rows.first, expr.value)
+                    is ForToken -> handleComprehension(list, list.poll(), expr.value, token.rows.first)
+                    else -> handleSecondInList(list, next, token.rows.first, expr.value)
                 }
             }
         }
-        is PureStringToken -> Str(listOf(StrStringPart(token.value.name))) on token to stack.safePop()
+        is PureStringToken -> Str(listOf(StrStringPart(token.value.name))) on token to list.poll()
         is StringTemplateToken -> Str(token.value.parts.map {
             when (it) {
                 is StringPart -> StrStringPart(it.string)
                 is TokensPart -> {
-                    val (expr, nullToken) = handleExpression(it.tokens, it.tokens.safePop())
+                    val (expr, nullToken) = handleExpression(it.tokens, it.tokens.poll())
                     if (nullToken != null) error("Invalid interpolated expression")
                     StrExpressionPart(expr.value)
                 }
             }
-        }) on token to stack.safePop()
+        }) on token to list.poll()
         is NotToken -> {
-            val (expr, next) = handleExpressionPart(stack, stack.safePop())
+            val (expr, next) = handleExpressionPart(list, list.poll())
             UnaryOp(Not, expr.value) on token.rows.first..expr.rows.last to next
         }
         is MinusToken -> {
-            val (expr, next) = handleExpressionPart(stack, stack.safePop())
+            val (expr, next) = handleExpressionPart(list, list.poll())
             UnaryOp(UnaryMinus, expr.value) on token.rows.first..expr.rows.last to next
         }
         is PlusToken -> {
-            val (expr, next) = handleExpressionPart(stack, stack.safePop())
+            val (expr, next) = handleExpressionPart(list, list.poll())
             UnaryOp(UnaryPlus, expr.value) on token.rows.first..expr.rows.last to next
         }
         is InvertToken -> {
-            val (expr, next) = handleExpressionPart(stack, stack.safePop())
+            val (expr, next) = handleExpressionPart(list, list.poll())
             UnaryOp(Inv, expr.value) on token.rows.first..expr.rows.last to next
         }
-        is IfToken -> handleIf(stack, stack.safePop(), token.rows.first)
+        is IfToken -> handleIf(list, list.poll(), token.rows.first)
         is WhenToken -> {
-            val afterWhen = stack.safePop()
-            if (afterWhen?.value is OpenCurlyBracketToken) handleWhen(stack, stack.safePop(), token.rows.first)
+            val afterWhen = list.poll()
+            if (afterWhen?.value is OpenCurlyBracketToken) handleWhen(list, list.poll(), token.rows.first)
             else {
-                val (expr, bracket) = handleExpression(stack, stack.safePop())
+                val (expr, bracket) = handleExpression(list, list.poll())
                 if (bracket?.value is OpenCurlyBracketToken)
-                    handleWhenSwitch(stack, stack.safePop(), token.rows.first, expr.value)
+                    handleWhenSwitch(list, list.poll(), token.rows.first, expr.value)
                 else error("Missing curly bracket after when")
             }
         }
         else -> error("Invalid expression part")
     }
-    return handlePostfixOperations(stack, afterExpr, expr)
+    return handlePostfixOperations(list, afterExpr, expr)
 }
 
 fun handlePostfixOperations(
-    stack: TokenStack,
+    list: TokenList,
     token: PositionedToken?,
     expr: PositionedExpression
 ): Pair<PositionedExpression, PositionedToken?> = when (token?.value) {
     is DotToken -> {
-        val name = stack.safePop()
+        val name = list.poll()
         if (name == null || name.value !is IdentifierToken) error("Invalid field name")
         handlePostfixOperations(
-            stack, stack.safePop(), ValAccess(expr.value, name.value.name) on expr.rows.first..name.rows.last
+            list, list.poll(), ValAccess(expr.value, name.value.name) on expr.rows.first..name.rows.last
         )
     }
     is SafeAccessToken -> {
-        val name = stack.safePop()
+        val name = list.poll()
         if (name == null || name.value !is IdentifierToken) error("Invalid field name")
         handlePostfixOperations(
-            stack, stack.safePop(), SafeValAccess(expr.value, name.value.name) on expr.rows.first..name.rows.last
+            list, list.poll(), SafeValAccess(expr.value, name.value.name) on expr.rows.first..name.rows.last
         )
     }
     is OpenSquareBracketToken -> {
-        val (getter, next) = handleGetter(stack, stack.safePop(), expr.value, expr.rows.first)
-        handlePostfixOperations(stack, next, getter)
+        val (getter, next) = handleGetter(list, list.poll(), expr.value, expr.rows.first)
+        handlePostfixOperations(list, next, getter)
     }
     else -> expr to token
 }
 
 fun handleIdentifierSequence(
-    stack: TokenStack,
+    queue: TokenList,
     token: PositionedToken?,
     starRow: Int,
     list: List<String>
 ): Pair<PositionedExpression, PositionedToken?> = when (token?.value) {
     is DotToken -> {
-        val top = stack.safePop()?.value as? IdentifierToken ?: error("Invalid field name")
-        handleIdentifierSequence(stack, stack.safePop(), starRow, list + top.name)
+        val top = queue.poll()?.value as? IdentifierToken ?: error("Invalid field name")
+        handleIdentifierSequence(queue, queue.poll(), starRow, list + top.name)
     }
     is OpenCurlyBracketToken ->
         handleTypedObject(
-            stack, stack.safePop(), starRow, TypeName(list.dropLast(1).joinToString(".") { it }, list.last())
+            queue, queue.poll(), starRow, TypeName(list.dropLast(1).joinToString(".") { it }, list.last())
         )
     else -> list.drop(1).fold(Constant(list.first()) as IExpression) { acc, s -> ValAccess(acc, s) } on
             starRow to token
 }
 
 fun handleSecondInList(
-    stack: TokenStack,
+    list: TokenList,
     token: PositionedToken?,
     startRow: Int,
     first: IExpression
 ): Pair<PositionedExpression, PositionedToken?> = when {
     token == null -> error("Unclosed square bracket")
-    token.value is ClosedSquareBracketToken -> Lis(first) on startRow..token.rows.last to stack.safePop()
+    token.value is ClosedSquareBracketToken -> Lis(first) on startRow..token.rows.last to list.poll()
     else -> {
-        val (expr, next) = handleExpression(stack, token)
+        val (expr, next) = handleExpression(list, token)
         when (next?.value) {
             is ClosedSquareBracketToken ->
-                Lis(listOf(first, expr.value)) on startRow..token.rows.last to stack.safePop()
+                Lis(listOf(first, expr.value)) on startRow..token.rows.last to list.poll()
             is CommaToken ->
-                handleList(stack, stack.safePop(), startRow, listOf(first, expr.value))
+                handleList(list, list.poll(), startRow, listOf(first, expr.value))
             is SemicolonToken ->
-                handleList(stack, stack.safePop(), startRow, emptyList(), listOf(Lis(listOf(first, expr.value))))
+                handleList(list, list.poll(), startRow, emptyList(), listOf(Lis(listOf(first, expr.value))))
             is DoubleDotToken -> {
-                val (last, closedBracket) = handleExpression(stack, stack.safePop())
+                val (last, closedBracket) = handleExpression(list, list.poll())
                 if (closedBracket?.value is ClosedSquareBracketToken)
                     MultiOp(ToRange, first, listOf(expr.value, last.value)) on startRow..closedBracket.rows.last to
-                            stack.safePop()
+                            list.poll()
                 else error("Unclosed square bracket")
             }
-            else -> handleList(stack, next, startRow, listOf(first, expr.value))
+            else -> handleList(list, next, startRow, listOf(first, expr.value))
         }
     }
 }
 
 fun handleList(
-    stack: TokenStack,
+    list: TokenList,
     token: PositionedToken?,
     startRow: Int,
     values: List<IExpression>,
@@ -460,46 +459,46 @@ fun handleList(
 ): Pair<Positioned<Lis>, PositionedToken?> = when {
     token == null -> error("Unclosed square bracket")
     token.value is ClosedSquareBracketToken ->
-        (if (lists.isEmpty()) Lis(values) else Lis(lists + Lis(values))) on startRow..token.rows.last to stack.safePop()
+        (if (lists.isEmpty()) Lis(values) else Lis(lists + Lis(values))) on startRow..token.rows.last to list.poll()
     else -> {
-        val (expr, next) = handleExpression(stack, token)
+        val (expr, next) = handleExpression(list, token)
         when (next?.value) {
             is ClosedSquareBracketToken ->
                 (if (lists.isEmpty()) Lis(values + expr.value) else Lis(lists + Lis(values + expr.value))) on
-                        startRow..token.rows.last to stack.safePop()
+                        startRow..token.rows.last to list.poll()
             is CommaToken ->
-                handleList(stack, stack.safePop(), startRow, values + expr.value, lists)
+                handleList(list, list.poll(), startRow, values + expr.value, lists)
             is SemicolonToken ->
-                handleList(stack, stack.safePop(), startRow, emptyList(), lists + Lis(values + expr.value))
-            else -> handleList(stack, next, startRow, values + expr.value, lists)
+                handleList(list, list.poll(), startRow, emptyList(), lists + Lis(values + expr.value))
+            else -> handleList(list, next, startRow, values + expr.value, lists)
         }
     }
 }
 
 fun handleDict(
-    stack: TokenStack,
+    list: TokenList,
     token: PositionedToken?,
     startRow: Int,
     values: Map<IExpression, IExpression>
 ): Pair<Positioned<Dict>, PositionedToken?> = when {
     token == null -> error("Unclosed square bracket")
-    token.value is ClosedSquareBracketToken -> Dict(values) on startRow..token.rows.last to stack.safePop()
+    token.value is ClosedSquareBracketToken -> Dict(values) on startRow..token.rows.last to list.poll()
     else -> {
-        val (key, colon) = handleExpression(stack, token)
+        val (key, colon) = handleExpression(list, token)
         if (colon?.value !is ColonToken) error("Missing colon in dict")
-        val (value, next) = handleExpression(stack, stack.safePop())
+        val (value, next) = handleExpression(list, list.poll())
         when (next?.value) {
             is ClosedSquareBracketToken ->
-                Dict(values + (key.value to value.value)) on startRow..token.rows.last to stack.safePop()
+                Dict(values + (key.value to value.value)) on startRow..token.rows.last to list.poll()
             is CommaToken ->
-                handleDict(stack, stack.safePop(), startRow, values + (key.value to value.value))
-            else -> handleDict(stack, colon, startRow, values + (key.value to value.value))
+                handleDict(list, list.poll(), startRow, values + (key.value to value.value))
+            else -> handleDict(list, colon, startRow, values + (key.value to value.value))
         }
     }
 }
 
 fun handleComprehension(
-    stack: TokenStack,
+    list: TokenList,
     token: PositionedToken?,
     expr: IExpression,
     startRow: Int
@@ -507,22 +506,22 @@ fun handleComprehension(
     if (token == null || token.value !is IdentifierToken)
         error("Invalid variable name in list comprehension")
     val name = token.value.name
-    if (stack.safePop()?.value !is InToken) error("Missing `in` in list comprehension")
-    val (collection, afterCollection) = handleExpression(stack, stack.safePop())
+    if (list.poll()?.value !is InToken) error("Missing `in` in list comprehension")
+    val (collection, afterCollection) = handleExpression(list, list.poll())
     return when (afterCollection?.value) {
         is ClosedSquareBracketToken ->
-            Comprehension(expr, name, collection.value) on startRow..afterCollection.rows.last to stack.safePop()
+            Comprehension(expr, name, collection.value) on startRow..afterCollection.rows.last to list.poll()
         is ForToken -> {
-            val (nested, next) = handleComprehension(stack, stack.safePop(), expr, startRow)
+            val (nested, next) = handleComprehension(list, list.poll(), expr, startRow)
             Comprehension(nested.value, name, collection.value) on startRow..afterCollection.rows.last to next
         }
         is IfToken -> {
-            val (filter, afterFilter) = handleExpression(stack, stack.safePop())
+            val (filter, afterFilter) = handleExpression(list, list.poll())
             when (afterFilter?.value) {
                 is ClosedSquareBracketToken -> Comprehension(expr, name, collection.value, filter.value) on
-                        startRow..afterCollection.rows.last to stack.safePop()
+                        startRow..afterCollection.rows.last to list.poll()
                 is ForToken -> {
-                    val (nested, next) = handleComprehension(stack, stack.safePop(), expr, startRow)
+                    val (nested, next) = handleComprehension(list, list.poll(), expr, startRow)
                     Comprehension(nested.value, name, collection.value, filter.value) on
                             startRow..afterCollection.rows.last to next
                 }
@@ -534,89 +533,89 @@ fun handleComprehension(
 }
 
 fun handleObject(
-    stack: TokenStack,
+    list: TokenList,
     token: PositionedToken?,
     startRow: Int,
     values: Map<String, IExpression> = emptyMap()
 ): Pair<Positioned<Object>, PositionedToken?> = if (token == null) error("Unclosed object") else when (token.value) {
-    is ClosedCurlyBracketToken -> Object(values) on startRow..token.rows.last to stack.safePop()
-    is IKeyToken -> stack.safePop().let { assignToken ->
+    is ClosedCurlyBracketToken -> Object(values) on startRow..token.rows.last to list.poll()
+    is IKeyToken -> list.poll().let { assignToken ->
         val (expr, next) = when (assignToken?.value) {
             is AssignmentToken -> {
-                val exprStart = stack.safePop()
+                val exprStart = list.poll()
                 if (token.value.name == "type" && exprStart != null && exprStart.value is PureStringToken) {
-                    val afterType = stack.safePop()
+                    val afterType = list.poll()
                     return handleTypedObject(
-                        stack, if (afterType?.value is SeparatorToken) stack.safePop() else afterType, startRow,
+                        list, if (afterType?.value is SeparatorToken) list.poll() else afterType, startRow,
                         handleTypeString(exprStart.value.name)
                     )
                 }
-                handleExpression(stack, exprStart)
+                handleExpression(list, exprStart)
             }
-            is OpenCurlyBracketToken -> handleObject(stack, stack.safePop(), assignToken.rows.first)
+            is OpenCurlyBracketToken -> handleObject(list, list.poll(), assignToken.rows.first)
             else -> error("Missing colon or equals sign")
         }
         when (next?.value) {
             is ClosedCurlyBracketToken ->
                 Object(values + (token.value.name to expr.value)) on
-                        startRow..token.rows.last to stack.safePop()
+                        startRow..token.rows.last to list.poll()
             is SeparatorToken ->
-                handleObject(stack, stack.safePop(), startRow, values + (token.value.name to expr.value))
-            else -> handleObject(stack, next, startRow, values + (token.value.name to expr.value))
+                handleObject(list, list.poll(), startRow, values + (token.value.name to expr.value))
+            else -> handleObject(list, next, startRow, values + (token.value.name to expr.value))
         }
     }
     else -> error("Invalid key name")
 }
 
 fun handleTypedObject(
-    stack: TokenStack,
+    list: TokenList,
     token: PositionedToken?,
     startRow: Int,
     type: TypeName,
     values: Map<String, IExpression> = emptyMap()
 ): Pair<Positioned<Object>, PositionedToken?> = if (token == null) error("Unclosed object") else when (token.value) {
-    is ClosedCurlyBracketToken -> Object(values, type) on startRow..token.rows.last to stack.safePop()
-    is IKeyToken -> stack.safePop().let { assignToken ->
+    is ClosedCurlyBracketToken -> Object(values, type) on startRow..token.rows.last to list.poll()
+    is IKeyToken -> list.poll().let { assignToken ->
         val (expr, next) = when (assignToken?.value) {
-            is AssignmentToken -> handleExpression(stack, stack.safePop())
-            is OpenCurlyBracketToken -> handleObject(stack, stack.safePop(), assignToken.rows.first)
+            is AssignmentToken -> handleExpression(list, list.poll())
+            is OpenCurlyBracketToken -> handleObject(list, list.poll(), assignToken.rows.first)
             else -> error("Missing colon or  equals sign")
         }
         when (next?.value) {
             is ClosedCurlyBracketToken ->
                 Object(values + (token.value.name to expr.value), type) on
-                        startRow..token.rows.last to stack.safePop()
+                        startRow..token.rows.last to list.poll()
             is SeparatorToken ->
-                handleTypedObject(stack, stack.safePop(), startRow, type, values + (token.value.name to expr.value))
-            else -> handleTypedObject(stack, next, startRow, type, values + (token.value.name to expr.value))
+                handleTypedObject(list, list.poll(), startRow, type, values + (token.value.name to expr.value))
+            else -> handleTypedObject(list, next, startRow, type, values + (token.value.name to expr.value))
         }
     }
     else -> error("Invalid key name")
 }
 
-fun handleIf(stack: TokenStack, token: PositionedToken?, startRow: Int): Pair<Positioned<If>, PositionedToken?> {
-    val (cond, thenToken) = handleExpression(stack, token)
+fun handleIf(list: TokenList, token: PositionedToken?, startRow: Int): Pair<Positioned<If>, PositionedToken?> {
+    val (cond, thenToken) = handleExpression(list, token)
     if (thenToken?.value !is ThenToken) error("Missing then")
-    val (thenExpr, elseToken) = handleExpression(stack, stack.safePop())
+    val (thenExpr, elseToken) = handleExpression(list, list.poll())
     if (elseToken?.value !is ElseToken) error("Missing else")
-    val (elseExpr, next) = handleExpression(stack, stack.safePop())
+    val (elseExpr, next) = handleExpression(list, list.poll())
     return If(cond.value, thenExpr.value, elseExpr.value) on startRow..elseExpr.rows.last to next
 }
 
 fun handleTernary(
-    stack: TokenStack,
+    list: TokenList,
     token: PositionedToken?,
     condExpr: IExpression,
     startRow: Int
 ): Pair<Positioned<If>, PositionedToken?> {
-    val (thenExpr, colon) = handleExpression(stack, token)
+    val (thenExpr, colon) = handleExpression(list, token)
     if (colon?.value !is ColonToken) error("Missing colon in ternary operation")
-    val (elseExpr, next) = handleExpression(stack, stack.safePop())
+    val (elseExpr, next) = handleExpression(list, list.poll())
     return If(condExpr, thenExpr.value, elseExpr.value) on startRow..elseExpr.rows.last to next
 }
 
 fun handleGetter(
-    stack: TokenStack,
+    list: TokenList,
     token: PositionedToken?,
     expr: IExpression,
     startRow: Int,
@@ -624,118 +623,118 @@ fun handleGetter(
 ): Pair<PositionedExpression, PositionedToken?> = when {
     token == null -> error("Unclosed square bracket")
     token.value is ClosedSquareBracketToken ->
-        MultiOp(Get, expr, params) on startRow..token.rows.last to stack.safePop()
+        MultiOp(Get, expr, params) on startRow..token.rows.last to list.poll()
     else -> {
-        val (currentExpr, next) = handleExpression(stack, token)
+        val (currentExpr, next) = handleExpression(list, token)
         when (next?.value) {
             is ClosedSquareBracketToken ->
-                MultiOp(Get, expr, params + currentExpr.value) on startRow..next.rows.last to stack.safePop()
+                MultiOp(Get, expr, params + currentExpr.value) on startRow..next.rows.last to list.poll()
             is CommaToken ->
-                handleGetter(stack, stack.safePop(), expr, startRow, params + currentExpr.value)
-            else -> handleGetter(stack, next, expr, startRow, params + currentExpr.value)
+                handleGetter(list, list.poll(), expr, startRow, params + currentExpr.value)
+            else -> handleGetter(list, next, expr, startRow, params + currentExpr.value)
         }
     }
 }
 
 fun handleWhere(
-    stack: TokenStack,
+    list: TokenList,
     token: PositionedToken?,
     expression: IExpression,
     startRow: Int,
     values: List<Pair<String, IExpression>> = emptyList()
 ): Pair<Positioned<Where>, PositionedToken?> = if (token == null) error("Unclosed where") else when (token.value) {
-    is ClosedCurlyBracketToken -> Where(expression, values) on startRow..token.rows.last to stack.safePop()
-    is IKeyToken -> stack.safePop().let { assignToken ->
+    is ClosedCurlyBracketToken -> Where(expression, values) on startRow..token.rows.last to list.poll()
+    is IKeyToken -> list.poll().let { assignToken ->
         val (expr, next) = when (assignToken?.value) {
-            is AssignmentToken -> handleExpression(stack, stack.safePop())
-            is OpenCurlyBracketToken -> handleObject(stack, stack.safePop(), assignToken.rows.first)
+            is AssignmentToken -> handleExpression(list, list.poll())
+            is OpenCurlyBracketToken -> handleObject(list, list.poll(), assignToken.rows.first)
             else -> error("Missing equals sign")
         }
         when (next?.value) {
             is ClosedCurlyBracketToken ->
                 Where(expression, values + (token.value.name to expr.value)) on
-                        startRow..token.rows.last to stack.safePop()
+                        startRow..token.rows.last to list.poll()
             is SeparatorToken ->
-                handleWhere(stack, stack.safePop(), expression, startRow, values + (token.value.name to expr.value))
-            else -> handleWhere(stack, next, expression, startRow, values + (token.value.name to expr.value))
+                handleWhere(list, list.poll(), expression, startRow, values + (token.value.name to expr.value))
+            else -> handleWhere(list, next, expression, startRow, values + (token.value.name to expr.value))
         }
     }
     else -> error("Invalid key name")
 }
 
 fun handleWhen(
-    stack: TokenStack,
+    list: TokenList,
     token: PositionedToken?,
     startRow: Int,
     branches: List<Pair<IExpression, IExpression>> = emptyList(),
     elseExpr: IExpression? = null
 ): Pair<Positioned<When>, PositionedToken?> = when (token?.value) {
-    is ClosedCurlyBracketToken -> When(branches, elseExpr) on startRow..token.rows.last to stack.safePop()
+    is ClosedCurlyBracketToken -> When(branches, elseExpr) on startRow..token.rows.last to list.poll()
     is ElseToken -> {
-        if (stack.safePop()?.value !is ArrowToken) error("Missing arrow in when expression")
-        val (expr, next) = handleExpression(stack, stack.safePop())
-        if (elseExpr == null) handleWhen(stack, next, startRow, branches, expr.value)
-        else handleWhen(stack, next, startRow, branches, elseExpr)
+        if (list.poll()?.value !is ArrowToken) error("Missing arrow in when expression")
+        val (expr, next) = handleExpression(list, list.poll())
+        if (elseExpr == null) handleWhen(list, next, startRow, branches, expr.value)
+        else handleWhen(list, next, startRow, branches, elseExpr)
     }
     else -> {
-        val (condition, arrow) = handleExpression(stack, token)
+        val (condition, arrow) = handleExpression(list, token)
         if (arrow?.value !is ArrowToken) error("Missing arrow in when expression")
-        val (expr, next) = handleExpression(stack, stack.safePop())
-        if (elseExpr == null) handleWhen(stack, next, startRow, branches + (condition.value to expr.value))
-        else handleWhen(stack, next, startRow, branches, elseExpr)
+        val (expr, next) = handleExpression(list, list.poll())
+        if (elseExpr == null) handleWhen(list, next, startRow, branches + (condition.value to expr.value))
+        else handleWhen(list, next, startRow, branches, elseExpr)
     }
 }
 
 fun handleWhenSwitch(
-    stack: TokenStack,
+    list: TokenList,
     token: PositionedToken?,
     startRow: Int,
     value: IExpression,
     branches: List<SwitchBranch> = emptyList(),
     elseExpr: IExpression? = null
 ): Pair<PositionedExpression, PositionedToken?> = when (token?.value) {
-    is ClosedCurlyBracketToken -> WhenSwitch(value, branches, elseExpr) on startRow..token.rows.last to stack.safePop()
+    is ClosedCurlyBracketToken -> WhenSwitch(value, branches, elseExpr) on startRow..token.rows.last to list.poll()
     is ElseToken -> {
-        if (stack.safePop()?.value !is ArrowToken) error("Missing arrow in when expression")
-        val (expr, next) = handleExpression(stack, stack.safePop())
-        if (elseExpr == null) handleWhenSwitch(stack, next, startRow, value, branches, expr.value)
-        else handleWhenSwitch(stack, next, startRow, value, branches, elseExpr)
+        if (list.poll()?.value !is ArrowToken) error("Missing arrow in when expression")
+        val (expr, next) = handleExpression(list, list.poll())
+        if (elseExpr == null) handleWhenSwitch(list, next, startRow, value, branches, expr.value)
+        else handleWhenSwitch(list, next, startRow, value, branches, elseExpr)
     }
     else -> {
-        val (branch, next) = handleSwitchBranch(stack, token)
-        if (elseExpr == null) handleWhenSwitch(stack, next, startRow, value, branches, elseExpr)
-        else handleWhenSwitch(stack, next, startRow, value, branches + branch)
+        val (branch, next) = handleSwitchBranch(list, token)
+        if (elseExpr == null) handleWhenSwitch(list, next, startRow, value, branches, elseExpr)
+        else handleWhenSwitch(list, next, startRow, value, branches + branch)
     }
 }
 
 fun handleSwitchBranch(
-    stack: TokenStack,
+    list: TokenList,
     token: PositionedToken?,
     patterns: List<Pattern> = emptyList()
 ): Pair<SwitchBranch, PositionedToken?> {
     if (token == null) error("Unclosed when expression")
     val (pattern, separator) = when (token.value) {
         is TypeOperatorToken -> {
-            val (type, next) = handleType(stack, stack.safePop())
+            val (type, next) = handleType(list, list.poll())
             TypePattern(type.value.clazz, token.value is IsNotToken) to next
         }
         is ContainingOperatorToken -> {
-            val (expr, next) = handleExpression(stack, stack.safePop())
+            val (expr, next) = handleExpression(list, list.poll())
             ContainingPattern(expr.value, token.value is NotInToken) to next
         }
         is ComparisonOperatorToken -> {
-            val (expr, next) = handleExpression(stack, stack.safePop())
+            val (expr, next) = handleExpression(list, list.poll())
             ComparisonPattern(token.value, expr.value) to next
         }
         else -> {
-            val (expr, next) = handleExpression(stack, token)
+            val (expr, next) = handleExpression(list, token)
             ExpressionPattern(expr.value) to next
         }
     }
     return when (separator?.value) {
-        is CommaToken -> handleSwitchBranch(stack, stack.safePop(), patterns + pattern)
+        is CommaToken -> handleSwitchBranch(list, list.poll(), patterns + pattern)
         is ArrowToken -> {
-            val (res, next) = handleExpression(stack, stack.safePop())
+            val (res, next) = handleExpression(list, list.poll())
             patterns + pattern to res.value to next
         }
         else -> error("Missing arrow in when expression")
