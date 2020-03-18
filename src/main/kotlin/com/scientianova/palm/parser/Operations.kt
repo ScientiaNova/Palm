@@ -140,7 +140,7 @@ object Rem : BinaryOperation("%")
 object FloorDiv : BinaryOperation("//")
 object Pow : BinaryOperation("*")
 
-object ToRange : MultiOperation("...")
+object RangeTo : MultiOperation("...")
 object Get : MultiOperation("[]")
 
 enum class ComparisonType {

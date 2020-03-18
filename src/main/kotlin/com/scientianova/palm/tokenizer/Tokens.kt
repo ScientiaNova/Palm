@@ -233,7 +233,7 @@ object NotToken : IUnaryOperatorToken {
     override fun toString() = "NotToken"
 }
 
-private val symbolMap = mapOf(
+val symbolMap = mapOf(
     "=" to IsEqualToToken,
     "." to DotToken,
     "," to CommaToken,
@@ -268,8 +268,6 @@ private val symbolMap = mapOf(
     "!" to NotToken,
     "<=>" to ComparisonToken
 )
-
-fun handleSymbol(symbol: String) = symbolMap[symbol] ?: error("Unsupported symbol $symbol")
 
 sealed class StringToken : IToken
 data class PureStringToken(override val name: String) : StringToken(), IKeyToken

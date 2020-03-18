@@ -8,6 +8,7 @@ import com.scientianova.palm.tokenizer.IdentifierToken
 import com.scientianova.palm.tokenizer.PositionedToken
 import com.scientianova.palm.tokenizer.TokenList
 import com.scientianova.palm.util.Positioned
+import com.scientianova.palm.util.StringPos
 import com.scientianova.palm.util.on
 
 data class PalmType(val clazz: Class<*>) : IOperationPart
@@ -19,24 +20,24 @@ fun handleType(
     token: PositionedToken?
 ): Pair<PositionedType, PositionedToken?> = if (token != null && token.value is IdentifierToken) {
     val next = list.poll()
-    if (next?.value is DotToken) handleType(list, list.poll(), token.rows.first, token.value.name)
+    if (next?.value is DotToken) handleType(list, list.poll(), token.area.start, token.value.name)
     else PalmType(
         TypeRegistry.classFromName(token.value.name) ?: error("Unknown type: ${token.value.name}")
-    ) on token.rows.first..token.rows.last to next
-} else error("Expected capitalized identifier, but instead got ${token.palmType}")
+    ) on token.area.start..token.area.end to next
+} else error("Was expected a type name, but instead got ${token.palmType}")
 
 fun handleType(
     list: TokenList,
     token: PositionedToken?,
-    startRow: Int,
+    startPos: StringPos,
     path: String
 ): Pair<PositionedType, PositionedToken?> = if (token != null && token.value is IdentifierToken) {
     val next = list.poll()
-    if (next?.value is DotToken) handleType(list, list.poll(), startRow, "$path.${token.value.name}")
+    if (next?.value is DotToken) handleType(list, list.poll(), startPos, "$path.${token.value.name}")
     else PalmType(
         TypeRegistry.classFromName(token.value.name, path) ?: error("Unknown type: $path.${token.value.name}")
-    ) on startRow..token.rows.last to next
-} else error("Expected capitalized identifier, but instead got ${token.palmType}")
+    ) on startPos..token.area.end to next
+} else error("Was expected a type name, but instead got ${token.palmType}")
 
 fun handleTypeString(string: String): TypeName {
     val parts = string.replace(':', '.')

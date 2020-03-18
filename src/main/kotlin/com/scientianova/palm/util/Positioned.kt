@@ -1,10 +1,11 @@
 package com.scientianova.palm.util
 
-data class Positioned<out T>(val value: T, val rows: IntRange) {
+data class Positioned<out T>(val value: T, val area: StringArea) {
     override fun toString() = value.toString()
 }
 
 infix fun <T> T.on(other: Positioned<*>) =
-    Positioned(this, other.rows)
-infix fun <T> T.on(row: Int) = Positioned(this, row..row)
-infix fun <T> T.on(rows: IntRange) = Positioned(this, rows)
+    Positioned(this, other.area)
+
+infix fun <T> T.on(area: StringArea) = Positioned(this, area)
+infix fun <T> T.on(pos: StringPos) = Positioned(this, pos..pos)

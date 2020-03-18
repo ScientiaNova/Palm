@@ -53,8 +53,11 @@ open class PalmType(override val name: TypeName, override val clazz: Class<*>) :
 
     override fun toString() = name.toString()
 
-    override fun get(obj: Any?, name: String) =
-        getters[name]?.invokeWithArguments(obj) ?: clazz.superclass?.palm?.get(obj, name)
+    override fun get(obj: Any?, name: String) = when {
+        name in getters -> getters[name]?.invokeWithArguments(obj)
+        clazz.superclass != null -> clazz.superclass.palm.get(obj, name)
+        else -> error("Couldn't find a property called $name for ${obj.palmType}")
+    }
 
     override fun set(property: String, obj: Any?, expr: IExpression, scope: Scope) {
         setters[property]?.let { setter ->
@@ -125,7 +128,7 @@ open class PalmType(override val name: TypeName, override val clazz: Class<*>) :
                         loopUp.findVirtual(clazz, it.name, MethodType.methodType(it.returnType, it.parameterTypes))
                 }
                 registryName == "rangeTo" && it.parameterCount in 1..2 -> {
-                    multiOps[ToRange] =
+                    multiOps[RangeTo] =
                         loopUp.findVirtual(clazz, it.name, MethodType.methodType(it.returnType, it.parameterTypes))
                 }
                 registryName.startsWith("to") && registryName.length > 2 && it.parameterCount == 0 && it.returnType != clazz && it.returnType != Void::class.javaPrimitiveType -> {

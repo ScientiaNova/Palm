@@ -6,6 +6,8 @@ data class Scope(private val values: MutableMap<String, Any?> = mutableMapOf(), 
         values[name] = obj
     }
 
+    operator fun contains(name: String): Boolean = name in values || parent?.contains(name) ?: false
+
     companion object {
         @JvmField
         val GLOBAL = Scope(parent = null)

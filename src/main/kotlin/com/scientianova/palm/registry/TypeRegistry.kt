@@ -165,9 +165,9 @@ object TypeRegistry {
             override fun execute(op: MultiOperation, obj: Any?, rest: List<Any?>): Any {
                 obj as Byte
                 val second = rest.first()
-                return if (op == ToRange && second is Number) when (val third = rest.getOrNull(1)) {
-                    null -> if (second.toInt() > obj) obj..second.toInt() else obj..second.toInt() step -1
-                    is Number -> obj..third.toInt() step second.toInt() - obj
+                return if (op == RangeTo && second is Number) when (val third = rest.getOrNull(1)) {
+                    null -> if (second.toInt() >= obj) obj..second.toInt() else obj downTo second.toInt()
+                    is Number -> IntProgression.fromClosedRange(obj.toInt(), third.toInt(), second.toInt() - obj)
                     else -> super.execute(op, obj, rest)
                 } else super.execute(op, obj, rest)
             }
@@ -251,9 +251,9 @@ object TypeRegistry {
             override fun execute(op: MultiOperation, obj: Any?, rest: List<Any?>): Any {
                 obj as Short
                 val second = rest.first()
-                return if (op == ToRange && second is Number) when (val third = rest.getOrNull(1)) {
-                    null -> if (second.toInt() > obj) obj..second.toInt() else obj..second.toInt() step -1
-                    is Number -> obj..third.toInt() step second.toInt() - obj
+                return if (op == RangeTo && second is Number) when (val third = rest.getOrNull(1)) {
+                    null -> if (second.toInt() >= obj) obj..second.toInt() else obj downTo second.toInt()
+                    is Number -> IntProgression.fromClosedRange(obj.toInt(), third.toInt(), second.toInt() - obj)
                     else -> super.execute(op, obj, rest)
                 } else super.execute(op, obj, rest)
             }
@@ -337,9 +337,9 @@ object TypeRegistry {
             override fun execute(op: MultiOperation, obj: Any?, rest: List<Any?>): Any {
                 obj as Int
                 val second = rest.first()
-                return if (op == ToRange && second is Number) when (val third = rest.getOrNull(1)) {
-                    null -> if (second.toInt() > obj) obj..second.toInt() else obj..second.toInt() step -1
-                    is Number -> obj..third.toInt() step second.toInt() - obj
+                return if (op == RangeTo && second is Number) when (val third = rest.getOrNull(1)) {
+                    null -> if (second.toInt() >= obj) obj..second.toInt() else obj downTo second.toInt()
+                    is Number -> IntProgression.fromClosedRange(obj, third.toInt(), second.toInt() - obj)
                     else -> super.execute(op, obj, rest)
                 } else super.execute(op, obj, rest)
             }
@@ -423,9 +423,9 @@ object TypeRegistry {
             override fun execute(op: MultiOperation, obj: Any?, rest: List<Any?>): Any {
                 obj as Long
                 val second = rest.first()
-                return if (op == ToRange && second is Number) when (val third = rest.getOrNull(1)) {
-                    null -> if (second.toLong() > obj) obj..second.toLong() else obj..second.toLong() step -1
-                    is Number -> obj..third.toLong() step second.toLong() - obj
+                return if (op == RangeTo && second is Number) when (val third = rest.getOrNull(1)) {
+                    null -> if (second.toLong() >= obj) obj..second.toLong() else obj downTo second.toLong()
+                    is Number -> LongProgression.fromClosedRange(obj, third.toLong(), second.toLong() - obj)
                     else -> super.execute(op, obj, rest)
                 } else super.execute(op, obj, rest)
             }
@@ -611,9 +611,9 @@ object TypeRegistry {
             override fun execute(op: MultiOperation, obj: Any?, rest: List<Any?>): Any {
                 obj as Char
                 val second = rest.first()
-                return if (op == ToRange && second is Char) when (val third = rest.getOrNull(1)) {
-                    null -> if (second > obj) obj..second else obj..second step -1
-                    is Char -> obj..third step second - obj
+                return if (op == RangeTo && second is Char) when (val third = rest.getOrNull(1)) {
+                    null -> if (second >= obj) obj..second else obj downTo second
+                    is Char -> CharProgression.fromClosedRange(obj, third, second - obj)
                     else -> super.execute(op, obj, rest)
                 } else super.execute(op, obj, rest)
             }
@@ -743,7 +743,7 @@ object TypeRegistry {
                         loopUp.findStatic(clazz, it.name, MethodType.methodType(it.returnType, it.parameterTypes))
                 }
                 registryName == "rangeTo" && it.parameters.size in 2..3 -> {
-                    type.multiOps[ToRange] =
+                    type.multiOps[RangeTo] =
                         loopUp.findStatic(clazz, it.name, MethodType.methodType(it.returnType, it.parameterTypes))
                 }
                 registryName.startsWith("to") && registryName.length > 2 && it.parameterCount == 1 && it.returnType != extending && it.returnType != Void::class.javaPrimitiveType -> {
@@ -780,7 +780,7 @@ object TypeRegistry {
 }
 
 fun String.toSnakeCase(): String {
-    val traverser = StringTraverser(this)
+    val traverser = StringTraverser(this, "")
     val builder = StringBuilder().append(traverser.pop()?.toLowerCase())
     loop@ while (true) {
         val current = traverser.pop()
