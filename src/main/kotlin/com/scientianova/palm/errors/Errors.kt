@@ -38,6 +38,14 @@ Valid escape characters are:
     """.trimIndent()
 )
 
+val GREEK_QUESTION_MARK_ERROR = PalmError(
+    "GREEK QUESTION MARK",
+    "I found a greek question mark:",
+    """
+Greek question marks (U+037E) look like semicolons (U+003B), but they aren't.
+    """.trimIndent()
+)
+
 val UNCLOSED_INTERPOLATED_EXPRESSION_ERROR = PalmError(
     "UNCLOSED INTERPOLATED EXPRESSION",
     "I couldn't find the end of an interpolated expression:",

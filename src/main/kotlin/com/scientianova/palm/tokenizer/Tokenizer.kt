@@ -1,5 +1,6 @@
 package com.scientianova.palm.tokenizer
 
+import com.scientianova.palm.errors.GREEK_QUESTION_MARK_ERROR
 import com.scientianova.palm.errors.UNKNOWN_SYMBOL_ERROR
 import com.scientianova.palm.util.StringPos
 import com.scientianova.palm.util.on
@@ -86,6 +87,7 @@ fun handleToken(traverser: StringTraverser, char: Char, list: TokenList): Pair<P
     ']' -> ClosedSquareBracketToken on traverser.lastPos to traverser.pop()
     '{' -> OpenCurlyBracketToken on traverser.lastPos to traverser.pop()
     '}' -> ClosedCurlyBracketToken on traverser.lastPos to traverser.pop()
+    ';' -> traverser.error(GREEK_QUESTION_MARK_ERROR, traverser.lastPos)
     else -> handleMisc(traverser, char, list)
 }
 

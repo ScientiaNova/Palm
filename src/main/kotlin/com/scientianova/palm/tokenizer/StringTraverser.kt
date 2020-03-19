@@ -18,9 +18,9 @@ class StringTraverser(private val code: String, private val fileName: String) {
     }
 
     private var shouldUpdate = false
-    private var lastRowLastIndex = -1
+    private var lastRowLastIndex = 1
     private var lastRow = 1
-    private val lastColumn get() = index - lastRowLastIndex
+    private val lastColumn get() = index + 1 - lastRowLastIndex
     val lastPos get() = StringPos(lastRow, lastColumn)
 
     fun error(error: PalmError, area: StringArea): Nothing =

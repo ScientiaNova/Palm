@@ -6,7 +6,7 @@ plugins {
 
 group =  'com.scientianova.palm'
 archivesBaseName = 'Palm'
-version = palm_version
+version = palmVersion
 
 if (System.getenv('BUILD_NUMBER') != null) {
     version += ".${System.getenv('BUILD_NUMBER')}"

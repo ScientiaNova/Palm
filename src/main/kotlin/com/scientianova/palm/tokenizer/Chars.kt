@@ -40,8 +40,11 @@ fun handleUnicode(
     traverser: StringTraverser,
     char: Char?,
     idBuilder: StringBuilder = StringBuilder()
-): Pair<Char, Char?> = if (char in '0'..'9') {
-    idBuilder.append(char)
-    if (idBuilder.length == 4) idBuilder.toString().toInt().toChar() to traverser.pop()
-    else handleUnicode(traverser, traverser.pop(), idBuilder)
-} else idBuilder.toString().toInt().toChar() to char
+): Pair<Char, Char?> = when (char) {
+    in '0'..'9', in 'a'..'f', in 'A'..'F' -> {
+        idBuilder.append(char)
+        if (idBuilder.length == 4) idBuilder.toString().toInt(radix = 16).toChar() to traverser.pop()
+        else handleUnicode(traverser, traverser.pop(), idBuilder)
+    }
+    else -> idBuilder.toString().toInt().toChar() to char
+}
