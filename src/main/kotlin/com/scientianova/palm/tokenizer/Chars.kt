@@ -3,6 +3,7 @@ package com.scientianova.palm.tokenizer
 import com.scientianova.palm.errors.INVALID_ESCAPE_CHARACTER_ERROR
 import com.scientianova.palm.errors.LONE_SINGLE_QUOTE_ERROR
 import com.scientianova.palm.errors.MISSING_SINGLE_QUOTE_ERROR
+import com.scientianova.palm.errors.MISSING_SINGLE_QUOTE_ON_QUOTE_ERROR
 import com.scientianova.palm.util.Positioned
 import com.scientianova.palm.util.StringPos
 import com.scientianova.palm.util.on
@@ -19,7 +20,7 @@ fun handleChar(
         else -> char to traverser.pop()
     }
     return if (end == '\'') CharToken(value) on startPos..traverser.lastPos to traverser.pop()
-    else traverser.error(MISSING_SINGLE_QUOTE_ERROR, traverser.lastPos)
+    else traverser.error(if (value == '\'') MISSING_SINGLE_QUOTE_ON_QUOTE_ERROR else MISSING_SINGLE_QUOTE_ERROR, traverser.lastPos)
 }
 
 fun handleEscaped(traverser: StringTraverser, char: Char?) = when (char) {

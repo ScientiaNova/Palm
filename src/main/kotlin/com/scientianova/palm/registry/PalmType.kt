@@ -37,10 +37,10 @@ open class PalmType(override val name: TypeName, override val clazz: Class<*>) :
     override fun createInstance(obj: Map<String, IExpression>, scope: Scope) = constructor?.let {
         val used = mutableSetOf<String>()
         val constructorScope = Scope(parent = scope)
-        val params = it.args.map { (name, type) ->
-            val value = obj[name] ?: it.defaults[name] ?: error("Missing parameter: $name")
-            used += name
-            value.handleForType(type, constructorScope).also { param -> constructorScope[name] = param }
+        val params = it.params.map { param ->
+            val value = obj[param.name] ?: param.default ?: error("Missing parameter: ${param.name}")
+            used += param.name
+            value.handleForType(param.type, constructorScope).also { result -> constructorScope[param.name] = result }
         }
         val instance = it.handle.invokeWithArguments(params)
         obj.forEach { (name, expr) ->
@@ -101,12 +101,15 @@ open class PalmType(override val name: TypeName, override val clazz: Class<*>) :
             this.constructor = PalmConstructor(
                 loopUp.findConstructor(
                     clazz, MethodType.methodType(Void::class.javaPrimitiveType!!, constructor.parameterTypes)
-                ),
-                annotation.paramNames.zip(constructor.exceptionTypes).toMap(),
-                annotation.paramNames.zip(annotation.defaults) { paramName, string ->
-                    val parser = Parser(tokenize(string), string, "default for $paramName")
-                    paramName to if (parser.pop() == null) null else handleExpression(parser, parser.pop()).first.value
-                }.toMap()
+                ), (0..constructor.parameterCount).map {
+                    val name = annotation.paramNames[it]
+                    PalmParameter(name, constructor.parameterTypes[it], annotation.defaults.getOrNull(it).let { expr ->
+                        if (expr.isNullOrEmpty()) null else {
+                            val parser = Parser(tokenize(expr, "$name default"), expr, "$name default")
+                            handleExpression(parser, parser.pop()).first.value
+                        }
+                    })
+                }
             )
             break
         }
@@ -184,8 +187,6 @@ open class PalmType(override val name: TypeName, override val clazz: Class<*>) :
     val autoCasters = hashMapOf<Class<*>, MethodHandle>()
 }
 
-data class PalmConstructor(
-    val handle: MethodHandle,
-    val args: Map<String, Class<*>> = emptyMap(),
-    val defaults: Map<String, IExpression?> = emptyMap()
-)
+data class PalmConstructor(val handle: MethodHandle, val params: List<PalmParameter> = emptyList())
+
+data class PalmParameter(val name: String, val type: Class<*>, val default: IExpression?)

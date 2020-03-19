@@ -12,6 +12,16 @@ Note: String literals are created with double quotes and char literals are creat
     """.trimIndent()
 )
 
+val MISSING_SINGLE_QUOTE_ON_QUOTE_ERROR = PalmError(
+    "MISSING SINGLE QUOTE",
+    "I was expecting a single quote to closed the char literal",
+    """
+Add a single quote here.
+
+Note: Backslashes are used for escape characters. If you want to get the backslash character you need to use \\.
+    """.trimIndent()
+)
+
 val LONE_SINGLE_QUOTE_ERROR = PalmError(
     "LONE SINGLE QUOTE",
     "I found a single quote by itself at the end of a line",
