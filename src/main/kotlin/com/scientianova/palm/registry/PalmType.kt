@@ -5,7 +5,6 @@ import com.scientianova.palm.evaluator.instanceOf
 import com.scientianova.palm.evaluator.palm
 import com.scientianova.palm.evaluator.palmType
 import com.scientianova.palm.parser.*
-import com.scientianova.palm.tokenizer.tokenize
 import com.scientianova.palm.util.HashMultiMap
 import java.lang.invoke.MethodHandle
 import java.lang.invoke.MethodHandles
@@ -37,10 +36,10 @@ open class PalmType(override val name: TypeName, override val clazz: Class<*>) :
     override fun createInstance(obj: Map<String, IExpression>, scope: Scope) = constructor?.let {
         val used = mutableSetOf<String>()
         val constructorScope = Scope(parent = scope)
-        val params = it.params.map { param ->
+        val params = it.params.zip(it.handle.type().parameterList()).map { (param, type) ->
             val value = obj[param.name] ?: param.default ?: error("Missing parameter: ${param.name}")
             used += param.name
-            value.handleForType(param.type, constructorScope).also { result -> constructorScope[param.name] = result }
+            value.handleForType(type, constructorScope).also { result -> constructorScope[param.name] = result }
         }
         val instance = it.handle.invokeWithArguments(params)
         obj.forEach { (name, expr) ->
@@ -97,19 +96,11 @@ open class PalmType(override val name: TypeName, override val clazz: Class<*>) :
         val loopUp = MethodHandles.publicLookup()
         for (constructor in clazz.declaredConstructors) {
             val annotation = constructor.getAnnotation(Palm.Constructor::class.java) ?: continue
-            if (annotation.paramNames.size != constructor.parameterCount) continue
+            if (annotation.params.size != constructor.parameterCount) continue
             this.constructor = PalmConstructor(
                 loopUp.findConstructor(
                     clazz, MethodType.methodType(Void::class.javaPrimitiveType!!, constructor.parameterTypes)
-                ), (0..constructor.parameterCount).map {
-                    val name = annotation.paramNames[it]
-                    PalmParameter(name, constructor.parameterTypes[it], annotation.defaults.getOrNull(it).let { expr ->
-                        if (expr.isNullOrEmpty()) null else {
-                            val parser = Parser(tokenize(expr, "$name default"), expr, "$name default")
-                            handleExpression(parser, parser.pop()).first.value
-                        }
-                    })
-                }
+                ), annotation.params.map(PalmParameter.Companion::fromString)
             )
             break
         }
@@ -189,4 +180,12 @@ open class PalmType(override val name: TypeName, override val clazz: Class<*>) :
 
 data class PalmConstructor(val handle: MethodHandle, val params: List<PalmParameter> = emptyList())
 
-data class PalmParameter(val name: String, val type: Class<*>, val default: IExpression?)
+data class PalmParameter(val name: String, val default: IExpression? = null) {
+    companion object {
+        fun fromString(string: String): PalmParameter {
+            val parts = string.split('=', limit = 2)
+            val name = parts.first().dropLastWhile { it.isWhitespace() }
+            return PalmParameter(name, parts.lastOrNull()?.parseExpression("default for $name"))
+        }
+    }
+}

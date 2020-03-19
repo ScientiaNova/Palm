@@ -30,6 +30,14 @@ Was this by mistake? Maybe you want to get the new line character? If it's the l
     """.trimIndent()
 )
 
+val MALFORMED_TAB_ERROR = PalmError(
+    "MALFORMED TAB",
+    "I found a lot of spaces in between two single quotes:",
+    """
+This is most likely caused by your IDE automatically converting tabs into spaces. To say safe, use \t instead.
+    """.trimIndent()
+)
+
 val INVALID_ESCAPE_CHARACTER_ERROR = PalmError(
     "INVALID ESCAPE CHARACTER",
     "I saw a backslash, so I was expecting an escape character, but instead got:",

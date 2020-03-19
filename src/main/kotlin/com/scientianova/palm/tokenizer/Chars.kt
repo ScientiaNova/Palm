@@ -1,9 +1,6 @@
 package com.scientianova.palm.tokenizer
 
-import com.scientianova.palm.errors.INVALID_ESCAPE_CHARACTER_ERROR
-import com.scientianova.palm.errors.LONE_SINGLE_QUOTE_ERROR
-import com.scientianova.palm.errors.MISSING_SINGLE_QUOTE_ERROR
-import com.scientianova.palm.errors.MISSING_SINGLE_QUOTE_ON_QUOTE_ERROR
+import com.scientianova.palm.errors.*
 import com.scientianova.palm.util.Positioned
 import com.scientianova.palm.util.StringPos
 import com.scientianova.palm.util.on
@@ -19,8 +16,15 @@ fun handleChar(
             ?: traverser.error(INVALID_ESCAPE_CHARACTER_ERROR, traverser.lastPos)
         else -> char to traverser.pop()
     }
-    return if (end == '\'') CharToken(value) on startPos..traverser.lastPos to traverser.pop()
-    else traverser.error(if (value == '\'') MISSING_SINGLE_QUOTE_ON_QUOTE_ERROR else MISSING_SINGLE_QUOTE_ERROR, traverser.lastPos)
+    return when {
+        end == '\'' -> CharToken(value) on startPos..traverser.lastPos to traverser.pop()
+        char.isWhitespace() && value.isWhitespace() && isMalformedTab(traverser, traverser.pop()) ->
+            traverser.error(MALFORMED_TAB_ERROR, startPos..traverser.lastPos)
+        else -> traverser.error(
+            if (value == '\'') MISSING_SINGLE_QUOTE_ON_QUOTE_ERROR else MISSING_SINGLE_QUOTE_ERROR,
+            traverser.lastPos
+        )
+    }
 }
 
 fun handleEscaped(traverser: StringTraverser, char: Char?) = when (char) {
@@ -48,4 +52,11 @@ fun handleUnicode(
         else handleUnicode(traverser, traverser.pop(), idBuilder)
     }
     else -> idBuilder.toString().toInt().toChar() to char
+}
+
+fun isMalformedTab(traverser: StringTraverser, char: Char?): Boolean = when (char) {
+    null -> false
+    ' ' -> isMalformedTab(traverser, traverser.pop())
+    '\'' -> true
+    else -> false
 }
