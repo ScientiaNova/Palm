@@ -9,7 +9,7 @@ archivesBaseName = 'Palm'
 version = palm_version
 
 if (System.getenv('BUILD_NUMBER') != null) {
-    version = "${version}-j"+ System.getenv('BUILD_NUMBER')
+    version += ".${System.getenv('BUILD_NUMBER')}"
 }
 
 sourceCompatibility = 1.8
