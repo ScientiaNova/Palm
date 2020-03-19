@@ -1,5 +1,7 @@
 package com.scientianova.palm.parser
 
+import com.scientianova.palm.errors.INVALID_KEY_NAME_ERROR
+import com.scientianova.palm.errors.MISSING_COLON_OR_EQUALS_IN_OBJECT_ERROR
 import com.scientianova.palm.errors.PalmCompilationException
 import com.scientianova.palm.errors.PalmError
 import com.scientianova.palm.tokenizer.*
@@ -23,6 +25,8 @@ class Parser(private val tokens: TokenList, private val code: String, private va
         StringPos(it.size.coerceAtLeast(1), it.lastOrNull()?.run { length + 1 } ?: 1)
     }
 
+    val lastArea get() = lastPos..lastPos
+
     fun handle(list: TokenList) = Parser(list, code, fileName)
 
     fun error(error: PalmError, area: StringArea): Nothing =
@@ -41,7 +45,7 @@ fun handleFreeObject(
         val (expr, next) = when (assignToken?.value) {
             is AssignmentToken -> handleExpression(parser, parser.pop())
             is OpenCurlyBracketToken -> handleObject(parser, parser.pop(), assignToken.area.start)
-            else -> error("Missing equals sign")
+            else -> parser.error(MISSING_COLON_OR_EQUALS_IN_OBJECT_ERROR, assignToken?.area?.start ?: parser.lastPos)
         }
         when (next?.value) {
             null -> Object(values + (token.value.name to expr.value))
@@ -50,5 +54,5 @@ fun handleFreeObject(
             else -> handleFreeObject(parser, next, values + (token.value.name to expr.value))
         }
     }
-    else -> error("Invalid key name")
+    else -> parser.error(INVALID_KEY_NAME_ERROR, token.area)
 }

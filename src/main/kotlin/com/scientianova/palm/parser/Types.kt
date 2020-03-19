@@ -1,6 +1,7 @@
 package com.scientianova.palm.parser
 
-import com.scientianova.palm.evaluator.palmType
+import com.scientianova.palm.errors.INVALID_TYPE_NAME
+import com.scientianova.palm.errors.UNKNOWN_TYPE_ERROR
 import com.scientianova.palm.registry.TypeName
 import com.scientianova.palm.registry.TypeRegistry
 import com.scientianova.palm.tokenizer.DotToken
@@ -21,9 +22,9 @@ fun handleType(
     val next = parser.pop()
     if (next?.value is DotToken) handleType(parser, parser.pop(), token.area.start, token.value.name)
     else PalmType(
-        TypeRegistry.classFromName(token.value.name) ?: error("Unknown type: ${token.value.name}")
+        TypeRegistry.classFromName(token.value.name) ?: parser.error(UNKNOWN_TYPE_ERROR, token.area)
     ) on token.area.start..token.area.end to next
-} else error("Was expected a type name, but instead got ${token.palmType}")
+} else parser.error(INVALID_TYPE_NAME, token?.area ?: parser.lastArea)
 
 fun handleType(
     parser: Parser,
@@ -34,9 +35,9 @@ fun handleType(
     val next = parser.pop()
     if (next?.value is DotToken) handleType(parser, parser.pop(), startPos, "$path.${token.value.name}")
     else PalmType(
-        TypeRegistry.classFromName(token.value.name, path) ?: error("Unknown type: $path.${token.value.name}")
+        TypeRegistry.classFromName(token.value.name, path) ?: parser.error(UNKNOWN_TYPE_ERROR, startPos..token.area.end)
     ) on startPos..token.area.end to next
-} else error("Was expected a type name, but instead got ${token.palmType}")
+} else parser.error(INVALID_TYPE_NAME, token?.area ?: parser.lastArea)
 
 fun handleTypeString(string: String): TypeName {
     val parts = string.replace(':', '.')
