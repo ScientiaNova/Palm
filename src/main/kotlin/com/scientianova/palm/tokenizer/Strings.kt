@@ -16,7 +16,7 @@ fun handleSingleLineString(
     parts: List<StringTokenPart> = emptyList(),
     builder: StringBuilder = StringBuilder()
 ): Pair<Positioned<StringToken>, Char?> = when (char) {
-    null, '\n' -> traverser.error(MISSING_DOUBLE_QUOTE_ERROR, startPos)
+    null, '\n' -> traverser.error(MISSING_DOUBLE_QUOTE_ERROR, traverser.lastPos)
     '"' ->
         (if (parts.isEmpty()) PureStringToken(builder.toString())
         else StringTemplateToken(if (builder.isEmpty()) parts else parts + StringPart(builder))) on

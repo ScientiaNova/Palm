@@ -16,7 +16,7 @@ object Palm {
     @Retention(AnnotationRetention.RUNTIME)
     annotation class Ignore
 
-    fun evaluate(code: String, asType: Class<*>, scope: Scope = Scope()) = parse(code).handleForType(asType, scope)
+    fun evaluate(code: String, asType: Class<*>, fileName: String, scope: Scope = Scope()) = parse(code).handleForType(asType, scope)
 }
 
 fun String.evaluate(asType: Class<*>, scope: Scope = Scope()) = parse(this).handleForType(asType, scope)

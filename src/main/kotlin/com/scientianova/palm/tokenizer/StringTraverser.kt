@@ -11,14 +11,14 @@ class StringTraverser(private val code: String, private val fileName: String) {
     fun pop() = code.getOrNull(index++).also {
         if (shouldUpdate) {
             lastRow++
-            lastRowLastIndex = index - 1
+            lastRowLastIndex = index
             shouldUpdate = false
         }
         if (it == '\n') shouldUpdate = true
     }
 
     private var shouldUpdate = false
-    private var lastRowLastIndex = 0
+    private var lastRowLastIndex = -1
     private var lastRow = 1
     private val lastColumn get() = index - lastRowLastIndex
     val lastPos get() = StringPos(lastRow, lastColumn)

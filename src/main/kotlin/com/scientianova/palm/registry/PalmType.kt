@@ -104,8 +104,8 @@ open class PalmType(override val name: TypeName, override val clazz: Class<*>) :
                 ),
                 annotation.paramNames.zip(constructor.exceptionTypes).toMap(),
                 annotation.paramNames.zip(annotation.defaults) { paramName, string ->
-                    val tokens = tokenize(string)
-                    paramName to if (tokens.isEmpty()) null else handleExpression(tokens, tokens.pop()).first.value
+                    val parser = Parser(tokenize(string), string, "default for $paramName")
+                    paramName to if (parser.pop() == null) null else handleExpression(parser, parser.pop()).first.value
                 }.toMap()
             )
             break

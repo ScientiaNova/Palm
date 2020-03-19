@@ -4,13 +4,13 @@ import com.scientianova.palm.util.StringArea
 
 class PalmCompilationException(
     code: String,
-    file: String,
+    fileName: String,
     erroredArea: StringArea,
     error: PalmError
 ) : Exception(
     """
 
--- ${error.name} ${"-".repeat(80 - error.name.length - file.length)} $file
+-- ${error.name} ${"-".repeat(80 - error.name.length - fileName.length)} $fileName
 
 ${error.context.wrap()}
 

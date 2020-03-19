@@ -50,7 +50,7 @@ Note: When you have a $ and a { after it, that's the beginning of an interpolate
 
 val MISSING_DOUBLE_QUOTE_ERROR = PalmError(
     "MISSING DOUBLE QUOTE",
-    "I went to the end of the line and couldn't find the end of thing multi-line string:",
+    "I went to the end of this line and couldn't find the end of a single-line string:",
     """
 Add a " here.
 
@@ -68,4 +68,22 @@ val UNKNOWN_SYMBOL_ERROR = PalmError(
     "UNKNOWN SYMBOL",
     "I found a symbol that I don't recognize:",
     ""
+)
+
+val INVALID_INTERPOLATION_ERROR = PalmError(
+    "INVALID INTERPOLATION",
+    "I was expecting a curly bracket here to end the string interpolation, but instead got:",
+    "Add a } here."
+)
+
+val UNCLOSED_PARENTHESIS_ERROR = PalmError(
+    "UNCLOSED PARENTHESIS",
+    "I was expecting a closed parenthesis here, but instead got:",
+    "Add a ) here."
+)
+
+val UNCLOSED_SQUARE_BRACKET_ERROR = PalmError(
+    "UNCLOSED SQUARE BRACKET",
+    "I was expecting a closed square bracket here, but instead got:",
+    "Add a ] here."
 )

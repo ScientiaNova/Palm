@@ -1,34 +1,53 @@
 package com.scientianova.palm.parser
 
+import com.scientianova.palm.errors.PalmCompilationException
+import com.scientianova.palm.errors.PalmError
 import com.scientianova.palm.tokenizer.*
+import com.scientianova.palm.util.StringArea
 import com.scientianova.palm.util.StringPos
 
-fun parse(code: String): Object {
-    val stack = tokenize(code)
-    val first = stack.poll()
+fun parse(code: String, fileName: String = "REPL"): Object {
+    val parser = Parser(tokenize(code, fileName), code, fileName)
+    val first = parser.pop()
     return when (first?.value) {
         null -> Object()
-        is OpenCurlyBracketToken -> handleObject(stack, stack.poll(), StringPos(1, 1)).first.value
-        else -> handleFreeObject(stack, first)
+        is OpenCurlyBracketToken -> handleObject(parser, parser.pop(), StringPos(1, 1)).first.value
+        else -> handleFreeObject(parser, first)
     }
 }
 
+class Parser(private val tokens: TokenList, private val code: String, private val fileName: String = "REPL") {
+    fun pop() = tokens.poll()
+
+    val lastPos = code.lines().let {
+        StringPos(it.size.coerceAtLeast(1), it.lastOrNull()?.run { length + 1 } ?: 1)
+    }
+
+    fun handle(list: TokenList) = Parser(list, code, fileName)
+
+    fun error(error: PalmError, area: StringArea): Nothing =
+        throw PalmCompilationException(code, fileName, area, error)
+
+    fun error(error: PalmError, pos: StringPos): Nothing =
+        throw PalmCompilationException(code, fileName, pos..pos, error)
+}
+
 fun handleFreeObject(
-    list: TokenList,
+    parser: Parser,
     token: PositionedToken?,
     values: Map<String, IExpression> = emptyMap()
 ): Object = if (token == null) Object(values) else when (token.value) {
-    is IKeyToken -> list.poll().let { assignToken ->
+    is IKeyToken -> parser.pop().let { assignToken ->
         val (expr, next) = when (assignToken?.value) {
-            is AssignmentToken -> handleExpression(list, list.poll())
-            is OpenCurlyBracketToken -> handleObject(list, list.poll(), assignToken.area.start)
+            is AssignmentToken -> handleExpression(parser, parser.pop())
+            is OpenCurlyBracketToken -> handleObject(parser, parser.pop(), assignToken.area.start)
             else -> error("Missing equals sign")
         }
         when (next?.value) {
             null -> Object(values + (token.value.name to expr.value))
             is SeparatorToken ->
-                handleFreeObject(list, list.poll(), values + (token.value.name to expr.value))
-            else -> handleFreeObject(list, next, values + (token.value.name to expr.value))
+                handleFreeObject(parser, parser.pop(), values + (token.value.name to expr.value))
+            else -> handleFreeObject(parser, next, values + (token.value.name to expr.value))
         }
     }
     else -> error("Invalid key name")

@@ -8,6 +8,10 @@ group =  'com.scientianova.palm'
 archivesBaseName = 'Palm'
 version = palm_version
 
+if (System.getenv('BUILD_NUMBER') != null) {
+    version = "${version}-j"+ System.getenv('BUILD_NUMBER')
+}
+
 sourceCompatibility = 1.8
 
 repositories {
@@ -27,20 +31,33 @@ compileTestKotlin {
     kotlinOptions.jvmTarget = "1.8"
 }
 
+task srcJar (type: Jar) {
+    from sourceSets.main.kotlin
+    classifier = 'sources'
+}
+
+artifacts {
+    archives srcJar
+}
+
 publishing {
     repositories {
         maven {
-            name = "GitHubPackages"
-            url = uri("https://maven.pkg.github.com/ScientiaNova/Palm")
-            credentials {
-                username = System.getenv("GITHUB_ACTOR")
-                password = System.getenv("GITHUB_TOKEN")
-            }
+            url "file://" + System.getenv("local_maven")
         }
     }
     publications {
-        gpr(MavenPublication) {
-            from(components.java)
+        mavenJava(MavenPublication) {
+            groupId project.group
+            artifactId project.archivesBaseName
+            version project.version
+            from components.java
+            artifacts = [srcJar]
+            pom.withXml {
+                def node = asNode()
+                if(node.dependencies.size() > 0)
+                    node.remove(node.dependencies)
+            }
         }
     }
 }
