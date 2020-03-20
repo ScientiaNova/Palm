@@ -117,7 +117,7 @@ data class DictComprehension(
         for (thing in collection.palmType.iterator(collection)) {
             val newScope = Scope(mutableMapOf(name to thing), scope)
             if (filter == null || filter.evaluate(newScope) == true)
-                result[keyExpr.evaluate(scope)] = valueExpr.evaluate(newScope)
+                result[keyExpr.evaluate(newScope)] = valueExpr.evaluate(newScope)
         }
         return result
     }
@@ -576,10 +576,10 @@ fun handleListComprehension(
     startPos: StringPos
 ): Pair<PositionedExpression, PositionedToken?> {
     if (token == null || token.value !is IdentifierToken)
-        parser.error(INVALID_VARIABLE_NAME_IN_COMPREHENSION_ERROR, token?.area ?: parser.lastArea)
+        parser.error(INVALID_VARIABLE_NAME_IN_LIST_COMPREHENSION_ERROR, token?.area ?: parser.lastArea)
     val name = token.value.name
     val inToken = parser.pop()
-    if (inToken?.value !is InToken) parser.error(MISSING_IN_ERROR, inToken?.area ?: parser.lastArea)
+    if (inToken?.value !is InToken) parser.error(MISSING_IN_IN_LIST_ERROR, inToken?.area ?: parser.lastArea)
     val (collection, afterCollection) = handleExpression(parser, parser.pop())
     return when (afterCollection?.value) {
         is ClosedSquareBracketToken ->
@@ -613,10 +613,10 @@ fun handleDictComprehension(
     startPos: StringPos
 ): Pair<PositionedExpression, PositionedToken?> {
     if (token == null || token.value !is IdentifierToken)
-        parser.error(INVALID_VARIABLE_NAME_IN_COMPREHENSION_ERROR, token?.area ?: parser.lastArea)
+        parser.error(INVALID_VARIABLE_NAME_IN_MAP_COMPREHENSION_ERROR, token?.area ?: parser.lastArea)
     val name = token.value.name
     val inToken = parser.pop()
-    if (inToken?.value !is InToken) parser.error(MISSING_IN_ERROR, inToken?.area ?: parser.lastArea)
+    if (inToken?.value !is InToken) parser.error(MISSING_IN_IN_MAP_ERROR, inToken?.area ?: parser.lastArea)
     val (collection, afterCollection) = handleExpression(parser, parser.pop())
     return when (afterCollection?.value) {
         is ClosedSquareBracketToken -> DictComprehension(keyExpr, valueExpr, name, collection.value) on

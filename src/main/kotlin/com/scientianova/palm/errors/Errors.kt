@@ -168,15 +168,27 @@ val INVALID_PROPERTY_NAME_ERROR = PalmError(
     "Property names have to start with a letter and can contain digits and underscores."
 )
 
-val INVALID_VARIABLE_NAME_IN_COMPREHENSION_ERROR = PalmError(
+val INVALID_VARIABLE_NAME_IN_LIST_COMPREHENSION_ERROR = PalmError(
     "INVALID VARIABLE NAME",
-    "I was going through comprehension and was expecting a variable name next, but instead got:",
+    "I was going through list comprehension and was expecting a variable name next, but instead got:",
     "Variable names have to start with a letter and can contain digits and underscores."
 )
 
-val MISSING_IN_ERROR = PalmError(
+val INVALID_VARIABLE_NAME_IN_MAP_COMPREHENSION_ERROR = PalmError(
+    "INVALID VARIABLE NAME",
+    "I was going through dict comprehension and was expecting a variable name next, but instead got:",
+    "Variable names have to start with a letter and can contain digits and underscores."
+)
+
+val MISSING_IN_IN_LIST_ERROR = PalmError(
     "MISSING IN",
-    "I was going through comprehension and was expecting in next, but instead got:",
+    "I was going through list comprehension and was expecting in next, but instead got:",
+    "Add 'in' here."
+)
+
+val MISSING_IN_IN_MAP_ERROR = PalmError(
+    "MISSING IN",
+    "I was going through map comprehension and was expecting in next, but instead got:",
     "Add 'in' here."
 )
 
