@@ -90,10 +90,16 @@ val UNCLOSED_MULTILINE_STRING = PalmError(
     "Closed it off using triple double quotes (\"\"\")."
 )
 
-val UNKNOWN_SYMBOL_ERROR = PalmError(
-    "UNKNOWN SYMBOL",
-    "I found a symbol that I don't recognize:",
-    ""
+val UNKNOWN_UNARY_OPERATOR_ERROR = PalmError(
+    "UNKNOWN UNARY OPERATOR",
+    "I found a symbol that I don't recognize as a unary operator:",
+    "If it's supposed to be a binary operator, make sure there's equal space between the operator and both operands."
+)
+
+val UNKNOWN_BINARY_OPERATOR_ERROR = PalmError(
+    "UNKNOWN BINARY OPERATOR",
+    "I found a symbol that I don't recognize as a binary operator:",
+    "If it's supposed to be a unary operator, make sure there's no space between it and the operand."
 )
 
 val INVALID_INTERPOLATION_ERROR = PalmError(
@@ -145,13 +151,13 @@ val MISSING_EXPRESSION_ERROR = PalmError(
 )
 
 val MISSING_CURLY_BRACKET_AFTER_WHEN_ERROR = PalmError(
-    "MISSING CURLY_BRACKET",
+    "MISSING CURLY BRACKET",
     "I was saw a when and was expecting an open curly bracket next, but instead got:",
     "Add an { here"
 )
 
 val MISSING_CURLY_BRACKET_AFTER_WHERE_ERROR = PalmError(
-    "MISSING CURLY_BRACKET",
+    "MISSING CURLY BRACKET",
     "I was saw a where and was expecting an open curly bracket next, but instead got:",
     "Add an { here"
 )
@@ -164,13 +170,13 @@ val INVALID_PROPERTY_NAME_ERROR = PalmError(
 
 val INVALID_VARIABLE_NAME_IN_COMPREHENSION_ERROR = PalmError(
     "INVALID VARIABLE NAME",
-    "I was going through list comprehension and was expecting a variable name next, but instead got:",
+    "I was going through comprehension and was expecting a variable name next, but instead got:",
     "Variable names have to start with a letter and can contain digits and underscores."
 )
 
 val MISSING_IN_ERROR = PalmError(
     "MISSING IN",
-    "I was going through list comprehension and was expecting in next, but instead got:",
+    "I was going through comprehension and was expecting in next, but instead got:",
     "Add 'in' here."
 )
 
@@ -202,9 +208,15 @@ val MISSING_COLON_OR_EQUALS_IN_WHERE_ERROR = PalmError(
     "Add a = or : here."
 )
 
-val INVALID_CONSTANT_NAME_ERROR = PalmError(
+val INVALID_CONSTANT_NAME_IN_WHERE_ERROR = PalmError(
     "INVALID CONSTANT NAME",
     "I was going through a where expression and was expecting the name of a constant next, but instead got:",
+    "Names of constants have to start with a letter and can contain digits and underscores."
+)
+
+val INVALID_CONSTANT_NAME_IN_WALRUS_ERROR = PalmError(
+    "INVALID CONSTANT NAME",
+    "I saw a walrus operator and was expecting the name of a constant before it, but I instead got:",
     "Names of constants have to start with a letter and can contain digits and underscores."
 )
 
@@ -234,4 +246,10 @@ val INVALID_TYPE_NAME = PalmError(
 
 val UNKNOWN_TYPE_ERROR = PalmError(
     "UNKNOWN TYPE", "I couldn't find a registered type with the following name and path:", ""
+)
+
+val INVALID_EMPTY_MAP_ERROR = PalmError(
+    "INVALID EMPTY MAP",
+    "I thought I was going through an empty map literal, but instead of a closed square  bracket, I got:",
+    "Add a ] here."
 )

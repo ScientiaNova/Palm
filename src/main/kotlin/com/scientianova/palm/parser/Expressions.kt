@@ -64,15 +64,7 @@ data class Lis(val expressions: List<IExpression> = emptyList()) : IExpression {
         super.find(type, predicate) + expressions.flatMap { it.find(type, predicate) }
 }
 
-data class Dict(val values: Map<IExpression, IExpression>) : IExpression {
-    override fun evaluate(scope: Scope) =
-        values.map { it.key.evaluate(scope) to it.value.evaluate(scope) }.toMap()
-
-    override fun <T : IExpression> find(type: Class<out T>, predicate: (T) -> Boolean) =
-        super.find(type, predicate) + values.flatMap { it.key.find(type, predicate) + it.value.find(type, predicate) }
-}
-
-data class Comprehension(
+data class ListComprehension(
     val expression: IExpression,
     val name: String,
     val collection: IExpression,
@@ -82,7 +74,7 @@ data class Comprehension(
 
     fun evaluate(scope: Scope, result: MutableList<Any?>) {
         val collection = collection.evaluate(scope)
-        if (expression is Comprehension)
+        if (expression is ListComprehension)
             for (thing in collection.palmType.iterator(collection)) {
                 val newScope = Scope(mutableMapOf(name to thing), scope)
                 if (filter == null || filter.evaluate(newScope) == true)
@@ -99,6 +91,33 @@ data class Comprehension(
     override fun <T : IExpression> find(type: Class<out T>, predicate: (T) -> Boolean) =
         super.find(type, predicate) + expression.find(type, predicate) +
                 collection.find(type, predicate) + (filter?.find(type, predicate) ?: emptyList())
+}
+
+data class Dict(val values: Map<IExpression, IExpression> = emptyMap()) : IExpression {
+    override fun evaluate(scope: Scope) =
+        values.map { it.key.evaluate(scope) to it.value.evaluate(scope) }.toMap()
+
+    override fun <T : IExpression> find(type: Class<out T>, predicate: (T) -> Boolean) =
+        super.find(type, predicate) + values.flatMap { it.key.find(type, predicate) + it.value.find(type, predicate) }
+}
+
+data class DictComprehension(
+    val keyExpr: IExpression,
+    val valueExpr: IExpression,
+    val name: String,
+    val collection: IExpression,
+    val filter: IExpression? = null
+) : IExpression {
+    override fun evaluate(scope: Scope): Map<Any?, Any?> {
+        val collection = collection.evaluate(scope)
+        val result = mutableMapOf<Any?, Any?>()
+        for (thing in collection.palmType.iterator(collection)) {
+            val newScope = Scope(mutableMapOf(name to thing), scope)
+            if (filter == null || filter.evaluate(newScope) == true)
+                result[keyExpr.evaluate(scope)] = valueExpr.evaluate(newScope)
+        }
+        return result
+    }
 }
 
 sealed class StrPart
@@ -163,8 +182,9 @@ data class Where(val expr: IExpression, val definitions: List<Pair<String, IExpr
         return expr.evaluate(newScope)
     }
 
-    override fun <T : IExpression> find(type: Class<out T>, predicate: (T) -> Boolean) = super.find(type, predicate) +
-            expr.find(type, predicate) + definitions.flatMap { it.second.find(type, predicate) }
+    override fun <T : IExpression> find(type: Class<out T>, predicate: (T) -> Boolean) =
+        super.find(type, predicate) +
+                expr.find(type, predicate) + definitions.flatMap { it.second.find(type, predicate) }
 }
 
 data class When(val branches: List<Pair<IExpression, IExpression>>, val elseBranch: IExpression?) : IExpression {
@@ -173,9 +193,10 @@ data class When(val branches: List<Pair<IExpression, IExpression>>, val elseBran
             ?: elseBranch?.evaluate(scope)
             ?: error("Non-exhaustive when statement")
 
-    override fun <T : IExpression> find(type: Class<out T>, predicate: (T) -> Boolean) = super.find(type, predicate) +
-            branches.flatMap { it.first.find(type, predicate) + it.second.find(type, predicate) } +
-            (elseBranch?.find(type, predicate) ?: emptyList())
+    override fun <T : IExpression> find(type: Class<out T>, predicate: (T) -> Boolean) =
+        super.find(type, predicate) +
+                branches.flatMap { it.first.find(type, predicate) + it.second.find(type, predicate) } +
+                (elseBranch?.find(type, predicate) ?: emptyList())
 }
 
 sealed class Pattern
@@ -212,25 +233,30 @@ data class WhenSwitch(
         }?.second?.evaluate(scope) ?: elseBranch?.evaluate(scope) ?: error("Not exhaustive when statement")
     }
 
-    override fun <T : IExpression> find(type: Class<out T>, predicate: (T) -> Boolean) = super.find(type, predicate) +
-            branches.flatMap {
-                it.first.flatMap { pattern ->
-                    when (pattern) {
-                        is ExpressionPattern -> pattern.expression.find(type, predicate)
-                        is TypePattern -> emptyList()
-                        is ContainingPattern -> pattern.collection.find(type, predicate)
-                        is ComparisonPattern -> pattern.expression.find(type, predicate)
-                    }
-                } + it.second.find(type, predicate)
-            } + (elseBranch?.find(type, predicate) ?: emptyList())
+    override fun <T : IExpression> find(type: Class<out T>, predicate: (T) -> Boolean) =
+        super.find(type, predicate) +
+                branches.flatMap {
+                    it.first.flatMap { pattern ->
+                        when (pattern) {
+                            is ExpressionPattern -> pattern.expression.find(type, predicate)
+                            is TypePattern -> emptyList()
+                            is ContainingPattern -> pattern.collection.find(type, predicate)
+                            is ComparisonPattern -> pattern.expression.find(type, predicate)
+                        }
+                    } + it.second.find(type, predicate)
+                } + (elseBranch?.find(type, predicate) ?: emptyList())
 }
 
 
-fun handleExpression(parser: Parser, token: PositionedToken?): Pair<PositionedExpression, PositionedToken?> {
+fun handleExpression(
+    parser: Parser,
+    token: PositionedToken?,
+    untilLineEnd: Boolean = false
+): Pair<PositionedExpression, PositionedToken?> {
     val (first, op) = handleExpressionPart(parser, token)
     val expr: PositionedExpression
     val next: PositionedToken?
-    if (op != null && op.value is OperatorToken && (op.value !is IUnaryOperatorToken || op.area.end.row == first.area.start.row)) {
+    if (op != null && op.value is BinaryOperatorToken && (!untilLineEnd || op.area.end.row == first.area.start.row)) {
         val res = handleBinOps(parser, op.value, first.area.start, Stack<IOperationPart>().pushing(first.value))
         expr = res.first
         next = res.second
@@ -248,27 +274,37 @@ fun handleExpression(parser: Parser, token: PositionedToken?): Pair<PositionedEx
 
 fun handleBinOps(
     parser: Parser,
-    op: OperatorToken,
+    op: BinaryOperatorToken,
     startPos: StringPos,
     operandStack: Stack<IOperationPart>,
-    operatorStack: Stack<OperatorToken> = Stack()
+    operatorStack: Stack<BinaryOperatorToken> = Stack(),
+    untilLineEnd: Boolean = true
 ): Pair<PositionedExpression, PositionedToken?> =
     if (operatorStack.isEmpty() || op.precedence > operatorStack.peek().precedence) {
-        if (op == TernaryOperatorToken)
-            handleTernary(parser, parser.pop(), operandStack.pop() as IExpression, startPos)
-        else {
-            val (operand, next) =
-                if (op is TypeOperatorToken) handleType(parser, parser.pop())
-                else handleExpressionPart(parser, parser.pop())
-            operatorStack.push(op)
-            operandStack.push(operand.value)
-            if (next != null && next.value is OperatorToken && (next.value !is IUnaryOperatorToken || next.area.end.row == operand.area.start.row)) {
-                if (op is ComparisonOperatorToken && next.value is ComparisonOperatorToken) {
-                    operatorStack.push(AndToken)
-                    operandStack.push(operand.value)
-                }
-                handleBinOps(parser, next.value, startPos, operandStack, operatorStack)
-            } else emptyStacks(next, startPos..operand.area.end, operandStack, operatorStack)
+        when (op) {
+            is TernaryOperatorToken ->
+                handleTernary(parser, parser.pop(), operandStack.pop() as IExpression, startPos)
+            is WalrusOperatorToken -> {
+                val name = operandStack.pop() as? Constant
+                    ?: parser.error(INVALID_CONSTANT_NAME_IN_WALRUS_ERROR, parser.lastPos)
+                val (value, next) = handleExpression(parser, parser.pop())
+                operandStack.push(Walrus(name.name, value.value))
+                emptyStacks(next, startPos..value.area.end, operandStack, operatorStack)
+            }
+            else -> {
+                val (operand, next) =
+                    if (op is TypeOperatorToken) handleType(parser, parser.pop())
+                    else handleExpressionPart(parser, parser.pop())
+                operatorStack.push(op)
+                operandStack.push(operand.value)
+                if (next != null && next.value is BinaryOperatorToken && (!untilLineEnd || next.area.end.row == operand.area.start.row)) {
+                    if (op is ComparisonOperatorToken && next.value is ComparisonOperatorToken) {
+                        operatorStack.push(AndToken)
+                        operandStack.push(operand.value)
+                    }
+                    handleBinOps(parser, next.value, startPos, operandStack, operatorStack, untilLineEnd)
+                } else emptyStacks(next, startPos..operand.area.end, operandStack, operatorStack)
+            }
         }
     } else {
         val second = operandStack.pop()
@@ -277,7 +313,8 @@ fun handleBinOps(
             op,
             startPos,
             operandStack.pushing(operatorStack.pop().handleExpression(operandStack.pop(), second)),
-            operatorStack
+            operatorStack,
+            untilLineEnd
         )
     }
 
@@ -285,7 +322,7 @@ fun emptyStacks(
     next: PositionedToken?,
     area: StringArea,
     operandStack: Stack<IOperationPart>,
-    operatorStack: Stack<OperatorToken> = Stack()
+    operatorStack: Stack<BinaryOperatorToken> = Stack()
 ): Pair<PositionedExpression, PositionedToken?> =
     if (operatorStack.isEmpty()) operandStack.pop() as IExpression on area to next else {
         val second = operandStack.pop()
@@ -295,7 +332,11 @@ fun emptyStacks(
         )
     }
 
-fun handleExpressionPart(parser: Parser, token: PositionedToken?): Pair<PositionedExpression, PositionedToken?> {
+fun handleExpressionPart(
+    parser: Parser,
+    token: PositionedToken?,
+    untilLineEnd: Boolean = false
+): Pair<PositionedExpression, PositionedToken?> {
     val (expr, afterExpr) =
         if (token == null)
             parser.error(MISSING_EXPRESSION_ERROR, parser.lastPos)
@@ -315,33 +356,47 @@ fun handleExpressionPart(parser: Parser, token: PositionedToken?): Pair<Position
             }
             is OpenSquareBracketToken -> {
                 val first = parser.pop()
-                if (first?.value is ClosedSquareBracketToken)
-                    Lis() on token.area.start..first.area.end to parser.pop()
-                else {
-                    val (expr, next) = handleExpression(parser, first)
-                    when (next?.value) {
-                        is CommaToken ->
-                            handleSecondInList(parser, parser.pop(), token.area.start, expr.value)
-                        is SemicolonToken ->
-                            handleList(parser, parser.pop(), token.area.start, emptyList(), listOf(Lis(expr.value)))
-                        is ColonToken -> {
-                            val (value, newNext) = handleExpression(parser, parser.pop())
-                            if (newNext?.value is CommaToken)
-                                handleDict(parser, parser.pop(), token.area.start, mapOf(expr.value to value.value))
-                            else handleDict(parser, newNext, token.area.start, mapOf(expr.value to value.value))
+                when (first?.value) {
+                    is ClosedSquareBracketToken -> Lis() on token.area.start..first.area.end to parser.pop()
+                    is ColonToken -> {
+                        val bracket = parser.pop()
+                        if (bracket?.value is ClosedSquareBracketToken) Dict() on bracket.area to parser.pop()
+                        else parser.error(INVALID_EMPTY_MAP_ERROR, bracket?.area ?: parser.lastArea)
+                    }
+                    else -> {
+                        val (expr, next) = handleExpression(parser, first)
+                        when (next?.value) {
+                            is CommaToken ->
+                                handleSecondInList(parser, parser.pop(), token.area.start, expr.value)
+                            is SemicolonToken ->
+                                handleList(parser, parser.pop(), token.area.start, emptyList(), listOf(Lis(expr.value)))
+                            is ColonToken -> {
+                                val (value, newNext) = handleExpression(parser, parser.pop())
+                                when (newNext?.value) {
+                                    is CommaToken -> handleDict(
+                                        parser, parser.pop(), token.area.start, mapOf(expr.value to value.value)
+                                    )
+                                    is ForToken -> handleDictComprehension(
+                                        parser, parser.pop(), expr.value, value.value, expr.area.start
+                                    )
+                                    else -> handleDict(
+                                        parser, newNext, token.area.start, mapOf(expr.value to value.value)
+                                    )
+                                }
+                            }
+                            is DoubleDotToken -> {
+                                val (last, closedBracket) = handleExpression(parser, parser.pop())
+                                if (closedBracket?.value is ClosedSquareBracketToken)
+                                    MultiOp(RangeTo, expr.value, listOf(last.value)) on
+                                            token.area.start..closedBracket.area.end to parser.pop()
+                                else parser.error(
+                                    UNCLOSED_SQUARE_BRACKET_ERROR,
+                                    closedBracket?.area?.start ?: parser.lastPos
+                                )
+                            }
+                            is ForToken -> handleListComprehension(parser, parser.pop(), expr.value, token.area.start)
+                            else -> handleSecondInList(parser, next, token.area.start, expr.value)
                         }
-                        is DoubleDotToken -> {
-                            val (last, closedBracket) = handleExpression(parser, parser.pop())
-                            if (closedBracket?.value is ClosedSquareBracketToken)
-                                MultiOp(RangeTo, expr.value, listOf(last.value)) on
-                                        token.area.start..closedBracket.area.end to parser.pop()
-                            else parser.error(
-                                UNCLOSED_SQUARE_BRACKET_ERROR,
-                                closedBracket?.area?.start ?: parser.lastPos
-                            )
-                        }
-                        is ForToken -> handleComprehension(parser, parser.pop(), expr.value, token.area.start)
-                        else -> handleSecondInList(parser, next, token.area.start, expr.value)
                     }
                 }
             }
@@ -356,16 +411,16 @@ fun handleExpressionPart(parser: Parser, token: PositionedToken?): Pair<Position
                     }
                 }
             }) on token to parser.pop()
-            is IUnaryOperatorToken -> {
+            is UnaryOperatorToken -> {
                 val (expr, next) = handleExpressionPart(parser, parser.pop())
-                UnaryOp(token.value.unaryOp, expr.value) on token.area.start..expr.area.end to next
+                UnaryOp(token.value.op, expr.value) on token.area.start..expr.area.end to next
             }
-            is IfToken -> handleIf(parser, parser.pop(), token.area.start)
+            is IfToken -> handleIf(parser, parser.pop(), token.area.start, untilLineEnd)
             is WhenToken -> {
                 val afterWhen = parser.pop()
                 if (afterWhen?.value is OpenCurlyBracketToken) handleWhen(parser, parser.pop(), token.area.start)
                 else {
-                    val (expr, bracket) = handleExpression(parser, parser.pop())
+                    val (expr, bracket) = handleExpression(parser, afterWhen)
                     if (bracket?.value is OpenCurlyBracketToken)
                         handleWhenSwitch(parser, parser.pop(), token.area.start, expr.value)
                     else parser.error(MISSING_CURLY_BRACKET_AFTER_WHEN_ERROR, bracket?.area?.start ?: parser.lastPos)
@@ -397,7 +452,7 @@ fun handlePostfixOperations(
             parser, parser.pop(), SafeValAccess(expr.value, name.value.name) on expr.area.start..name.area.end
         )
     }
-    is OpenSquareBracketToken -> {
+    is GetBracketToken -> {
         val (getter, next) = handleGetter(parser, parser.pop(), expr.value, expr.area.start)
         handlePostfixOperations(parser, next, getter)
     }
@@ -423,7 +478,8 @@ fun handleIdentifierSequence(
             startPos,
             TypeName(identifiers.dropLast(1).joinToString(".") { it }, identifiers.last())
         )
-    else -> identifiers.drop(1).fold(Constant(identifiers.first()) as IExpression) { acc, s -> ValAccess(acc, s) } on
+    else -> identifiers.drop(1)
+        .fold(Constant(identifiers.first()) as IExpression) { acc, s -> ValAccess(acc, s) } on
             startPos to token
 }
 
@@ -491,7 +547,10 @@ fun handleDict(
     token.value is ClosedSquareBracketToken -> Dict(values) on startPos..token.area.end to parser.pop()
     else -> {
         val (key, colon) = handleExpression(parser, token)
-        if (colon?.value !is ColonToken) parser.error(MISSING_COLON_IN_MAP_ERROR, colon?.area?.start ?: parser.lastPos)
+        if (colon?.value !is ColonToken) parser.error(
+            MISSING_COLON_IN_MAP_ERROR,
+            colon?.area?.start ?: parser.lastPos
+        )
         val (value, next) = handleExpression(parser, parser.pop())
         when (next?.value) {
             is ClosedSquareBracketToken ->
@@ -503,7 +562,7 @@ fun handleDict(
     }
 }
 
-fun handleComprehension(
+fun handleListComprehension(
     parser: Parser,
     token: PositionedToken?,
     expr: IExpression,
@@ -517,23 +576,50 @@ fun handleComprehension(
     val (collection, afterCollection) = handleExpression(parser, parser.pop())
     return when (afterCollection?.value) {
         is ClosedSquareBracketToken ->
-            Comprehension(expr, name, collection.value) on startPos..afterCollection.area.end to parser.pop()
+            ListComprehension(expr, name, collection.value) on startPos..afterCollection.area.end to parser.pop()
         is ForToken -> {
-            val (nested, next) = handleComprehension(parser, parser.pop(), expr, startPos)
-            Comprehension(nested.value, name, collection.value) on startPos..afterCollection.area.end to next
+            val (nested, next) = handleListComprehension(parser, parser.pop(), expr, startPos)
+            ListComprehension(nested.value, name, collection.value) on startPos..afterCollection.area.end to next
         }
         is IfToken -> {
             val (filter, afterFilter) = handleExpression(parser, parser.pop())
             when (afterFilter?.value) {
-                is ClosedSquareBracketToken -> Comprehension(expr, name, collection.value, filter.value) on
+                is ClosedSquareBracketToken -> ListComprehension(expr, name, collection.value, filter.value) on
                         startPos..afterCollection.area.end to parser.pop()
                 is ForToken -> {
-                    val (nested, next) = handleComprehension(parser, parser.pop(), expr, startPos)
-                    Comprehension(nested.value, name, collection.value, filter.value) on
+                    val (nested, next) = handleListComprehension(parser, parser.pop(), expr, startPos)
+                    ListComprehension(nested.value, name, collection.value, filter.value) on
                             startPos..afterCollection.area.end to next
                 }
                 else -> parser.error(UNCLOSED_SQUARE_BRACKET_ERROR, afterFilter?.area?.start ?: parser.lastPos)
             }
+        }
+        else -> parser.error(UNCLOSED_SQUARE_BRACKET_ERROR, afterCollection?.area?.start ?: parser.lastPos)
+    }
+}
+
+fun handleDictComprehension(
+    parser: Parser,
+    token: PositionedToken?,
+    keyExpr: IExpression,
+    valueExpr: IExpression,
+    startPos: StringPos
+): Pair<PositionedExpression, PositionedToken?> {
+    if (token == null || token.value !is IdentifierToken)
+        parser.error(INVALID_VARIABLE_NAME_IN_COMPREHENSION_ERROR, token?.area ?: parser.lastArea)
+    val name = token.value.name
+    val inToken = parser.pop()
+    if (inToken?.value !is InToken) parser.error(MISSING_IN_ERROR, inToken?.area ?: parser.lastArea)
+    val (collection, afterCollection) = handleExpression(parser, parser.pop())
+    return when (afterCollection?.value) {
+        is ClosedSquareBracketToken -> DictComprehension(keyExpr, valueExpr, name, collection.value) on
+                startPos..afterCollection.area.end to parser.pop()
+        is IfToken -> {
+            val (filter, afterFilter) = handleExpression(parser, parser.pop())
+            if (afterFilter?.value is ClosedSquareBracketToken)
+                DictComprehension(keyExpr, valueExpr, name, collection.value, filter.value) on
+                        startPos..afterCollection.area.end to parser.pop()
+            else parser.error(UNCLOSED_SQUARE_BRACKET_ERROR, afterFilter?.area?.start ?: parser.lastPos)
         }
         else -> parser.error(UNCLOSED_SQUARE_BRACKET_ERROR, afterCollection?.area?.start ?: parser.lastPos)
     }
@@ -601,18 +687,32 @@ fun handleTypedObject(
                     Object(values + (token.value.name to expr.value), type) on
                             startPos..token.area.end to parser.pop()
                 is SeparatorToken ->
-                    handleTypedObject(parser, parser.pop(), startPos, type, values + (token.value.name to expr.value))
+                    handleTypedObject(
+                        parser,
+                        parser.pop(),
+                        startPos,
+                        type,
+                        values + (token.value.name to expr.value)
+                    )
                 else -> handleTypedObject(parser, next, startPos, type, values + (token.value.name to expr.value))
             }
         }
         else -> parser.error(INVALID_KEY_NAME_ERROR, token.area)
     }
 
-fun handleIf(parser: Parser, token: PositionedToken?, startPos: StringPos): Pair<Positioned<If>, PositionedToken?> {
+fun handleIf(
+    parser: Parser,
+    token: PositionedToken?,
+    startPos: StringPos,
+    untilLineEnd: Boolean = false
+): Pair<Positioned<If>, PositionedToken?> {
     val (cond, thenToken) = handleExpression(parser, token)
-    val (thenExpr, elseToken) = handleExpression(parser, if (thenToken?.value is ThenToken) parser.pop() else thenToken)
+    val (thenExpr, elseToken) = handleExpression(
+        parser,
+        if (thenToken?.value is ThenToken) parser.pop() else thenToken
+    )
     if (elseToken?.value !is ElseToken) parser.error(MISSING_ELSE_BRANCH, elseToken?.area?.start ?: parser.lastPos)
-    val (elseExpr, next) = handleExpression(parser, parser.pop())
+    val (elseExpr, next) = handleExpression(parser, parser.pop(), untilLineEnd)
     return If(cond.value, thenExpr.value, elseExpr.value) on startPos..elseExpr.area.end to next
 }
 
@@ -620,11 +720,15 @@ fun handleTernary(
     parser: Parser,
     token: PositionedToken?,
     condExpr: IExpression,
-    startPos: StringPos
+    startPos: StringPos,
+    untilLineEnd: Boolean = false
 ): Pair<Positioned<If>, PositionedToken?> {
     val (thenExpr, colon) = handleExpression(parser, token)
-    if (colon?.value !is ColonToken) parser.error(MISSING_COLON_IN_TERNARY_ERROR, colon?.area?.start ?: parser.lastPos)
-    val (elseExpr, next) = handleExpression(parser, parser.pop())
+    if (colon?.value !is ColonToken) parser.error(
+        MISSING_COLON_IN_TERNARY_ERROR,
+        colon?.area?.start ?: parser.lastPos
+    )
+    val (elseExpr, next) = handleExpression(parser, parser.pop(), untilLineEnd)
     return If(condExpr, thenExpr.value, elseExpr.value) on startPos..elseExpr.area.end to next
 }
 
@@ -663,18 +767,27 @@ fun handleWhere(
             val (expr, next) = when (assignToken?.value) {
                 is AssignmentToken -> handleExpression(parser, parser.pop())
                 is OpenCurlyBracketToken -> handleObject(parser, parser.pop(), assignToken.area.start)
-                else -> parser.error(MISSING_COLON_OR_EQUALS_IN_WHERE_ERROR, assignToken?.area?.start ?: parser.lastPos)
+                else -> parser.error(
+                    MISSING_COLON_OR_EQUALS_IN_WHERE_ERROR,
+                    assignToken?.area?.start ?: parser.lastPos
+                )
             }
             when (next?.value) {
                 is ClosedCurlyBracketToken ->
                     Where(expression, values + (token.value.name to expr.value)) on
                             startPos..token.area.end to parser.pop()
                 is SeparatorToken ->
-                    handleWhere(parser, parser.pop(), expression, startPos, values + (token.value.name to expr.value))
+                    handleWhere(
+                        parser,
+                        parser.pop(),
+                        expression,
+                        startPos,
+                        values + (token.value.name to expr.value)
+                    )
                 else -> handleWhere(parser, next, expression, startPos, values + (token.value.name to expr.value))
             }
         }
-        else -> parser.error(INVALID_CONSTANT_NAME_ERROR, token.area)
+        else -> parser.error(INVALID_CONSTANT_NAME_IN_WHERE_ERROR, token.area)
     }
 
 fun handleWhen(
@@ -713,14 +826,14 @@ fun handleWhenSwitch(
     is ElseToken -> {
         val arrow = parser.pop()
         if (arrow?.value !is ArrowToken) parser.error(MISSING_ARROW_ERROR, arrow?.area ?: parser.lastArea)
-        val (expr, next) = handleExpression(parser, parser.pop())
+        val (expr, next) = handleExpression(parser, parser.pop(), true)
         if (elseExpr == null) handleWhenSwitch(parser, next, startPos, value, branches, expr.value)
         else handleWhenSwitch(parser, next, startPos, value, branches, elseExpr)
     }
     else -> {
         val (branch, next) = handleSwitchBranch(parser, token)
-        if (elseExpr == null) handleWhenSwitch(parser, next, startPos, value, branches, elseExpr)
-        else handleWhenSwitch(parser, next, startPos, value, branches + branch)
+        if (elseExpr == null) handleWhenSwitch(parser, next, startPos, value, branches + branch, elseExpr)
+        else handleWhenSwitch(parser, next, startPos, value, branches)
     }
 }
 
@@ -751,7 +864,7 @@ fun handleSwitchBranch(
     return when (separator?.value) {
         is CommaToken -> handleSwitchBranch(parser, parser.pop(), patterns + pattern)
         is ArrowToken -> {
-            val (res, next) = handleExpression(parser, parser.pop())
+            val (res, next) = handleExpression(parser, parser.pop(), true)
             patterns + pattern to res.value to next
         }
         else -> parser.error(MISSING_ARROW_ERROR, separator?.area ?: parser.lastArea)

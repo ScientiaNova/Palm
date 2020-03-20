@@ -11,6 +11,14 @@ data class Elvis(val first: IExpression, val second: IExpression) : IExpression 
         super.find(type, predicate) + first.find(type, predicate) + second.find(type, predicate)
 }
 
+data class Walrus(val name: String, val expr: IExpression) : IExpression {
+    override fun evaluate(scope: Scope) =
+        expr.evaluate(scope).also { scope[name] = it }
+
+    override fun <T : IExpression> find(type: Class<out T>, predicate: (T) -> Boolean) =
+        super.find(type, predicate) + expr.find(type, predicate)
+}
+
 data class Conjunction(val first: IExpression, val second: IExpression) : IExpression {
     override fun evaluate(scope: Scope) =
         first.evaluate(scope) == true && second.evaluate(scope) == false

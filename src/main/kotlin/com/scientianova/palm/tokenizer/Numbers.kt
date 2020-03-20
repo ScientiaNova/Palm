@@ -51,8 +51,7 @@ fun handleDecimalNumber(
                 handleDecimalExponent(traverser, traverser.pop(), startPos, builder.append(symbol))
             else {
                 list.offer(NumberToken(builder.toString().toDouble()) on startPos..traverser.lastPos.shift(-1))
-                list.offer(IdentifierToken("e") on traverser.lastPos.shift(-1))
-                handleSymbol(traverser, symbol)
+                IdentifierToken("e") on traverser.lastPos.shift(-1) to symbol
             }
         }
         in '0'..'9' -> handleDecimalExponent(traverser, traverser.pop(), startPos, builder)

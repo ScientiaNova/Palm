@@ -150,13 +150,19 @@ object TypeRegistry {
                         else -> super.execute(op, obj, second)
                     }
                     is Shl ->
-                        if (second is Number) obj.toInt().shl(second.toInt()).toByte()
+                        if (second is Number) (obj.toInt() shl second.toInt()).toByte()
                         else super.execute(op, obj, second)
                     is Shr ->
-                        if (second is Number) obj.toInt().shr(second.toInt()).toByte()
+                        if (second is Number) (obj.toInt() shr second.toInt()).toByte()
                         else super.execute(op, obj, second)
                     is Ushr ->
-                        if (second is Number) obj.toInt().ushr(second.toInt()).toByte()
+                        if (second is Number) (obj.toInt() ushr second.toInt()).toByte()
+                        else super.execute(op, obj, second)
+                    is Or ->
+                        if (second is Number) (obj.toInt() or second.toInt()).toByte()
+                    else super.execute(op, obj, second)
+                    is And ->
+                        if (second is Number) (obj.toInt() and second.toInt()).toByte()
                         else super.execute(op, obj, second)
                     else -> super.execute(op, obj, second)
                 }
@@ -236,13 +242,19 @@ object TypeRegistry {
                         else -> super.execute(op, obj, second)
                     }
                     is Shl ->
-                        if (second is Number) obj.toInt().shl(second.toInt()).toShort()
+                        if (second is Number) (obj.toInt() shl second.toInt()).toShort()
                         else super.execute(op, obj, second)
                     is Shr ->
-                        if (second is Number) obj.toInt().shr(second.toInt()).toShort()
+                        if (second is Number) (obj.toInt() shr second.toInt()).toShort()
                         else super.execute(op, obj, second)
                     is Ushr ->
-                        if (second is Number) obj.toInt().ushr(second.toInt()).toShort()
+                        if (second is Number) (obj.toInt() ushr second.toInt()).toShort()
+                        else super.execute(op, obj, second)
+                    is Or ->
+                        if (second is Number) (obj.toInt() or second.toInt()).toShort()
+                        else super.execute(op, obj, second)
+                    is And ->
+                        if (second is Number) (obj.toInt() and second.toInt()).toShort()
                         else super.execute(op, obj, second)
                     else -> super.execute(op, obj, second)
                 }
@@ -322,13 +334,19 @@ object TypeRegistry {
                         else -> super.execute(op, obj, second)
                     }
                     is Shl ->
-                        if (second is Number) obj.shl(second.toInt())
+                        if (second is Number) (obj shl second.toInt())
                         else super.execute(op, obj, second)
                     is Shr ->
-                        if (second is Number) obj.shr(second.toInt())
+                        if (second is Number) (obj shr second.toInt())
                         else super.execute(op, obj, second)
                     is Ushr ->
-                        if (second is Number) obj.ushr(second.toInt())
+                        if (second is Number) (obj ushr second.toInt())
+                        else super.execute(op, obj, second)
+                    is Or ->
+                        if (second is Number) (obj or second.toInt())
+                        else super.execute(op, obj, second)
+                    is And ->
+                        if (second is Number) (obj and second.toInt())
                         else super.execute(op, obj, second)
                     else -> super.execute(op, obj, second)
                 }
@@ -408,13 +426,19 @@ object TypeRegistry {
                         else -> super.execute(op, obj, second)
                     }
                     is Shl ->
-                        if (second is Number) obj.shl(second.toInt())
+                        if (second is Number) (obj shl second.toInt())
                         else super.execute(op, obj, second)
                     is Shr ->
-                        if (second is Number) obj.shr(second.toInt())
+                        if (second is Number) (obj shr second.toInt())
                         else super.execute(op, obj, second)
                     is Ushr ->
-                        if (second is Number) obj.ushr(second.toInt())
+                        if (second is Number) (obj ushr second.toInt())
+                        else super.execute(op, obj, second)
+                    is Or ->
+                        if (second is Number) (obj or second.toLong())
+                        else super.execute(op, obj, second)
+                    is And ->
+                        if (second is Number) (obj and second.toLong())
                         else super.execute(op, obj, second)
                     else -> super.execute(op, obj, second)
                 }
@@ -494,13 +518,19 @@ object TypeRegistry {
                         else -> super.execute(op, obj, second)
                     }
                     is Shl ->
-                        if (second is Number) obj.toInt().shl(second.toInt()).toFloat()
+                        if (second is Number) (obj.toInt() shl second.toInt()).toFloat()
                         else super.execute(op, obj, second)
                     is Shr ->
-                        if (second is Number) obj.toInt().shr(second.toInt()).toFloat()
+                        if (second is Number) (obj.toInt() shr second.toInt()).toFloat()
                         else super.execute(op, obj, second)
                     is Ushr ->
-                        if (second is Number) obj.toInt().ushr(second.toInt()).toFloat()
+                        if (second is Number) (obj.toInt() ushr second.toInt()).toFloat()
+                        else super.execute(op, obj, second)
+                    is Or ->
+                        if (second is Number) (obj.toInt() or second.toInt()).toFloat()
+                        else super.execute(op, obj, second)
+                    is And ->
+                        if (second is Number) (obj.toInt() and second.toInt()).toFloat()
                         else super.execute(op, obj, second)
                     else -> super.execute(op, obj, second)
                 }
@@ -570,13 +600,19 @@ object TypeRegistry {
                         else -> super.execute(op, obj, second)
                     }
                     is Shl ->
-                        if (second is Number) obj.toLong().shl(second.toInt()).toDouble()
+                        if (second is Number) (obj.toLong() shl second.toInt()).toDouble()
                         else super.execute(op, obj, second)
                     is Shr ->
-                        if (second is Number) obj.toLong().shr(second.toInt()).toDouble()
+                        if (second is Number) (obj.toLong() shr second.toInt()).toDouble()
                         else super.execute(op, obj, second)
                     is Ushr ->
-                        if (second is Number) obj.toLong().ushr(second.toInt()).toDouble()
+                        if (second is Number) (obj.toLong() ushr second.toInt()).toDouble()
+                        else super.execute(op, obj, second)
+                    is Or ->
+                        if (second is Number) (obj.toLong() or second.toLong()).toDouble()
+                        else super.execute(op, obj, second)
+                    is And ->
+                        if (second is Number) (obj.toLong() and second.toLong()).toDouble()
                         else super.execute(op, obj, second)
                     else -> super.execute(op, obj, second)
                 }

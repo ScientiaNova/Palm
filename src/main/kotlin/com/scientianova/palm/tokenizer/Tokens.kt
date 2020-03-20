@@ -13,12 +13,12 @@ interface IKeyToken : IToken {
 
 typealias PositionedToken = Positioned<IToken>
 
-interface IUnaryOperatorToken : IToken {
-    val unaryOp: UnaryOperation
+sealed class UnaryOperatorToken(private val symbol: String, val op: UnaryOperation) : IToken {
+    override fun toString() = "UnaryOperator(symbol=$symbol)"
 }
 
-sealed class OperatorToken(private val symbol: String, val precedence: Int) : IToken {
-    override fun toString() = "Operator(symbol=$symbol)"
+sealed class BinaryOperatorToken(private val symbol: String, val precedence: Int) : IToken {
+    override fun toString() = "BinaryOperator(symbol=$symbol)"
     abstract fun handleExpression(first: IOperationPart, second: IOperationPart): IExpression
 }
 
@@ -48,7 +48,7 @@ object WhenToken : KeywordToken("when")
 object WhereToken : KeywordToken("where")
 object ForToken : KeywordToken("for")
 
-sealed class ContainingOperatorToken(symbol: String, precedence: Int) : OperatorToken(symbol, precedence)
+sealed class ContainingOperatorToken(symbol: String, precedence: Int) : BinaryOperatorToken(symbol, precedence)
 object InToken : ContainingOperatorToken("in", 8) {
     override fun handleExpression(first: IOperationPart, second: IOperationPart): IExpression =
         BinaryOp(Contains, second as IExpression, first as IExpression)
@@ -59,7 +59,7 @@ object NotInToken : ContainingOperatorToken("!in", 8) {
         UnaryOp(Not, BinaryOp(Contains, second as IExpression, first as IExpression))
 }
 
-sealed class TypeOperatorToken(symbol: String, precedence: Int) : OperatorToken(symbol, precedence)
+sealed class TypeOperatorToken(symbol: String, precedence: Int) : BinaryOperatorToken(symbol, precedence)
 object IsToken : TypeOperatorToken("is", 8) {
     override fun handleExpression(first: IOperationPart, second: IOperationPart): IExpression =
         TypeCheck(first as IExpression, (second as PalmType).clazz)
@@ -113,36 +113,36 @@ object DoubleDotToken : SpecialSymbol("..")
 object SafeAccessToken : SpecialSymbol("?.")
 object ArrowToken : SpecialSymbol("->")
 
-object TernaryOperatorToken : OperatorToken("?", 0) {
+object TernaryOperatorToken : BinaryOperatorToken("?", 0) {
     override fun handleExpression(first: IOperationPart, second: IOperationPart) = error("Impossible")
 }
 
-object OrToken : OperatorToken("||", 1) {
+object OrToken : BinaryOperatorToken("||", 1) {
     override fun handleExpression(first: IOperationPart, second: IOperationPart) =
         Disjunction(first as IExpression, second as IExpression)
 }
 
-object AndToken : OperatorToken("&&", 2) {
+object AndToken : BinaryOperatorToken("&&", 2) {
     override fun handleExpression(first: IOperationPart, second: IOperationPart) =
         Conjunction(first as IExpression, second as IExpression)
 }
 
-object BitWiseOrToken : OperatorToken("|", 3) {
+object BitWiseOrToken : BinaryOperatorToken("|", 3) {
     override fun handleExpression(first: IOperationPart, second: IOperationPart) =
         BinaryOp(Or, first as IExpression, second as IExpression)
 }
 
-object BitWiseAndToken : OperatorToken("&", 4) {
+object BitWiseAndToken : BinaryOperatorToken("&", 4) {
     override fun handleExpression(first: IOperationPart, second: IOperationPart) =
         BinaryOp(And, first as IExpression, second as IExpression)
 }
 
-object EqualToken : OperatorToken("==", 5) {
+object EqualToken : BinaryOperatorToken("==", 5) {
     override fun handleExpression(first: IOperationPart, second: IOperationPart) =
         EqualityCheck(first as IExpression, second as IExpression)
 }
 
-object NotEqualToken : OperatorToken("!=", 5) {
+object NotEqualToken : BinaryOperatorToken("!=", 5) {
     override fun handleExpression(first: IOperationPart, second: IOperationPart) =
         UnaryOp(Not, EqualityCheck(first as IExpression, second as IExpression))
 }
@@ -151,7 +151,7 @@ sealed class ComparisonOperatorToken(
     symbol: String,
     precedence: Int,
     val comparisonType: ComparisonType
-) : OperatorToken(symbol, precedence) {
+) : BinaryOperatorToken(symbol, precedence) {
     override fun handleExpression(first: IOperationPart, second: IOperationPart) =
         Comparison(comparisonType, BinaryOp(CompareTo, first as IExpression, second as IExpression))
 }
@@ -161,79 +161,76 @@ object LessOrEqualToken : ComparisonOperatorToken("<=", 6, ComparisonType.LE)
 object GreaterToken : ComparisonOperatorToken(">", 6, ComparisonType.G)
 object GreaterOrEqualToken : ComparisonOperatorToken("<=", 6, ComparisonType.GE)
 
-object ComparisonToken : OperatorToken("<=>", 6) {
+object ComparisonToken : BinaryOperatorToken("<=>", 6) {
     override fun handleExpression(first: IOperationPart, second: IOperationPart) =
         BinaryOp(CompareTo, first as IExpression, second as IExpression)
 }
 
-object LeftShiftToken : OperatorToken("<<", 7) {
+object LeftShiftToken : BinaryOperatorToken("<<", 7) {
     override fun handleExpression(first: IOperationPart, second: IOperationPart) =
         BinaryOp(Shl, first as IExpression, second as IExpression)
 }
 
-object RightShiftToken : OperatorToken(">>", 7) {
+object RightShiftToken : BinaryOperatorToken(">>", 7) {
     override fun handleExpression(first: IOperationPart, second: IOperationPart) =
         BinaryOp(Shr, first as IExpression, second as IExpression)
 }
 
-object URightShiftToken : OperatorToken(">>>", 7) {
+object URightShiftToken : BinaryOperatorToken(">>>", 7) {
     override fun handleExpression(first: IOperationPart, second: IOperationPart) =
         BinaryOp(Ushr, first as IExpression, second as IExpression)
 }
 
-object ElvisToken : OperatorToken("?:", 9) {
+object ElvisToken : BinaryOperatorToken("?:", 9) {
     override fun handleExpression(first: IOperationPart, second: IOperationPart) =
         Elvis(first as IExpression, second as IExpression)
 }
 
-object PlusToken : OperatorToken("+", 10), IUnaryOperatorToken {
-    override val unaryOp = UnaryPlus
+object PlusToken : BinaryOperatorToken("+", 10) {
     override fun handleExpression(first: IOperationPart, second: IOperationPart) =
         BinaryOp(Plus, first as IExpression, second as IExpression)
 }
 
-object MinusToken : OperatorToken("-", 10), IUnaryOperatorToken {
-    override val unaryOp = UnaryMinus
+object MinusToken : BinaryOperatorToken("-", 10) {
     override fun handleExpression(first: IOperationPart, second: IOperationPart) =
         BinaryOp(Minus, first as IExpression, second as IExpression)
 }
 
-object TimesToken : OperatorToken("*", 11) {
+object TimesToken : BinaryOperatorToken("*", 11) {
     override fun handleExpression(first: IOperationPart, second: IOperationPart) =
         BinaryOp(Mul, first as IExpression, second as IExpression)
 }
 
-object DivideToken : OperatorToken("/", 11) {
+object DivideToken : BinaryOperatorToken("/", 11) {
     override fun handleExpression(first: IOperationPart, second: IOperationPart) =
         BinaryOp(Div, first as IExpression, second as IExpression)
 }
 
-object ModulusToken : OperatorToken("%", 11) {
+object ModulusToken : BinaryOperatorToken("%", 11) {
     override fun handleExpression(first: IOperationPart, second: IOperationPart) =
         BinaryOp(Rem, first as IExpression, second as IExpression)
 }
 
-object FloorDivideToken : OperatorToken("//", 11) {
+object FloorDivideToken : BinaryOperatorToken("//", 11) {
     override fun handleExpression(first: IOperationPart, second: IOperationPart) =
         BinaryOp(FloorDiv, first as IExpression, second as IExpression)
 }
 
-object ExponentToken : OperatorToken("^", 12) {
+object ExponentToken : BinaryOperatorToken("^", 12) {
     override fun handleExpression(first: IOperationPart, second: IOperationPart) =
         BinaryOp(Pow, first as IExpression, second as IExpression)
 }
 
-object InvertToken : IUnaryOperatorToken {
-    override val unaryOp = Inv
-    override fun toString() = "InvToken"
+object WalrusOperatorToken : BinaryOperatorToken(":=", 14) {
+    override fun handleExpression(first: IOperationPart, second: IOperationPart) = error("Impossible")
 }
 
-object NotToken : IUnaryOperatorToken {
-    override val unaryOp = Not
-    override fun toString() = "NotToken"
-}
+object UnaryPlusToken : UnaryOperatorToken("+", UnaryPlus)
+object UnaryMinusToken : UnaryOperatorToken("-", UnaryMinus)
+object InvertToken : UnaryOperatorToken("~", Inv)
+object NotToken : UnaryOperatorToken("!", Not)
 
-val symbolMap = mapOf(
+val SYMBOL_MAP = mapOf(
     "=" to IsEqualToToken,
     "." to DotToken,
     "," to CommaToken,
@@ -241,7 +238,17 @@ val symbolMap = mapOf(
     ";" to SemicolonToken,
     ".." to DoubleDotToken,
     "?." to SafeAccessToken,
-    "->" to ArrowToken,
+    "->" to ArrowToken
+)
+
+val UNARY_OPS_MAP = mapOf(
+    "+" to UnaryPlusToken,
+    "-" to UnaryMinusToken,
+    "~" to InvertToken,
+    "!" to NotToken
+)
+
+val BINARY_OPS_MAP = mapOf(
     "||" to OrToken,
     "&&" to AndToken,
     "|" to BitWiseOrToken,
@@ -255,6 +262,7 @@ val symbolMap = mapOf(
     "<<" to LeftShiftToken,
     ">>" to RightShiftToken,
     ">>>" to URightShiftToken,
+    ":=" to WalrusOperatorToken,
     "?" to TernaryOperatorToken,
     "?:" to ElvisToken,
     "+" to PlusToken,
@@ -264,8 +272,6 @@ val symbolMap = mapOf(
     "%" to ModulusToken,
     "//" to FloorDivideToken,
     "^" to ExponentToken,
-    "~" to InvertToken,
-    "!" to NotToken,
     "<=>" to ComparisonToken
 )
 
@@ -283,3 +289,7 @@ data class TokensPart(val tokens: TokenList) : StringTokenPart() {
 }
 
 data class CharToken(val char: Char) : IToken
+
+object GetBracketToken : IToken {
+    override fun toString() = "GetBracket"
+}

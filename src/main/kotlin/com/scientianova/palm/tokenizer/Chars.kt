@@ -54,6 +54,21 @@ fun handleUnicode(
     else -> idBuilder.toString().toInt().toChar() to char
 }
 
+fun Char.isBracket() = when (this) {
+    '(', ')', '[', ']', '{', '}' -> true
+    else -> false
+}
+
+fun Char.isClosedBracket() = when (this) {
+    ')', ']', '}' -> true
+    else -> false
+}
+
+fun Char.isSeparator() = when (this) {
+    ',', '.', ':', ';', '=', '>' -> true
+    else -> false
+}
+
 fun isMalformedTab(traverser: StringTraverser, char: Char?): Boolean = when (char) {
     null -> false
     ' ' -> isMalformedTab(traverser, traverser.pop())

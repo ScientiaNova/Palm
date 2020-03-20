@@ -7,13 +7,13 @@ pipeline {
             steps {
                 echo 'Cleaning Project'
                 sh 'chmod +x gradlew'
-                sh './gradlew clean --no-daemon'
+                sh './gradlew clean'
             }
         }
         stage('Build and Deploy') {
             steps {
                 echo 'Building and Deploying to Maven'
-					sh './gradlew publish --no-daemon'
+					sh './gradlew publish'
                 }
             }
         }

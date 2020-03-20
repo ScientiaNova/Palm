@@ -1,7 +1,8 @@
 package com.scientianova.palm.tokenizer
 
 import com.scientianova.palm.errors.GREEK_QUESTION_MARK_ERROR
-import com.scientianova.palm.errors.UNKNOWN_SYMBOL_ERROR
+import com.scientianova.palm.errors.UNKNOWN_UNARY_OPERATOR_ERROR
+import com.scientianova.palm.util.Positioned
 import com.scientianova.palm.util.StringPos
 import com.scientianova.palm.util.on
 import java.util.*
@@ -64,7 +65,7 @@ fun handleToken(traverser: StringTraverser, char: Char, list: TokenList): Pair<P
     in '1'..'9' -> handleNumber(traverser, char, list)
     '.' ->
         if (traverser.peek()?.isDigit() == true) handleNumber(traverser, char, list)
-        else handleSymbol(traverser, char)
+        else handleMisc(traverser, char, list)
     '"' -> {
         val startPos = traverser.lastPos
         val next = traverser.pop()
@@ -83,9 +84,12 @@ fun handleToken(traverser: StringTraverser, char: Char, list: TokenList): Pair<P
             TimesToken on traverser.lastPos to traverser.pop()
         } else ClosedParenToken on traverser.lastPos to next
     }
-    '[' -> OpenSquareBracketToken on traverser.lastPos to traverser.pop()
+    '[' -> {
+        val previous = traverser.beforePopped
+        (if (previous != null && (previous.isLetterOrDigit() || previous == '"' || previous.isClosedBracket())) GetBracketToken
+        else OpenSquareBracketToken) on traverser.lastPos to traverser.pop()
+    }
     ']' -> ClosedSquareBracketToken on traverser.lastPos to traverser.pop()
-    '{' -> OpenCurlyBracketToken on traverser.lastPos to traverser.pop()
     '}' -> ClosedCurlyBracketToken on traverser.lastPos to traverser.pop()
     ';' -> traverser.error(GREEK_QUESTION_MARK_ERROR, traverser.lastPos)
     else -> handleMisc(traverser, char, list)
@@ -96,19 +100,26 @@ fun handleMisc(
     char: Char,
     list: TokenList
 ): Pair<PositionedToken, Char?> {
+    val previous = traverser.beforePopped
     val symbolRes = handleSymbol(traverser, char)
-    val second = symbolRes.second
-    return if (symbolRes.first.value is NotToken && second != null && second.isLetter() && second.isLowerCase()) {
+    val symbolString = symbolRes.first.value
+    val next = symbolRes.second
+    if ((previous == null || previous.isWhitespace() || previous.isSeparator()) && next?.isWhitespace() == false)
+        return (UNARY_OPS_MAP[symbolString] ?: SYMBOL_MAP[symbolString]
+        ?: traverser.error(UNKNOWN_UNARY_OPERATOR_ERROR, symbolRes.first.area)) on symbolRes.first.area to next
+    val symbol = BINARY_OPS_MAP[symbolString] ?: SYMBOL_MAP[symbolString]
+    ?: traverser.error(UNKNOWN_UNARY_OPERATOR_ERROR, symbolRes.first.area)
+    return if (symbol is NotToken && next != null && next.isLetter() && next.isLowerCase()) {
         val identifierRes = handleIdentifier(traverser, char)
         when (identifierRes.first.value) {
             is IsToken -> IsNotToken on symbolRes.first.area.start..identifierRes.first.area.end to identifierRes.second
             is InToken -> NotInToken on symbolRes.first.area.start..identifierRes.first.area.end to identifierRes.second
             else -> {
-                list.offer(symbolRes.first)
+                list.offer(symbol on symbolRes.first.area)
                 identifierRes
             }
         }
-    } else symbolRes
+    } else symbol on symbolRes.first.area to next
 }
 
 
@@ -117,11 +128,8 @@ fun handleSymbol(
     char: Char?,
     startPos: StringPos = traverser.lastPos,
     builder: StringBuilder = StringBuilder()
-): Pair<PositionedToken, Char?> =
+): Pair<Positioned<String>, Char?> =
     if (char == null || char.isLetterOrDigit() || char.isWhitespace() || char == '"' || char == '\'' || char.isBracket()) {
         val area = startPos..traverser.lastPos.shift(-1)
-        (symbolMap[builder.toString()] ?: traverser.error(UNKNOWN_SYMBOL_ERROR, area)) on area to char
+        builder.toString() on area to char
     } else handleSymbol(traverser, traverser.pop(), startPos, builder.append(char))
-
-private val brackets = listOf('(', ')', '[', ']', '{', '}')
-fun Char.isBracket() = this in brackets

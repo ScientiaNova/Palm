@@ -17,6 +17,8 @@ class StringTraverser(private val code: String, private val fileName: String) {
         if (it == '\n') shouldUpdate = true
     }
 
+    val beforePopped get() = code.getOrNull(index - 2)
+
     private var shouldUpdate = false
     private var lastRowLastIndex = 1
     private var lastRow = 1

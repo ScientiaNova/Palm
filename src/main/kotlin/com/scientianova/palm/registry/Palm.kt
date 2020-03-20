@@ -28,7 +28,7 @@ object Palm {
 
     @JvmStatic
     fun evaluate(code: String, asType: Class<*>, fileName: String, scope: Scope = Scope()) =
-        parse(code).handleForType(asType, scope)
+        parse(code, fileName).handleForType(asType, scope)
 }
 
 fun String.evaluate(asType: Class<*>, fileName: String = "REPL", scope: Scope = Scope()) =
