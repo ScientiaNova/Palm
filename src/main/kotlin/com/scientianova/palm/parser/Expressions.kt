@@ -73,21 +73,21 @@ data class ListComprehension(
     val collection: IExpression,
     val filter: IExpression? = null
 ) : IExpression {
-    override fun evaluate(scope: Scope) = mutableListOf<Any?>().apply { evaluate(scope, this) }
+    override fun evaluate(scope: Scope) = mutableListOf<Any?>().apply { evaluate(Scope(parent = scope), this) }
 
     fun evaluate(scope: Scope, result: MutableList<Any?>) {
         val collection = collection.evaluate(scope)
         if (expression is ListComprehension)
             for (thing in collection.palmType.iterator(collection)) {
-                val newScope = Scope(mutableMapOf(name to thing), scope)
-                if (filter == null || filter.evaluate(newScope) == true)
-                    expression.evaluate(newScope, result)
+                scope[name] = thing
+                if (filter == null || filter.evaluate(scope) == true)
+                    expression.evaluate(scope, result)
             }
         else
             for (thing in collection.palmType.iterator(collection)) {
-                val newScope = Scope(mutableMapOf(name to thing), scope)
-                if (filter == null || filter.evaluate(newScope) == true)
-                    result.add(expression.evaluate(newScope))
+                scope[name] = thing
+                if (filter == null || filter.evaluate(scope) == true)
+                    result.add(expression.evaluate(scope))
             }
     }
 
@@ -112,10 +112,11 @@ data class DictComprehension(
     val filter: IExpression? = null
 ) : IExpression {
     override fun evaluate(scope: Scope): Map<Any?, Any?> {
-        val collection = collection.evaluate(scope)
+        val newScope = Scope(parent = scope)
+        val collection = collection.evaluate(newScope)
         val result = mutableMapOf<Any?, Any?>()
         for (thing in collection.palmType.iterator(collection)) {
-            val newScope = Scope(mutableMapOf(name to thing), scope)
+            newScope[name] = thing
             if (filter == null || filter.evaluate(newScope) == true)
                 result[keyExpr.evaluate(newScope)] = valueExpr.evaluate(newScope)
         }
