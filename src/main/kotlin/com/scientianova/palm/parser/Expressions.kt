@@ -7,7 +7,10 @@ import com.scientianova.palm.evaluator.palmType
 import com.scientianova.palm.registry.TypeName
 import com.scientianova.palm.registry.TypeRegistry
 import com.scientianova.palm.tokenizer.*
-import com.scientianova.palm.util.*
+import com.scientianova.palm.util.Positioned
+import com.scientianova.palm.util.StringPos
+import com.scientianova.palm.util.on
+import com.scientianova.palm.util.pushing
 import java.util.*
 
 interface IOperationPart
@@ -257,7 +260,7 @@ fun handleExpression(
     val expr: PositionedExpression
     val next: PositionedToken?
     if (op != null && op.value is BinaryOperatorToken && (!untilLineEnd || op.area.end.row == first.area.start.row)) {
-        val res = handleBinOps(parser, op.value, first.area.start, Stack<IOperationPart>().pushing(first.value))
+        val res = handleBinOps(parser, op.value, Stack<Positioned<IOperationPart>>().pushing(first))
         expr = res.first
         next = res.second
     } else {
@@ -275,60 +278,64 @@ fun handleExpression(
 fun handleBinOps(
     parser: Parser,
     op: BinaryOperatorToken,
-    startPos: StringPos,
-    operandStack: Stack<IOperationPart>,
+    operandStack: Stack<Positioned<IOperationPart>>,
     operatorStack: Stack<BinaryOperatorToken> = Stack(),
     untilLineEnd: Boolean = true
 ): Pair<PositionedExpression, PositionedToken?> =
     if (operatorStack.isEmpty() || op.precedence > operatorStack.peek().precedence) {
         when (op) {
-            is TernaryOperatorToken ->
-                handleTernary(parser, parser.pop(), operandStack.pop() as IExpression, startPos)
+            is TernaryOperatorToken -> {
+                val condition = operandStack.pop()
+                handleTernary(parser, parser.pop(), condition.value as IExpression, condition.area.start)
+            }
             is WalrusOperatorToken -> {
-                val name = operandStack.pop() as? Constant
-                    ?: parser.error(INVALID_CONSTANT_NAME_IN_WALRUS_ERROR, parser.lastPos)
+                val previous = operandStack.pop()
+                val name = previous.value as? Constant
+                    ?: parser.error(INVALID_CONSTANT_NAME_IN_WALRUS_ERROR, previous.area)
                 val (value, next) = handleExpression(parser, parser.pop())
-                operandStack.push(Walrus(name.name, value.value))
-                emptyStacks(next, startPos..value.area.end, operandStack, operatorStack)
+                operandStack.push(Walrus(name.name, value.value) on previous.area.start..value.area.end)
+                emptyStacks(next, operandStack, operatorStack)
             }
             else -> {
                 val (operand, next) =
                     if (op is TypeOperatorToken) handleType(parser, parser.pop())
                     else handleExpressionPart(parser, parser.pop())
                 operatorStack.push(op)
-                operandStack.push(operand.value)
+                operandStack.push(operand)
                 if (next != null && next.value is BinaryOperatorToken && (!untilLineEnd || next.area.end.row == operand.area.start.row)) {
                     if (op is ComparisonOperatorToken && next.value is ComparisonOperatorToken) {
                         operatorStack.push(AndToken)
-                        operandStack.push(operand.value)
+                        operandStack.push(operand)
                     }
-                    handleBinOps(parser, next.value, startPos, operandStack, operatorStack, untilLineEnd)
-                } else emptyStacks(next, startPos..operand.area.end, operandStack, operatorStack)
+                    handleBinOps(parser, next.value, operandStack, operatorStack, untilLineEnd)
+                } else emptyStacks(next, operandStack, operatorStack)
             }
         }
     } else {
         val second = operandStack.pop()
+        val first = operandStack.pop()
         handleBinOps(
-            parser,
-            op,
-            startPos,
-            operandStack.pushing(operatorStack.pop().handleExpression(operandStack.pop(), second)),
-            operatorStack,
-            untilLineEnd
+            parser, op, operandStack.pushing(
+                operatorStack.pop().handleExpression(first.value, second.value) on first.area.start..second.area.end
+            ), operatorStack, untilLineEnd
         )
     }
 
 fun emptyStacks(
     next: PositionedToken?,
-    area: StringArea,
-    operandStack: Stack<IOperationPart>,
+    operandStack: Stack<Positioned<IOperationPart>>,
     operatorStack: Stack<BinaryOperatorToken> = Stack()
 ): Pair<PositionedExpression, PositionedToken?> =
-    if (operatorStack.isEmpty()) operandStack.pop() as IExpression on area to next else {
+    if (operatorStack.isEmpty()) {
+        val result = operandStack.pop()
+        result.value as IExpression on result.area to next
+    } else {
         val second = operandStack.pop()
+        val first = operandStack.pop()
         emptyStacks(
-            next, area, operandStack.pushing(operatorStack.pop().handleExpression(operandStack.pop(), second)),
-            operatorStack
+            next, operandStack.pushing(
+                operatorStack.pop().handleExpression(first.value, second.value) on first.area.start..second.area.end
+            ), operatorStack
         )
     }
 
