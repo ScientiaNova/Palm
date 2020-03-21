@@ -47,6 +47,7 @@ object ElseToken : KeywordToken("else")
 object WhenToken : KeywordToken("when")
 object WhereToken : KeywordToken("where")
 object ForToken : KeywordToken("for")
+object YieldToken : KeywordToken("yield")
 
 sealed class ContainingOperatorToken(symbol: String, precedence: Int) : BinaryOperatorToken(symbol, precedence)
 object InToken : ContainingOperatorToken("in", 8) {
@@ -87,7 +88,8 @@ private val specialWords = mapOf(
     "for" to ForToken,
     "in" to InToken,
     "is" to IsToken,
-    "as" to AsToken
+    "as" to AsToken,
+    "yield" to YieldToken
 )
 
 fun handleUncapitalizedString(string: String) = specialWords[string] ?: IdentifierToken(string)

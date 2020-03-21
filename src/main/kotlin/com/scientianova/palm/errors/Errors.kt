@@ -220,16 +220,40 @@ val MISSING_COLON_OR_EQUALS_IN_WHERE_ERROR = PalmError(
     "Add a = or : here."
 )
 
-val INVALID_CONSTANT_NAME_IN_WHERE_ERROR = PalmError(
-    "INVALID CONSTANT NAME",
-    "I was going through a where expression and was expecting the name of a constant next, but instead got:",
-    "Names of constants have to start with a letter and can contain digits and underscores."
+val INVALID_VARIABLE_NAME_IN_WHERE_ERROR = PalmError(
+    "INVALID VARIABLE NAME",
+    "I was going through a where expression and was expecting a variable name next, but instead got:",
+    "Variable names have to start with a letter and can contain digits and underscores."
 )
 
-val INVALID_CONSTANT_NAME_IN_WALRUS_ERROR = PalmError(
-    "INVALID CONSTANT NAME",
-    "I saw a walrus operator and was expecting the name of a constant before it, but I instead got:",
-    "Names of constants have to start with a letter and can contain digits and underscores."
+val INVALID_VARIABLE_NAME_IN_WALRUS_ERROR = PalmError(
+    "INVALID VARIABLE NAME",
+    "I saw a walrus operator and was expecting a variable name before it, but I instead got:",
+    "Variable names have to start with a letter and can contain digits and underscores."
+)
+
+val INVALID_VARIABLE_NAME_IN_YIELD_ERROR = PalmError(
+    "INVALID VARIABLE NAME",
+    "I saw going through a yield expression and was expecting a variable name next, but instead got:",
+    "Variable names have to start with a letter and can contain digits and underscores."
+)
+
+val MISSING_WALRUS_IN_YIELD_ERROR = PalmError(
+    "MISSING WALRUS OPERATOR",
+    "I was going through a yield expression and was expecting the walrus operator next, but instead got:",
+    "Adding := here"
+)
+
+val MISSING_FOR_IN_YIELD_ERROR = PalmError(
+    "MISSING FOR",
+    "I was going through a yield expression and was expecting for next, but instead got:",
+    "Adding for here"
+)
+
+val MISSING_IN_IN_YIELD_ERROR = PalmError(
+    "MISSING IN",
+    "I was going through a yield expression and was expecting in next, but instead got:",
+    "Adding for here"
 )
 
 val UNCLOSED_WHERE_ERROR = PalmError(

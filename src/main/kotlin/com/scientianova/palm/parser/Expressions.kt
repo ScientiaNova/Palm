@@ -24,14 +24,6 @@ interface IExpression : IOperationPart {
     } else evaluate(scope).cast(type)
 
     fun evaluate(scope: Scope = Scope.GLOBAL): Any?
-
-    fun <T : IExpression> find(type: Class<out T>, predicate: (T) -> Boolean): List<T> {
-        if (type.isInstance(this)) {
-            val casted = type.cast(this)
-            if (predicate(casted)) return listOf(casted)
-        }
-        return emptyList()
-    }
 }
 
 typealias PositionedExpression = Positioned<IExpression>
@@ -62,9 +54,6 @@ data class Lis(val expressions: List<IExpression> = emptyList()) : IExpression {
     constructor(expr: IExpression) : this(listOf(expr))
 
     override fun evaluate(scope: Scope) = expressions.map { it.evaluate(scope) }
-
-    override fun <T : IExpression> find(type: Class<out T>, predicate: (T) -> Boolean) =
-        super.find(type, predicate) + expressions.flatMap { it.find(type, predicate) }
 }
 
 data class ListComprehension(
@@ -90,18 +79,11 @@ data class ListComprehension(
                     result.add(expression.evaluate(scope))
             }
     }
-
-    override fun <T : IExpression> find(type: Class<out T>, predicate: (T) -> Boolean) =
-        super.find(type, predicate) + expression.find(type, predicate) +
-                collection.find(type, predicate) + (filter?.find(type, predicate) ?: emptyList())
 }
 
 data class Dict(val values: Map<IExpression, IExpression> = emptyMap()) : IExpression {
     override fun evaluate(scope: Scope) =
         values.map { it.key.evaluate(scope) to it.value.evaluate(scope) }.toMap()
-
-    override fun <T : IExpression> find(type: Class<out T>, predicate: (T) -> Boolean) =
-        super.find(type, predicate) + values.flatMap { it.key.find(type, predicate) + it.value.find(type, predicate) }
 }
 
 data class DictComprehension(
@@ -134,18 +116,11 @@ data class Str(val parts: List<StrPart>) : IExpression {
             is StrExpressionPart -> it.expr.evaluate(scope).toString()
         }
     }
-
-    override fun <T : IExpression> find(type: Class<out T>, predicate: (T) -> Boolean) =
-        super.find(type, predicate) + parts.filterIsInstance<StrExpressionPart>()
-            .flatMap { it.expr.find(type, predicate) }
 }
 
 data class Object(val values: Map<String, IExpression> = emptyMap(), val type: TypeName? = null) : IExpression {
     override fun evaluate(scope: Scope) =
         type?.toType()?.createInstance(values, scope) ?: error("Typeless object")
-
-    override fun <T : IExpression> find(type: Class<out T>, predicate: (T) -> Boolean) =
-        super.find(type, predicate) + values.values.flatMap { it.find(type, predicate) }
 }
 
 data class ValAccess(val expr: IExpression, val field: String) : IExpression {
@@ -153,9 +128,6 @@ data class ValAccess(val expr: IExpression, val field: String) : IExpression {
         val value = expr.evaluate(scope)
         return value.palmType.get(value, field)
     }
-
-    override fun <T : IExpression> find(type: Class<out T>, predicate: (T) -> Boolean) =
-        super.find(type, predicate) + expr.find(type, predicate)
 }
 
 data class SafeValAccess(val expr: IExpression, val field: String) : IExpression {
@@ -163,18 +135,11 @@ data class SafeValAccess(val expr: IExpression, val field: String) : IExpression
         val value = expr.evaluate(scope) ?: return null
         return value.palmType.get(value, field)
     }
-
-    override fun <T : IExpression> find(type: Class<out T>, predicate: (T) -> Boolean) =
-        super.find(type, predicate) + expr.find(type, predicate)
 }
 
 data class If(val condExpr: IExpression, val thenExpr: IExpression, val elseExpr: IExpression) : IExpression {
     override fun evaluate(scope: Scope) =
         if (condExpr.evaluate(scope) == true) thenExpr.evaluate(scope) else elseExpr.evaluate(scope)
-
-    override fun <T : IExpression> find(type: Class<out T>, predicate: (T) -> Boolean) =
-        super.find(type, predicate) + condExpr.find(type, predicate) +
-                thenExpr.find(type, predicate) + elseExpr.find(type, predicate)
 }
 
 data class Where(val expr: IExpression, val definitions: List<Pair<String, IExpression>>) : IExpression {
@@ -185,10 +150,6 @@ data class Where(val expr: IExpression, val definitions: List<Pair<String, IExpr
         }
         return expr.evaluate(newScope)
     }
-
-    override fun <T : IExpression> find(type: Class<out T>, predicate: (T) -> Boolean) =
-        super.find(type, predicate) +
-                expr.find(type, predicate) + definitions.flatMap { it.second.find(type, predicate) }
 }
 
 data class When(val branches: List<Pair<IExpression, IExpression>>, val elseBranch: IExpression?) : IExpression {
@@ -196,11 +157,6 @@ data class When(val branches: List<Pair<IExpression, IExpression>>, val elseBran
         branches.firstOrNull { it.first.evaluate(scope) == true }?.second?.evaluate(scope)
             ?: elseBranch?.evaluate(scope)
             ?: error("Non-exhaustive when statement")
-
-    override fun <T : IExpression> find(type: Class<out T>, predicate: (T) -> Boolean) =
-        super.find(type, predicate) +
-                branches.flatMap { it.first.find(type, predicate) + it.second.find(type, predicate) } +
-                (elseBranch?.find(type, predicate) ?: emptyList())
 }
 
 sealed class Pattern
@@ -236,21 +192,26 @@ data class WhenSwitch(
             }
         }?.second?.evaluate(scope) ?: elseBranch?.evaluate(scope) ?: error("Not exhaustive when statement")
     }
-
-    override fun <T : IExpression> find(type: Class<out T>, predicate: (T) -> Boolean) =
-        super.find(type, predicate) +
-                branches.flatMap {
-                    it.first.flatMap { pattern ->
-                        when (pattern) {
-                            is ExpressionPattern -> pattern.expression.find(type, predicate)
-                            is TypePattern -> emptyList()
-                            is ContainingPattern -> pattern.collection.find(type, predicate)
-                            is ComparisonPattern -> pattern.expression.find(type, predicate)
-                        }
-                    } + it.second.find(type, predicate)
-                } + (elseBranch?.find(type, predicate) ?: emptyList())
 }
 
+data class Yield(
+    val variableName: String,
+    val expr: IExpression,
+    val collection: IExpression,
+    val iteratedName: String,
+    val filter: IExpression?
+) : IExpression {
+    override fun evaluate(scope: Scope): Any? {
+        val newScope = Scope(parent = scope)
+        val collection = collection.evaluate(newScope)
+        for (thing in collection.palmType.iterator(collection)) {
+            newScope[iteratedName] = thing
+            if (filter == null || filter.evaluate(newScope) == true)
+                newScope[variableName] = expr.evaluate(newScope)
+        }
+        return newScope[variableName]
+    }
+}
 
 fun handleExpression(
     parser: Parser,
@@ -292,7 +253,7 @@ fun handleBinOps(
             is WalrusOperatorToken -> {
                 val previous = operandStack.pop()
                 val name = previous.value as? Constant
-                    ?: parser.error(INVALID_CONSTANT_NAME_IN_WALRUS_ERROR, previous.area)
+                    ?: parser.error(INVALID_VARIABLE_NAME_IN_WALRUS_ERROR, previous.area)
                 val (value, next) = handleExpression(parser, parser.pop())
                 operandStack.push(Walrus(name.name, value.value) on previous.area.start..value.area.end)
                 emptyStacks(next, operandStack, operatorStack)
@@ -408,6 +369,7 @@ fun handleExpressionPart(
                     }
                 }
             }
+            is YieldToken -> handleYield(parser, parser.pop(), token.area.start, untilLineEnd)
             is PureStringToken -> Str(listOf(StrStringPart(token.value.name))) on token to parser.pop()
             is StringTemplateToken -> Str(token.value.parts.map {
                 when (it) {
@@ -773,29 +735,24 @@ fun handleWhere(
         is ClosedCurlyBracketToken -> Where(expression, values) on startPos..token.area.end to parser.pop()
         is IKeyToken -> parser.pop().let { assignToken ->
             val (expr, next) = when (assignToken?.value) {
-                is AssignmentToken -> handleExpression(parser, parser.pop())
-                is OpenCurlyBracketToken -> handleObject(parser, parser.pop(), assignToken.area.start)
-                else -> parser.error(
-                    MISSING_COLON_OR_EQUALS_IN_WHERE_ERROR,
-                    assignToken?.area?.start ?: parser.lastPos
-                )
+                is AssignmentToken ->
+                    handleExpression(parser, parser.pop())
+                is OpenCurlyBracketToken ->
+                    handleObject(parser, parser.pop(), assignToken.area.start)
+                else ->
+                    parser.error(MISSING_COLON_OR_EQUALS_IN_WHERE_ERROR, assignToken?.area?.start ?: parser.lastPos)
             }
             when (next?.value) {
                 is ClosedCurlyBracketToken ->
                     Where(expression, values + (token.value.name to expr.value)) on
                             startPos..token.area.end to parser.pop()
                 is SeparatorToken ->
-                    handleWhere(
-                        parser,
-                        parser.pop(),
-                        expression,
-                        startPos,
-                        values + (token.value.name to expr.value)
-                    )
-                else -> handleWhere(parser, next, expression, startPos, values + (token.value.name to expr.value))
+                    handleWhere(parser, parser.pop(), expression, startPos, values + (token.value.name to expr.value))
+                else ->
+                    handleWhere(parser, next, expression, startPos, values + (token.value.name to expr.value))
             }
         }
-        else -> parser.error(INVALID_CONSTANT_NAME_IN_WHERE_ERROR, token.area)
+        else -> parser.error(INVALID_VARIABLE_NAME_IN_WHERE_ERROR, token.area)
     }
 
 fun handleWhen(
@@ -877,4 +834,33 @@ fun handleSwitchBranch(
         }
         else -> parser.error(MISSING_ARROW_ERROR, separator?.area ?: parser.lastArea)
     }
+}
+
+fun handleYield(
+    parser: Parser,
+    token: PositionedToken?,
+    startPos: StringPos,
+    untilLineEnd: Boolean = false
+): Pair<PositionedExpression, PositionedToken?> {
+    val resultName = (token?.value as? IdentifierToken)?.name
+        ?: parser.error(INVALID_VARIABLE_NAME_IN_YIELD_ERROR, token?.area ?: parser.lastArea)
+    val walrus = parser.pop()
+    if (walrus?.value !is WalrusOperatorToken)
+        parser.error(MISSING_WALRUS_IN_YIELD_ERROR, walrus?.area?.start ?: parser.lastPos)
+    val (expression, forToken) = handleExpression(parser, parser.pop())
+    if (forToken?.value !is ForToken)
+        parser.error(MISSING_FOR_IN_YIELD_ERROR, forToken?.area?.start ?: parser.lastPos)
+    val iteratingVariable = parser.pop()
+    val iteratingName = (iteratingVariable?.value as? IdentifierToken)?.name
+        ?: parser.error(INVALID_VARIABLE_NAME_IN_YIELD_ERROR, iteratingVariable?.area ?: parser.lastArea)
+    val inToken = parser.pop()
+    if (inToken?.value !is InToken)
+        parser.error(MISSING_IN_IN_YIELD_ERROR, inToken?.area?.start ?: parser.lastPos)
+    val (collection, afterCollection) = handleExpression(parser, parser.pop(), untilLineEnd)
+    return if (afterCollection?.value is IfToken) {
+        val (filter, next) = handleExpression(parser, parser.pop(), untilLineEnd)
+        Yield(resultName, expression.value, collection.value, iteratingName, filter.value) on
+                startPos..filter.area.end to next
+    } else Yield(resultName, expression.value, collection.value, iteratingName, null) on
+            startPos..collection.area.end to afterCollection
 }
