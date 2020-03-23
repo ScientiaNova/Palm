@@ -280,10 +280,6 @@ val INVALID_TYPE_NAME = PalmError(
     "Type names have to start with a letter and can contain digits and underscores. The path of the type is separated via dots."
 )
 
-val UNKNOWN_TYPE_ERROR = PalmError(
-    "UNKNOWN TYPE", "I couldn't find a registered type with the following name and path:", ""
-)
-
 val INVALID_EMPTY_MAP_ERROR = PalmError(
     "INVALID EMPTY MAP",
     "I thought I was going through an empty map literal, but instead of a closed square  bracket, I got:",

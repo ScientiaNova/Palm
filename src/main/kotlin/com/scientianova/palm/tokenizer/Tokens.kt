@@ -63,17 +63,17 @@ object NotInToken : ContainingOperatorToken("!in", 8) {
 sealed class TypeOperatorToken(symbol: String, precedence: Int) : BinaryOperatorToken(symbol, precedence)
 object IsToken : TypeOperatorToken("is", 8) {
     override fun handleExpression(first: IOperationPart, second: IOperationPart): IExpression =
-        TypeCheck(first as IExpression, (second as PalmType).clazz)
+        TypeCheck(first as IExpression, (second as PalmType).path)
 }
 
 object IsNotToken : TypeOperatorToken("!is", 8) {
     override fun handleExpression(first: IOperationPart, second: IOperationPart): IExpression =
-        UnaryOp(Not, TypeCheck(first as IExpression, (second as PalmType).clazz))
+        UnaryOp(Not, TypeCheck(first as IExpression, (second as PalmType).path))
 }
 
 object AsToken : TypeOperatorToken("as", 13) {
     override fun handleExpression(first: IOperationPart, second: IOperationPart): IExpression =
-        Cast(first as IExpression, (second as PalmType).clazz)
+        Cast(first as IExpression, (second as PalmType).path)
 }
 
 private val specialWords = mapOf(

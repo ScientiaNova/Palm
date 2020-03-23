@@ -3,7 +3,6 @@ package com.scientianova.palm.registry
 import com.scientianova.palm.evaluator.palmType
 import com.scientianova.palm.parser.*
 import com.scientianova.palm.tokenizer.StringTraverser
-import com.scientianova.palm.util.HashBasedTable
 import java.lang.invoke.MethodHandles
 import java.lang.invoke.MethodType
 import java.lang.reflect.Modifier
@@ -21,11 +20,6 @@ object TypeRegistry {
 
     fun replaceJavaPath(path: String) = PATH_REPLACEMENT[path] ?: path
 
-    private val NAMES = HashBasedTable<String, String, Class<*>>()
-
-    fun classFromName(name: String, path: String? = null) =
-        if (path.isNullOrBlank()) NAMES[name]?.values?.firstOrNull() else NAMES[name, path]
-
     private val TYPES = hashMapOf<Class<*>, IPalmType>()
 
     init {
@@ -36,7 +30,7 @@ object TypeRegistry {
         addPathReplacement("kotlin.ranges", "base")
 
         register(Any::class.java, "base", "any")
-        register(object : PalmType(TypeName("base", "number"), Number::class.java) {
+        register(object : PalmType(listOf("base", "number"), Number::class.java) {
             init {
                 populate()
                 val loopUp = MethodHandles.publicLookup()
@@ -86,7 +80,7 @@ object TypeRegistry {
                 }
             }
         })
-        register(object : PalmType(TypeName("base", "byte"), Byte::class.javaObjectType) {
+        register(object : PalmType(listOf("base", "byte"), Byte::class.javaObjectType) {
             init {
                 populate()
             }
@@ -160,7 +154,7 @@ object TypeRegistry {
                         else super.execute(op, obj, second)
                     is Or ->
                         if (second is Number) (obj.toInt() or second.toInt()).toByte()
-                    else super.execute(op, obj, second)
+                        else super.execute(op, obj, second)
                     is And ->
                         if (second is Number) (obj.toInt() and second.toInt()).toByte()
                         else super.execute(op, obj, second)
@@ -178,7 +172,7 @@ object TypeRegistry {
                 } else super.execute(op, obj, rest)
             }
         })
-        register(object : PalmType(TypeName("base", "short"), Short::class.javaObjectType) {
+        register(object : PalmType(listOf("base", "short"), Short::class.javaObjectType) {
             init {
                 populate()
             }
@@ -270,7 +264,7 @@ object TypeRegistry {
                 } else super.execute(op, obj, rest)
             }
         })
-        register(object : PalmType(TypeName("base", "int"), Int::class.javaObjectType) {
+        register(object : PalmType(listOf("base", "int"), Int::class.javaObjectType) {
             init {
                 populate()
             }
@@ -362,7 +356,7 @@ object TypeRegistry {
                 } else super.execute(op, obj, rest)
             }
         })
-        register(object : PalmType(TypeName("base", "long"), Long::class.javaObjectType) {
+        register(object : PalmType(listOf("base", "long"), Long::class.javaObjectType) {
             init {
                 populate()
             }
@@ -454,7 +448,7 @@ object TypeRegistry {
                 } else super.execute(op, obj, rest)
             }
         })
-        register(object : PalmType(TypeName("base", "float"), Float::class.javaObjectType) {
+        register(object : PalmType(listOf("base", "float"), Float::class.javaObjectType) {
             init {
                 populate()
             }
@@ -536,7 +530,7 @@ object TypeRegistry {
                 }
             }
         })
-        register(object : PalmType(TypeName("base", "double"), Double::class.javaObjectType) {
+        register(object : PalmType(listOf("base", "double"), Double::class.javaObjectType) {
             init {
                 populate()
             }
@@ -619,7 +613,7 @@ object TypeRegistry {
             }
         })
         register(Boolean::class.javaObjectType, "base", "bool")
-        register(object : PalmType(TypeName("base", "char"), Char::class.javaObjectType) {
+        register(object : PalmType(listOf("base", "char"), Char::class.javaObjectType) {
             init {
                 populate()
             }
@@ -654,7 +648,7 @@ object TypeRegistry {
                 } else super.execute(op, obj, rest)
             }
         })
-        register(object : PalmType(TypeName("base", "string"), String::class.java) {
+        register(object : PalmType(listOf("base", "string"), String::class.java) {
             init {
                 populate()
                 multiOps[Get] = MethodHandles.publicLookup().findVirtual(
@@ -743,22 +737,21 @@ object TypeRegistry {
     }
 
     fun register(type: IPalmType) {
-        NAMES[type.name.name, type.name.path] = type.clazz
+        RootPathNode.addType(type.name, type)
         TYPES[type.clazz] = type
     }
 
     inline fun <reified T> getOrRegister() = getOrRegister(T::class.java)
 
     fun getOrRegister(clazz: Class<*>) = register(
-        clazz, (clazz.getAnnotation(Palm.Name::class.java)?.name ?: clazz.typeName.toSnakeCase()).toTypeName()
+        clazz, clazz.getAnnotation(Palm.Name::class.java)?.name?.split('.') ?: clazz.typeName.tolistOf()
     )
 
-    fun register(clazz: Class<*>, path: String, name: String = clazz.simpleName) =
-        register(clazz, TypeName(path, name))
+    fun register(clazz: Class<*>, vararg path: String) = register(clazz, path.toList())
 
-    fun register(clazz: Class<*>, name: TypeName): IPalmType {
+    fun register(clazz: Class<*>, path: List<String>): IPalmType {
         TYPES[clazz]?.let { return it }
-        val type = PalmType(name, clazz)
+        val type = PalmType(path, clazz)
         register(type)
         if (!clazz.isInterface) type.populate()
         return type
@@ -813,6 +806,12 @@ object TypeRegistry {
             }
         }
     }
+}
+
+fun String.tolistOf(): List<String> {
+    val name = substringAfterLast(".")
+    val path = TypeRegistry.replaceJavaPath(dropLast(name.length + 1))
+    return path.split('.') + name.toSnakeCase()
 }
 
 fun String.toSnakeCase(): String {

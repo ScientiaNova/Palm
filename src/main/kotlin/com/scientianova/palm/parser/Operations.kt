@@ -23,12 +23,12 @@ data class Disjunction(val first: IExpression, val second: IExpression) : IExpre
         first.evaluate(scope) == true || second.evaluate(scope) == false
 }
 
-data class Cast(val expr: IExpression, val type: Class<*>) : IExpression {
-    override fun evaluate(scope: Scope) = expr.handleForType(type, scope)
+data class Cast(val expr: IExpression, val type: List<String>) : IExpression {
+    override fun evaluate(scope: Scope) = expr.handleForType(scope.getType(type).clazz, scope)
 }
 
-data class TypeCheck(val expr: IExpression, val type: Class<*>) : IExpression {
-    override fun evaluate(scope: Scope) = type.isInstance(expr.evaluate(scope))
+data class TypeCheck(val expr: IExpression, val type: List<String>) : IExpression {
+    override fun evaluate(scope: Scope) = scope.getType(type).clazz.isInstance(expr.evaluate(scope))
 }
 
 data class EqualityCheck(val first: IExpression, val second: IExpression) : IExpression {

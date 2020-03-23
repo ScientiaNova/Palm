@@ -18,8 +18,8 @@ interface IPalmType {
     fun get(obj: Any?, name: String): Any?
     fun set(property: String, obj: Any?, expr: IExpression, scope: Scope)
     val clazz: Class<*>
+    val name: List<String>
     fun iterator(obj: Any?): Iterator<*>
-    val name: TypeName
     fun execute(op: UnaryOperation, obj: Any?): Any?
     fun execute(op: BinaryOperation, obj: Any?, second: Any?): Any?
     fun execute(op: MultiOperation, obj: Any?, rest: List<Any?>): Any?
@@ -30,7 +30,7 @@ operator fun IPalmType.invoke(builder: PalmType.() -> Unit) {
     if (this is PalmType) this.builder()
 }
 
-open class PalmType(override val name: TypeName, override val clazz: Class<*>) : IPalmType {
+open class PalmType(override val name: List<String>, override val clazz: Class<*>) : IPalmType {
     var constructor: PalmConstructor? = null
 
     override fun createInstance(obj: Map<String, IExpression>, scope: Scope) = constructor?.let {

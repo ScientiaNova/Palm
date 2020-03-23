@@ -4,8 +4,8 @@ import com.scientianova.palm.errors.*
 import com.scientianova.palm.evaluator.Scope
 import com.scientianova.palm.evaluator.cast
 import com.scientianova.palm.evaluator.palmType
-import com.scientianova.palm.registry.TypeName
 import com.scientianova.palm.registry.TypeRegistry
+import com.scientianova.palm.registry.toType
 import com.scientianova.palm.tokenizer.*
 import com.scientianova.palm.util.Positioned
 import com.scientianova.palm.util.StringPos
@@ -28,9 +28,9 @@ interface IExpression : IOperationPart {
 
 typealias PositionedExpression = Positioned<IExpression>
 
-data class Constant(val name: String) : IExpression {
+data class Variable(val name: String) : IExpression {
     override fun evaluate(scope: Scope) =
-        if (name in scope) scope[name] else error("Couldn't find a constant called $name in the current scope")
+        if (name in scope) scope[name] else error("Couldn't find a variable called $name in the current scope")
 }
 
 data class Num(val num: Number) : IExpression {
@@ -118,7 +118,7 @@ data class Str(val parts: List<StrPart>) : IExpression {
     }
 }
 
-data class Object(val values: Map<String, IExpression> = emptyMap(), val type: TypeName? = null) : IExpression {
+data class Object(val values: Map<String, IExpression> = emptyMap(), val type: List<String>? = null) : IExpression {
     override fun evaluate(scope: Scope) =
         type?.toType()?.createInstance(values, scope) ?: error("Typeless object")
 }
@@ -161,7 +161,7 @@ data class When(val branches: List<Pair<IExpression, IExpression>>, val elseBran
 
 sealed class Pattern
 data class ExpressionPattern(val expression: IExpression) : Pattern()
-data class TypePattern(val type: Class<*>, val inverted: Boolean = false) : Pattern()
+data class TypePattern(val type: List<String>, val inverted: Boolean = false) : Pattern()
 data class ContainingPattern(val collection: IExpression, val inverted: Boolean = false) : Pattern()
 data class ComparisonPattern(val operator: ComparisonOperatorToken, val expression: IExpression) : Pattern()
 typealias SwitchBranch = Pair<List<Pattern>, IExpression>
@@ -177,7 +177,7 @@ data class WhenSwitch(
             branch.first.any { pattern ->
                 when (pattern) {
                     is ExpressionPattern -> evaluated == pattern.expression.evaluate(scope)
-                    is TypePattern -> pattern.inverted != pattern.type.isInstance(evaluated)
+                    is TypePattern -> pattern.inverted != scope.getType(pattern.type).clazz.isInstance(evaluated)
                     is ContainingPattern -> {
                         val collection = pattern.collection.evaluate(scope)
                         pattern.inverted != collection.palmType.execute(Contains, collection, evaluated)
@@ -252,7 +252,7 @@ fun handleBinOps(
             }
             is WalrusOperatorToken -> {
                 val previous = operandStack.pop()
-                val name = previous.value as? Constant
+                val name = previous.value as? Variable
                     ?: parser.error(INVALID_VARIABLE_NAME_IN_WALRUS_ERROR, previous.area)
                 val (value, next) = handleExpression(parser, parser.pop())
                 operandStack.push(Walrus(name.name, value.value) on previous.area.start..value.area.end)
@@ -441,15 +441,8 @@ fun handleIdentifierSequence(
         }
         handleIdentifierSequence(parser, parser.pop(), startPos, identifiers + top.name)
     }
-    is OpenCurlyBracketToken ->
-        handleTypedObject(
-            parser,
-            parser.pop(),
-            startPos,
-            TypeName(identifiers.dropLast(1).joinToString(".") { it }, identifiers.last())
-        )
-    else -> identifiers.drop(1)
-        .fold(Constant(identifiers.first()) as IExpression) { acc, s -> ValAccess(acc, s) } on
+    is OpenCurlyBracketToken -> handleTypedObject(parser, parser.pop(), startPos, identifiers)
+    else -> identifiers.drop(1).fold(Variable(identifiers.first()) as IExpression) { acc, s -> ValAccess(acc, s) } on
             startPos to token
 }
 
@@ -547,20 +540,16 @@ fun handleListComprehension(
     return when (afterCollection?.value) {
         is ClosedSquareBracketToken ->
             ListComprehension(expr, name, collection.value) on startPos..afterCollection.area.end to parser.pop()
-        is ForToken -> {
-            val (nested, next) = handleListComprehension(parser, parser.pop(), expr, startPos)
-            ListComprehension(nested.value, name, collection.value) on startPos..afterCollection.area.end to next
-        }
+        is ForToken ->
+            handleListComprehension(parser, parser.pop(), ListComprehension(expr, name, collection.value), startPos)
         is IfToken -> {
             val (filter, afterFilter) = handleExpression(parser, parser.pop())
             when (afterFilter?.value) {
                 is ClosedSquareBracketToken -> ListComprehension(expr, name, collection.value, filter.value) on
                         startPos..afterCollection.area.end to parser.pop()
-                is ForToken -> {
-                    val (nested, next) = handleListComprehension(parser, parser.pop(), expr, startPos)
-                    ListComprehension(nested.value, name, collection.value, filter.value) on
-                            startPos..afterCollection.area.end to next
-                }
+                is ForToken -> handleListComprehension(
+                    parser, parser.pop(), ListComprehension(expr, name, collection.value, filter.value), startPos
+                )
                 else -> parser.error(UNCLOSED_SQUARE_BRACKET_ERROR, afterFilter?.area?.start ?: parser.lastPos)
             }
         }
@@ -611,7 +600,7 @@ fun handleObject(
                         val afterType = parser.pop()
                         return handleTypedObject(
                             parser, if (afterType?.value is SeparatorToken) parser.pop() else afterType, startPos,
-                            handleTypeString(exprStart.value.name)
+                            exprStart.value.name.split("(\\.|:)".toRegex())
                         )
                     }
                     handleExpression(parser, exprStart)
@@ -638,7 +627,7 @@ fun handleTypedObject(
     parser: Parser,
     token: PositionedToken?,
     startPos: StringPos,
-    type: TypeName,
+    type: List<String>,
     values: Map<String, IExpression> = emptyMap()
 ): Pair<Positioned<Object>, PositionedToken?> =
     if (token == null) parser.error(UNCLOSED_OBJECT_ERROR, parser.lastPos) else when (token.value) {
@@ -811,7 +800,7 @@ fun handleSwitchBranch(
     val (pattern, separator) = when (token.value) {
         is TypeOperatorToken -> {
             val (type, next) = handleType(parser, parser.pop())
-            TypePattern(type.value.clazz, token.value is IsNotToken) to next
+            TypePattern(type.value.path, token.value is IsNotToken) to next
         }
         is ContainingOperatorToken -> {
             val (expr, next) = handleExpression(parser, parser.pop())

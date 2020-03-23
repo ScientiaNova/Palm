@@ -1,6 +1,7 @@
 package com.scientianova.palm.tokenizer
 
 import com.scientianova.palm.errors.GREEK_QUESTION_MARK_ERROR
+import com.scientianova.palm.errors.UNKNOWN_BINARY_OPERATOR_ERROR
 import com.scientianova.palm.errors.UNKNOWN_UNARY_OPERATOR_ERROR
 import com.scientianova.palm.util.Positioned
 import com.scientianova.palm.util.StringPos
@@ -108,7 +109,7 @@ fun handleMisc(
         return (UNARY_OPS_MAP[symbolString] ?: SYMBOL_MAP[symbolString]
         ?: traverser.error(UNKNOWN_UNARY_OPERATOR_ERROR, symbolRes.first.area)) on symbolRes.first.area to next
     val symbol = BINARY_OPS_MAP[symbolString] ?: SYMBOL_MAP[symbolString]
-    ?: traverser.error(UNKNOWN_UNARY_OPERATOR_ERROR, symbolRes.first.area)
+    ?: traverser.error(UNKNOWN_BINARY_OPERATOR_ERROR, symbolRes.first.area)
     return if (symbol is NotToken && next != null && next.isLetter() && next.isLowerCase()) {
         val identifierRes = handleIdentifier(traverser, char)
         when (identifierRes.first.value) {
