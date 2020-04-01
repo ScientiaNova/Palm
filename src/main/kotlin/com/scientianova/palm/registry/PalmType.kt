@@ -66,7 +66,7 @@ open class PalmType(override val name: List<String>, override val clazz: Class<*
     }
 
     override fun getVirtualCaster(obj: Any?, type: Class<*>) =
-        virtualCasters[obj] ?: clazz.superclass?.palm?.getVirtualCaster(obj, type)
+        virtualCasters[type] ?: clazz.superclass?.palm?.getVirtualCaster(obj, type)
 
     override fun callVirtual(name: String, scope: Scope, obj: Any?, args: List<Any?>): Any? =
         scope.getMethod(name, obj, args)?.invokeWithArguments(obj, *args.toTypedArray())
@@ -79,13 +79,14 @@ open class PalmType(override val name: List<String>, override val clazz: Class<*
     fun populate() {
         val loopUp = MethodHandles.publicLookup()
         for (constructor in clazz.declaredConstructors) {
+            if (!Modifier.isPublic(constructor.modifiers)) continue
+            val handle = loopUp.findConstructor(
+                clazz, MethodType.methodType(Void::class.javaPrimitiveType!!, constructor.parameterTypes)
+            )
+            static["new"] = StaticFunction(handle)
             val annotation = constructor.getAnnotation(Palm.Constructor::class.java) ?: continue
             if (annotation.params.size != constructor.parameterCount) continue
-            this.constructor = PalmConstructor(
-                loopUp.findConstructor(
-                    clazz, MethodType.methodType(Void::class.javaPrimitiveType!!, constructor.parameterTypes)
-                ), annotation.params.map(PalmParameter.Companion::fromString)
-            )
+            this.constructor = PalmConstructor(handle, annotation.params.map(PalmParameter.Companion::fromString))
             break
         }
 

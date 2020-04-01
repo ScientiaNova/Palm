@@ -28,10 +28,12 @@ data class Scope(
         values[name] = obj
     }
 
+    fun getImport(name: String): RegularPathNode? = imports[name] ?: parent?.getImport(name)
+
     fun getType(path: List<String>): IPalmType {
         val iterator = path.iterator()
         val first = iterator.next()
-        return (imports[first] ?: RootPathNode[first])?.getType(iterator) ?: error("Unknown type")
+        return (getImport(first) ?: RootPathNode[first])?.getType(iterator) ?: error("Unknown type")
     }
 
     fun addStaticImport(name: String, function: StaticFunction) {

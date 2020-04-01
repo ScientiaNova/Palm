@@ -33,18 +33,30 @@ object TypeRegistry {
             init {
                 populate()
                 val loopUp = MethodHandles.publicLookup()
-                virtualCasters[Byte::class.java] =
-                    loopUp.findVirtual(clazz, "byteValue", MethodType.methodType(Byte::class.java))
-                virtualCasters[Short::class.java] =
-                    loopUp.findVirtual(clazz, "shortValue", MethodType.methodType(Short::class.java))
-                virtualCasters[Int::class.java] =
-                    loopUp.findVirtual(clazz, "intValue", MethodType.methodType(Int::class.java))
-                virtualCasters[Long::class.java] =
-                    loopUp.findVirtual(clazz, "longValue", MethodType.methodType(Long::class.java))
-                virtualCasters[Float::class.java] =
-                    loopUp.findVirtual(clazz, "floatValue", MethodType.methodType(Float::class.java))
-                virtualCasters[Double::class.java] =
-                    loopUp.findVirtual(clazz, "doubleValue", MethodType.methodType(Double::class.java))
+
+                val byte = loopUp.findVirtual(clazz, "byteValue", MethodType.methodType(Byte::class.java))
+                virtualCasters[Byte::class.javaPrimitiveType!!] = byte
+                virtualCasters[Byte::class.javaObjectType] = byte
+
+                val short = loopUp.findVirtual(clazz, "shortValue", MethodType.methodType(Short::class.java))
+                virtualCasters[Short::class.javaPrimitiveType!!] = short
+                virtualCasters[Short::class.javaObjectType] = short
+
+                val int = loopUp.findVirtual(clazz, "intValue", MethodType.methodType(Int::class.java))
+                virtualCasters[Int::class.javaPrimitiveType!!] = int
+                virtualCasters[Int::class.javaObjectType] = int
+
+                val long = loopUp.findVirtual(clazz, "longValue", MethodType.methodType(Long::class.java))
+                virtualCasters[Long::class.javaPrimitiveType!!] = long
+                virtualCasters[Long::class.javaObjectType] = long
+
+                val float = loopUp.findVirtual(clazz, "floatValue", MethodType.methodType(Float::class.java))
+                virtualCasters[Float::class.javaPrimitiveType!!] = float
+                virtualCasters[Float::class.javaObjectType] = float
+
+                val double = loopUp.findVirtual(clazz, "doubleValue", MethodType.methodType(Double::class.java))
+                virtualCasters[Double::class.javaPrimitiveType!!] = double
+                virtualCasters[Double::class.javaObjectType] = double
             }
 
             override fun callVirtual(name: String, scope: Scope, obj: Any?, args: List<Any?>) =
@@ -598,9 +610,8 @@ object TypeRegistry {
             if (type.name.first() == "base") {
                 if (type.clazz.declaredConstructors.isNotEmpty())
                     Scope.GLOBAL.imports[type.name.last()] = node
-                for ((name, functions) in type.getAllStatic()) if (name != "new") functions.forEach {
-                    Scope.GLOBAL.addStaticImport(name, it)
-                }
+                for ((name, functions) in type.getAllStatic()) if (name != "new")
+                    functions.forEach { Scope.GLOBAL.addStaticImport(name, it) }
             }
         }
         TYPES[type.clazz] = type
@@ -617,8 +628,8 @@ object TypeRegistry {
     fun register(clazz: Class<*>, path: List<String>): IPalmType {
         TYPES[clazz]?.let { return it }
         val type = PalmType(path, clazz)
-        register(type)
         if (!clazz.isInterface) type.populate()
+        register(type)
         return type
     }
 }
