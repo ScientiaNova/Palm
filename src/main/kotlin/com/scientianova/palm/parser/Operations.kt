@@ -1,7 +1,7 @@
 package com.scientianova.palm.parser
 
 import com.scientianova.palm.evaluator.Scope
-import com.scientianova.palm.evaluator.palmType
+import com.scientianova.palm.evaluator.callVirtual
 
 data class Elvis(val first: IExpression, val second: IExpression) : IExpression {
     override fun evaluate(scope: Scope) =
@@ -36,26 +36,16 @@ data class EqualityCheck(val first: IExpression, val second: IExpression) : IExp
 }
 
 data class UnaryOp(val op: UnaryOperation, val expr: IExpression) : IExpression {
-    override fun evaluate(scope: Scope): Any? {
-        val value = expr.evaluate(scope)
-        return value.palmType.execute(op, value)
-    }
+    override fun evaluate(scope: Scope) = expr.evaluate(scope).callVirtual(op.name, scope)
 }
 
 data class BinaryOp(val op: BinaryOperation, val first: IExpression, val second: IExpression) : IExpression {
-    override fun evaluate(scope: Scope): Any? {
-        val firstValue = first.evaluate(scope)
-        val secondValue = second.evaluate(scope)
-        return firstValue.palmType.execute(op, firstValue, secondValue)
-    }
+    override fun evaluate(scope: Scope) = first.evaluate(scope).callVirtual(op.name, scope, second.evaluate(scope))
 }
 
 data class MultiOp(val op: MultiOperation, val first: IExpression, val rest: List<IExpression>) : IExpression {
-    override fun evaluate(scope: Scope): Any? {
-        val firstValue = first.evaluate(scope)
-        val otherValues = rest.map { it.evaluate(scope) }
-        return firstValue.palmType.execute(op, firstValue, otherValues)
-    }
+    override fun evaluate(scope: Scope) =
+        first.evaluate(scope).callVirtual(op.name, scope, rest.map { it.evaluate(scope) })
 }
 
 data class Comparison(val type: ComparisonType, val expr: IExpression) : IExpression {
@@ -67,56 +57,31 @@ sealed class Operation(val name: String) {
 }
 
 sealed class UnaryOperation(name: String) : Operation(name)
-sealed class BinaryOperation(name: String, val returnType: Class<*>? = null) : Operation(name)
+sealed class BinaryOperation(name: String) : Operation(name)
 sealed class MultiOperation(name: String) : Operation(name)
 
-val UNARY_OPS = mapOf(
-    "unaryPlus" to UnaryPlus,
-    "unaryMinus" to UnaryMinus,
-    "not" to Not,
-    "inv" to Inv
-)
-
-object UnaryPlus : UnaryOperation("unary -")
-object UnaryMinus : UnaryOperation("unary +")
+object UnaryPlus : UnaryOperation("unary_plus")
+object UnaryMinus : UnaryOperation("unary_minus")
 object Not : UnaryOperation("not")
-object Inv : UnaryOperation("~")
+object Inv : UnaryOperation("inv")
 
-val BINARY_OPS = mapOf(
-    "or" to Or,
-    "and" to And,
-    "compareTo" to CompareTo,
-    "shl" to Shl,
-    "shr" to Shr,
-    "ushr" to Ushr,
-    "contains" to Contains,
-    "plus" to Plus,
-    "minus" to Minus,
-    "mul" to Mul,
-    "div" to Div,
-    "floorDiv" to FloorDiv,
-    "rem" to Rem,
-    "mod" to Rem,
-    "pow" to Pow
-)
+object Or : BinaryOperation("or")
+object And : BinaryOperation("and")
+object CompareTo : BinaryOperation("compare_to")
+object Shl : BinaryOperation("shl")
+object Shr : BinaryOperation("shr")
+object Ushr : BinaryOperation("ushr")
+object Contains : BinaryOperation("contains")
+object Plus : BinaryOperation("plus")
+object Minus : BinaryOperation("minus")
+object Mul : BinaryOperation("mul")
+object Div : BinaryOperation("div")
+object Rem : BinaryOperation("rem")
+object FloorDiv : BinaryOperation("floor_div")
+object Pow : BinaryOperation("times")
 
-object Or : BinaryOperation("|")
-object And : BinaryOperation("&")
-object CompareTo : BinaryOperation("<=>", Int::class.java)
-object Shl : BinaryOperation("<<")
-object Shr : BinaryOperation(">>")
-object Ushr : BinaryOperation(">>>")
-object Contains : BinaryOperation("in", Boolean::class.java)
-object Plus : BinaryOperation("+")
-object Minus : BinaryOperation("-")
-object Mul : BinaryOperation("*")
-object Div : BinaryOperation("/")
-object Rem : BinaryOperation("%")
-object FloorDiv : BinaryOperation("//")
-object Pow : BinaryOperation("*")
-
-object RangeTo : MultiOperation("...")
-object Get : MultiOperation("[]")
+object RangeTo : MultiOperation("range_to")
+object Get : MultiOperation("get")
 
 enum class ComparisonType {
     L {

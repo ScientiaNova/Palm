@@ -2,8 +2,7 @@ package com.scientianova.palm.parser
 
 import com.scientianova.palm.errors.*
 import com.scientianova.palm.evaluator.Scope
-import com.scientianova.palm.evaluator.cast
-import com.scientianova.palm.evaluator.palmType
+import com.scientianova.palm.evaluator.callVirtual
 import com.scientianova.palm.registry.TypeRegistry
 import com.scientianova.palm.registry.toType
 import com.scientianova.palm.tokenizer.*
@@ -21,7 +20,7 @@ interface IExpression : IOperationPart {
     fun handleForType(type: Class<*>, scope: Scope) = if (this is Object && type == null) {
         val palmType = TypeRegistry.getOrRegister(type)
         palmType.createInstance(values, scope)
-    } else evaluate(scope).cast(type)
+    } else scope.cast(evaluate(scope), type)
 
     fun evaluate(scope: Scope = Scope.GLOBAL): Any?
 }
@@ -29,8 +28,7 @@ interface IExpression : IOperationPart {
 typealias PositionedExpression = Positioned<IExpression>
 
 data class Variable(val name: String) : IExpression {
-    override fun evaluate(scope: Scope) =
-        if (name in scope) scope[name] else error("Couldn't find a variable called $name in the current scope")
+    override fun evaluate(scope: Scope) = scope[name]
 }
 
 data class Num(val num: Number) : IExpression {
@@ -67,13 +65,13 @@ data class ListComprehension(
     fun evaluate(scope: Scope, result: MutableList<Any?>) {
         val collection = collection.evaluate(scope)
         if (expression is ListComprehension)
-            for (thing in collection.palmType.iterator(collection)) {
+            for (thing in scope.getIterator(collection)) {
                 scope[name] = thing
                 if (filter == null || filter.evaluate(scope) == true)
                     expression.evaluate(scope, result)
             }
         else
-            for (thing in collection.palmType.iterator(collection)) {
+            for (thing in scope.getIterator(collection)) {
                 scope[name] = thing
                 if (filter == null || filter.evaluate(scope) == true)
                     result.add(expression.evaluate(scope))
@@ -97,7 +95,7 @@ data class DictComprehension(
         val newScope = Scope(parent = scope)
         val collection = collection.evaluate(newScope)
         val result = mutableMapOf<Any?, Any?>()
-        for (thing in collection.palmType.iterator(collection)) {
+        for (thing in scope.getIterator(collection)) {
             newScope[name] = thing
             if (filter == null || filter.evaluate(newScope) == true)
                 result[keyExpr.evaluate(newScope)] = valueExpr.evaluate(newScope)
@@ -123,18 +121,34 @@ data class Object(val values: Map<String, IExpression> = emptyMap(), val type: L
         type?.toType()?.createInstance(values, scope) ?: error("Typeless object")
 }
 
-data class ValAccess(val expr: IExpression, val field: String) : IExpression {
+data class VirtualCall(
+    val expr: IExpression,
+    val name: String,
+    val args: List<IExpression> = emptyList()
+) : IExpression {
     override fun evaluate(scope: Scope): Any? {
         val value = expr.evaluate(scope)
-        return value.palmType.get(value, field)
+        return value.callVirtual(name, scope, args.map { it.evaluate(scope) })
     }
 }
 
-data class SafeValAccess(val expr: IExpression, val field: String) : IExpression {
+data class SafeVirtualCall(
+    val expr: IExpression,
+    val name: String,
+    val args: List<IExpression> = emptyList()
+) : IExpression {
     override fun evaluate(scope: Scope): Any? {
         val value = expr.evaluate(scope) ?: return null
-        return value.palmType.get(value, field)
+        return value.callVirtual(name, scope, args.map { it.evaluate(scope) })
     }
+}
+
+data class StaticCall(
+    val name: String,
+    val path: List<String>,
+    val args: List<IExpression> = emptyList()
+) : IExpression {
+    override fun evaluate(scope: Scope) = scope.callStatic(name, path, args.map { it.evaluate(scope) })
 }
 
 data class If(val condExpr: IExpression, val thenExpr: IExpression, val elseExpr: IExpression) : IExpression {
@@ -180,12 +194,12 @@ data class WhenSwitch(
                     is TypePattern -> pattern.inverted != scope.getType(pattern.type).clazz.isInstance(evaluated)
                     is ContainingPattern -> {
                         val collection = pattern.collection.evaluate(scope)
-                        pattern.inverted != collection.palmType.execute(Contains, collection, evaluated)
+                        pattern.inverted != collection.callVirtual("contains", scope, evaluated)
                     }
                     is ComparisonPattern -> {
                         val second = pattern.expression.evaluate(scope)
                         pattern.operator.comparisonType.handle(
-                            evaluated.palmType.execute(CompareTo, evaluated, second) as Int
+                            evaluated.callVirtual("compareTo", scope, second) as Int
                         )
                     }
                 }
@@ -204,7 +218,7 @@ data class Yield(
     override fun evaluate(scope: Scope): Any? {
         val newScope = Scope(parent = scope)
         val collection = collection.evaluate(newScope)
-        for (thing in collection.palmType.iterator(collection)) {
+        for (thing in scope.getIterator(collection)) {
             newScope[iteratedName] = thing
             if (filter == null || filter.evaluate(newScope) == true)
                 newScope[variableName] = expr.evaluate(newScope)
@@ -315,7 +329,7 @@ fun handleExpressionPart(
             is BoolToken -> Bool(token.value.bool) on token to parser.pop()
             is NullToken -> Null on token to parser.pop()
             is IdentifierToken ->
-                handleIdentifierSequence(parser, parser.pop(), token.area.start, listOf(token.value.name))
+                handleIdentifier(parser, parser.pop(), token.area.start, token.area.end, token.value.name)
             is OpenCurlyBracketToken ->
                 handleObject(parser, parser.pop(), token.area.start)
             is OpenParenToken -> {
@@ -410,8 +424,15 @@ fun handlePostfixOperations(
         val name = parser.pop()
         if (name == null || name.value !is IdentifierToken)
             parser.error(INVALID_PROPERTY_NAME_ERROR, name?.area ?: parser.lastArea)
-        handlePostfixOperations(
-            parser, parser.pop(), ValAccess(expr.value, name.value.name) on expr.area.start..name.area.end
+        val next = parser.pop()
+        if (next?.value is FunctionParenToken) {
+            val args = handleFunctionArguments(parser, parser.pop())
+            handlePostfixOperations(
+                parser, parser.pop(),
+                VirtualCall(expr.value, name.value.name, args.first) on expr.area.start..args.second
+            )
+        } else handlePostfixOperations(
+            parser, next, VirtualCall(expr.value, name.value.name) on expr.area.start..name.area.end
         )
     }
     is SafeAccessToken -> {
@@ -419,7 +440,7 @@ fun handlePostfixOperations(
         if (name == null || name.value !is IdentifierToken)
             parser.error(INVALID_PROPERTY_NAME_ERROR, name?.area ?: parser.lastArea)
         handlePostfixOperations(
-            parser, parser.pop(), SafeValAccess(expr.value, name.value.name) on expr.area.start..name.area.end
+            parser, parser.pop(), SafeVirtualCall(expr.value, name.value.name) on expr.area.start..name.area.end
         )
     }
     is GetBracketToken -> {
@@ -429,21 +450,43 @@ fun handlePostfixOperations(
     else -> expr to token
 }
 
-fun handleIdentifierSequence(
+fun handleIdentifier(
     parser: Parser,
     token: PositionedToken?,
     startPos: StringPos,
-    identifiers: List<String>
+    endPos: StringPos,
+    current: String,
+    path: List<String> = emptyList()
 ): Pair<PositionedExpression, PositionedToken?> = when (token?.value) {
-    is DotToken -> {
-        val top = parser.pop().let {
-            it.value as? IdentifierToken ?: parser.error(INVALID_PROPERTY_NAME_ERROR, it?.area ?: parser.lastArea)
-        }
-        handleIdentifierSequence(parser, parser.pop(), startPos, identifiers + top.name)
+    is DoubleColonToken -> {
+        val top = parser.pop()
+        val name = (top.value as? IdentifierToken)?.name
+            ?: parser.error(INVALID_PROPERTY_NAME_ERROR, top?.area ?: parser.lastArea)
+        handleIdentifier(parser, parser.pop(), startPos, top.area.end, name, path + current)
     }
-    is OpenCurlyBracketToken -> handleTypedObject(parser, parser.pop(), startPos, identifiers)
-    else -> identifiers.drop(1).fold(Variable(identifiers.first()) as IExpression) { acc, s -> ValAccess(acc, s) } on
-            startPos to token
+    is OpenCurlyBracketToken -> handleTypedObject(parser, parser.pop(), startPos, path)
+    is FunctionParenToken -> {
+        val args = handleFunctionArguments(parser, parser.pop())
+        StaticCall(current, path, args.first) on startPos..args.second to parser.pop()
+    }
+    else -> (if (path.isEmpty()) Variable(current) else StaticCall(current, path)) on startPos..endPos to token
+}
+
+fun handleFunctionArguments(
+    parser: Parser,
+    token: PositionedToken?,
+    args: List<IExpression> = emptyList()
+): Pair<List<IExpression>, StringPos> = when (token?.value) {
+    null -> parser.error(UNCLOSED_PARENTHESIS_ERROR, parser.lastPos)
+    is ClosedParenToken -> args to token.area.end
+    else -> {
+        val (expr, next) = handleExpression(parser, token)
+        when (next?.value) {
+            is ClosedParenToken -> args + expr.value to next.area.end
+            is CommaToken -> handleFunctionArguments(parser, parser.pop(), args + expr.value)
+            else -> handleFunctionArguments(parser, next, args + expr.value)
+        }
+    }
 }
 
 fun handleSecondInList(
@@ -600,7 +643,7 @@ fun handleObject(
                         val afterType = parser.pop()
                         return handleTypedObject(
                             parser, if (afterType?.value is SeparatorToken) parser.pop() else afterType, startPos,
-                            exprStart.value.name.split("(\\.|:)".toRegex())
+                            exprStart.value.name.split("([.:])".toRegex())
                         )
                     }
                     handleExpression(parser, exprStart)

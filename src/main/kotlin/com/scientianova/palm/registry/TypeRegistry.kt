@@ -1,16 +1,13 @@
 package com.scientianova.palm.registry
 
-import com.scientianova.palm.evaluator.palmType
-import com.scientianova.palm.parser.*
+import com.scientianova.palm.evaluator.Scope
+import com.scientianova.palm.evaluator.callVirtual
 import com.scientianova.palm.tokenizer.StringTraverser
 import java.lang.invoke.MethodHandles
 import java.lang.invoke.MethodType
-import java.lang.reflect.Modifier
 import java.util.*
-import kotlin.collections.ArrayList
-import kotlin.collections.HashSet
-import kotlin.collections.LinkedHashSet
-import kotlin.math.*
+import kotlin.math.floor
+import kotlin.math.pow
 
 object TypeRegistry {
     private val PATH_REPLACEMENT = hashMapOf<String, String>()
@@ -28,148 +25,111 @@ object TypeRegistry {
         addPathReplacement("java.math", "base")
         addPathReplacement("kotlin", "base")
         addPathReplacement("kotlin.ranges", "base")
+        addPathReplacement("kotlin.collections", "base")
+        addPathReplacement("kotlin.text", "base")
 
         register(Any::class.java, "base", "any")
         register(object : PalmType(listOf("base", "number"), Number::class.java) {
             init {
                 populate()
                 val loopUp = MethodHandles.publicLookup()
-                autoCasters[Byte::class.java] =
+                virtualCasters[Byte::class.java] =
                     loopUp.findVirtual(clazz, "byteValue", MethodType.methodType(Byte::class.java))
-                autoCasters[Short::class.java] =
+                virtualCasters[Short::class.java] =
                     loopUp.findVirtual(clazz, "shortValue", MethodType.methodType(Short::class.java))
-                autoCasters[Int::class.java] =
+                virtualCasters[Int::class.java] =
                     loopUp.findVirtual(clazz, "intValue", MethodType.methodType(Int::class.java))
-                autoCasters[Long::class.java] =
+                virtualCasters[Long::class.java] =
                     loopUp.findVirtual(clazz, "longValue", MethodType.methodType(Long::class.java))
-                autoCasters[Float::class.java] =
+                virtualCasters[Float::class.java] =
                     loopUp.findVirtual(clazz, "floatValue", MethodType.methodType(Float::class.java))
-                autoCasters[Double::class.java] =
+                virtualCasters[Double::class.java] =
                     loopUp.findVirtual(clazz, "doubleValue", MethodType.methodType(Double::class.java))
             }
 
-            override fun execute(op: BinaryOperation, obj: Any?, second: Any?) = when {
-                op == Pow && second is Number -> (obj as Number).toDouble().pow(second.toDouble())
-                op == FloorDiv && second is Number -> floor(obj.palmType.execute(Div, obj, second) as Double)
-                else -> super.execute(op, obj, second)
-            }
-
-            override fun get(obj: Any?, name: String): Any? {
-                obj as Number
-                return when (name) {
-                    "ceil_value" -> ceil(obj.toDouble())
-                    "floor_value" -> floor(obj.toDouble())
-                    "rounded" -> round(obj.toDouble())
-                    "sin" -> sin(obj.toDouble())
-                    "cos" -> cos(obj.toDouble())
-                    "tan" -> tan(obj.toDouble())
-                    "sinh" -> sinh(obj.toDouble())
-                    "cosh" -> cosh(obj.toDouble())
-                    "tanh" -> tanh(obj.toDouble())
-                    "asin" -> asin(obj.toDouble())
-                    "acos" -> acos(obj.toDouble())
-                    "atan" -> atan(obj.toDouble())
-                    "asinh" -> asinh(obj.toDouble())
-                    "acosh" -> acosh(obj.toDouble())
-                    "atanh" -> atanh(obj.toDouble())
-                    "ln" -> ln(obj.toDouble())
-                    "log2" -> log2(obj.toDouble())
-                    "log10" -> log10(obj.toDouble())
-                    "exp" -> exp(obj.toDouble())
-                    else -> super.get(obj, name)
-                }
-            }
+            override fun callVirtual(name: String, scope: Scope, obj: Any?, args: List<Any?>) =
+                if (args.size == 1 && args.first() is Number) when (name) {
+                    "pow" -> (obj as Number).toDouble().pow((args.first() as Number).toDouble())
+                    "floor_div" -> floor(obj.callVirtual("div", scope, args) as Double)
+                    else -> super.callVirtual(name, scope, obj, args)
+                } else super.callVirtual(name, scope, obj, args)
         })
         register(object : PalmType(listOf("base", "byte"), Byte::class.javaObjectType) {
             init {
                 populate()
             }
 
-            override fun execute(op: UnaryOperation, obj: Any?): Any {
+            override fun callVirtual(name: String, scope: Scope, obj: Any?, args: List<Any?>): Any? {
                 obj as Byte
-                return when (op) {
-                    is UnaryMinus -> -obj
-                    is UnaryPlus -> obj
-                    is Inv -> obj.toInt().inv().toByte()
-                    is Not -> super.execute(op, obj)
+                return when (args.size) {
+                    0 -> when (name) {
+                        "unary_minus" -> -obj
+                        "unary_plus" -> obj
+                        "inv" -> obj.toInt().inv().toByte()
+                        else -> super.callVirtual(name, scope, obj, args)
+                    }
+                    1 -> {
+                        val second = args[0]
+                        if (second is Number) when (name) {
+                            "plus" -> when (second) {
+                                is Byte -> obj + second
+                                is Short -> obj + second
+                                is Int -> obj + second
+                                is Long -> obj + second
+                                is Float -> obj + second
+                                is Double -> obj + second
+                                else -> super.callVirtual(name, scope, obj, args)
+                            }
+                            "minus" -> when (second) {
+                                is Byte -> obj - second
+                                is Short -> obj - second
+                                is Int -> obj - second
+                                is Long -> obj - second
+                                is Float -> obj - second
+                                is Double -> obj - second
+                                else -> super.callVirtual(name, scope, obj, args)
+                            }
+                            "mul" -> when (second) {
+                                is Byte -> obj * second
+                                is Short -> obj * second
+                                is Int -> obj * second
+                                is Long -> obj * second
+                                is Float -> obj * second
+                                is Double -> obj * second
+                                else -> super.callVirtual(name, scope, obj, args)
+                            }
+                            "div" -> when (second) {
+                                is Byte -> obj.toDouble() / second
+                                is Short -> obj.toDouble() / second
+                                is Int -> obj.toDouble() / second
+                                is Long -> obj.toDouble() / second
+                                is Float -> obj / second
+                                is Double -> obj / second
+                                else -> super.callVirtual(name, scope, obj, args)
+                            }
+                            "rem" -> when (second) {
+                                is Byte -> obj.toDouble() % second
+                                is Short -> obj.toDouble() % second
+                                is Int -> obj.toDouble() % second
+                                is Long -> obj.toDouble() % second
+                                is Float -> obj % second
+                                is Double -> obj % second
+                                else -> super.callVirtual(name, scope, obj, args)
+                            }
+                            "shl" -> (obj.toInt() shl second.toInt()).toByte()
+                            "shr" -> (obj.toInt() shr second.toInt()).toByte()
+                            "ushr" -> (obj.toInt() ushr second.toInt()).toByte()
+                            "or" -> (obj.toInt() or second.toInt()).toByte()
+                            "and" -> (obj.toInt() and second.toInt()).toByte()
+                            "range_to" -> if (second.toInt() >= obj) obj..second.toInt() else obj downTo second.toInt()
+                            else -> super.callVirtual(name, scope, obj, args)
+                        } else super.callVirtual(name, scope, obj, args)
+                    }
+                    2 -> if (args[0] is Number && args[1] is Number) IntProgression.fromClosedRange(
+                        obj.toInt(), (args[1] as Number).toInt(), (args[0] as Number).toInt() - obj
+                    ) else super.callVirtual(name, scope, obj, args)
+                    else -> super.callVirtual(name, scope, obj, args)
                 }
-            }
-
-            override fun execute(op: BinaryOperation, obj: Any?, second: Any?): Any {
-                obj as Byte
-                return when (op) {
-                    is Plus -> when (second) {
-                        is Byte -> obj + second
-                        is Short -> obj + second
-                        is Int -> obj + second
-                        is Long -> obj + second
-                        is Float -> obj + second
-                        is Double -> obj + second
-                        else -> super.execute(op, obj, second)
-                    }
-                    is Minus -> when (second) {
-                        is Byte -> obj - second
-                        is Short -> obj - second
-                        is Int -> obj - second
-                        is Long -> obj - second
-                        is Float -> obj - second
-                        is Double -> obj - second
-                        else -> super.execute(op, obj, second)
-                    }
-                    is Mul -> when (second) {
-                        is Byte -> obj * second
-                        is Short -> obj * second
-                        is Int -> obj * second
-                        is Long -> obj * second
-                        is Float -> obj * second
-                        is Double -> obj * second
-                        else -> super.execute(op, obj, second)
-                    }
-                    is Div -> when (second) {
-                        is Byte -> obj.toDouble() / second
-                        is Short -> obj.toDouble() / second
-                        is Int -> obj.toDouble() / second
-                        is Long -> obj.toDouble() / second
-                        is Float -> obj / second
-                        is Double -> obj / second
-                        else -> super.execute(op, obj, second)
-                    }
-                    is Rem -> when (second) {
-                        is Byte -> obj.toDouble() % second
-                        is Short -> obj.toDouble() % second
-                        is Int -> obj.toDouble() % second
-                        is Long -> obj.toDouble() % second
-                        is Float -> obj % second
-                        is Double -> obj % second
-                        else -> super.execute(op, obj, second)
-                    }
-                    is Shl ->
-                        if (second is Number) (obj.toInt() shl second.toInt()).toByte()
-                        else super.execute(op, obj, second)
-                    is Shr ->
-                        if (second is Number) (obj.toInt() shr second.toInt()).toByte()
-                        else super.execute(op, obj, second)
-                    is Ushr ->
-                        if (second is Number) (obj.toInt() ushr second.toInt()).toByte()
-                        else super.execute(op, obj, second)
-                    is Or ->
-                        if (second is Number) (obj.toInt() or second.toInt()).toByte()
-                        else super.execute(op, obj, second)
-                    is And ->
-                        if (second is Number) (obj.toInt() and second.toInt()).toByte()
-                        else super.execute(op, obj, second)
-                    else -> super.execute(op, obj, second)
-                }
-            }
-
-            override fun execute(op: MultiOperation, obj: Any?, rest: List<Any?>): Any {
-                obj as Byte
-                val second = rest.first()
-                return if (op == RangeTo && second is Number) when (val third = rest.getOrNull(1)) {
-                    null -> if (second.toInt() >= obj) obj..second.toInt() else obj downTo second.toInt()
-                    is Number -> IntProgression.fromClosedRange(obj.toInt(), third.toInt(), second.toInt() - obj)
-                    else -> super.execute(op, obj, rest)
-                } else super.execute(op, obj, rest)
             }
         })
         register(object : PalmType(listOf("base", "short"), Short::class.javaObjectType) {
@@ -177,91 +137,77 @@ object TypeRegistry {
                 populate()
             }
 
-            override fun execute(op: UnaryOperation, obj: Any?): Any {
+            override fun callVirtual(name: String, scope: Scope, obj: Any?, args: List<Any?>): Any? {
                 obj as Short
-                return when (op) {
-                    is UnaryMinus -> -obj
-                    is UnaryPlus -> obj
-                    is Inv -> obj.toInt().inv().toShort()
-                    is Not -> super.execute(op, obj)
+                return when (args.size) {
+                    0 -> when (name) {
+                        "unary_minus" -> -obj
+                        "unary_plus" -> obj
+                        "inv" -> obj.toInt().inv().toShort()
+                        else -> super.callVirtual(name, scope, obj, args)
+                    }
+                    1 -> {
+                        val second = args[0]
+                        if (second is Number) when (name) {
+                            "plus" -> when (second) {
+                                is Byte -> obj + second
+                                is Short -> obj + second
+                                is Int -> obj + second
+                                is Long -> obj + second
+                                is Float -> obj + second
+                                is Double -> obj + second
+                                else -> super.callVirtual(name, scope, obj, args)
+                            }
+                            "minus" -> when (second) {
+                                is Byte -> obj - second
+                                is Short -> obj - second
+                                is Int -> obj - second
+                                is Long -> obj - second
+                                is Float -> obj - second
+                                is Double -> obj - second
+                                else -> super.callVirtual(name, scope, obj, args)
+                            }
+                            "mul" -> when (second) {
+                                is Byte -> obj * second
+                                is Short -> obj * second
+                                is Int -> obj * second
+                                is Long -> obj * second
+                                is Float -> obj * second
+                                is Double -> obj * second
+                                else -> super.callVirtual(name, scope, obj, args)
+                            }
+                            "div" -> when (second) {
+                                is Byte -> obj.toDouble() / second
+                                is Short -> obj.toDouble() / second
+                                is Int -> obj.toDouble() / second
+                                is Long -> obj.toDouble() / second
+                                is Float -> obj / second
+                                is Double -> obj / second
+                                else -> super.callVirtual(name, scope, obj, args)
+                            }
+                            "rem" -> when (second) {
+                                is Byte -> obj.toDouble() % second
+                                is Short -> obj.toDouble() % second
+                                is Int -> obj.toDouble() % second
+                                is Long -> obj.toDouble() % second
+                                is Float -> obj % second
+                                is Double -> obj % second
+                                else -> super.callVirtual(name, scope, obj, args)
+                            }
+                            "shl" -> (obj.toInt() shl second.toInt()).toShort()
+                            "shr" -> (obj.toInt() shr second.toInt()).toShort()
+                            "ushr" -> (obj.toInt() ushr second.toInt()).toShort()
+                            "or" -> (obj.toInt() or second.toInt()).toShort()
+                            "and" -> (obj.toInt() and second.toInt()).toShort()
+                            "range_to" -> if (second.toInt() >= obj) obj..second.toInt() else obj downTo second.toInt()
+                            else -> super.callVirtual(name, scope, obj, args)
+                        } else super.callVirtual(name, scope, obj, args)
+                    }
+                    2 -> if (args[0] is Number && args[1] is Number) IntProgression.fromClosedRange(
+                        obj.toInt(), (args[1] as Number).toInt(), (args[0] as Number).toInt() - obj
+                    ) else super.callVirtual(name, scope, obj, args)
+                    else -> super.callVirtual(name, scope, obj, args)
                 }
-            }
-
-            override fun execute(op: BinaryOperation, obj: Any?, second: Any?): Any {
-                obj as Short
-                return when (op) {
-                    is Plus -> when (second) {
-                        is Byte -> obj + second
-                        is Short -> obj + second
-                        is Int -> obj + second
-                        is Long -> obj + second
-                        is Float -> obj + second
-                        is Double -> obj + second
-                        else -> super.execute(op, obj, second)
-                    }
-                    is Minus -> when (second) {
-                        is Byte -> obj - second
-                        is Short -> obj - second
-                        is Int -> obj - second
-                        is Long -> obj - second
-                        is Float -> obj - second
-                        is Double -> obj - second
-                        else -> super.execute(op, obj, second)
-                    }
-                    is Mul -> when (second) {
-                        is Byte -> obj * second
-                        is Short -> obj * second
-                        is Int -> obj * second
-                        is Long -> obj * second
-                        is Float -> obj * second
-                        is Double -> obj * second
-                        else -> super.execute(op, obj, second)
-                    }
-                    is Div -> when (second) {
-                        is Byte -> obj.toDouble() / second
-                        is Short -> obj.toDouble() / second
-                        is Int -> obj.toDouble() / second
-                        is Long -> obj.toDouble() / second
-                        is Float -> obj / second
-                        is Double -> obj / second
-                        else -> super.execute(op, obj, second)
-                    }
-                    is Rem -> when (second) {
-                        is Byte -> obj.toDouble() % second
-                        is Short -> obj.toDouble() % second
-                        is Int -> obj.toDouble() % second
-                        is Long -> obj.toDouble() % second
-                        is Float -> obj % second
-                        is Double -> obj % second
-                        else -> super.execute(op, obj, second)
-                    }
-                    is Shl ->
-                        if (second is Number) (obj.toInt() shl second.toInt()).toShort()
-                        else super.execute(op, obj, second)
-                    is Shr ->
-                        if (second is Number) (obj.toInt() shr second.toInt()).toShort()
-                        else super.execute(op, obj, second)
-                    is Ushr ->
-                        if (second is Number) (obj.toInt() ushr second.toInt()).toShort()
-                        else super.execute(op, obj, second)
-                    is Or ->
-                        if (second is Number) (obj.toInt() or second.toInt()).toShort()
-                        else super.execute(op, obj, second)
-                    is And ->
-                        if (second is Number) (obj.toInt() and second.toInt()).toShort()
-                        else super.execute(op, obj, second)
-                    else -> super.execute(op, obj, second)
-                }
-            }
-
-            override fun execute(op: MultiOperation, obj: Any?, rest: List<Any?>): Any {
-                obj as Short
-                val second = rest.first()
-                return if (op == RangeTo && second is Number) when (val third = rest.getOrNull(1)) {
-                    null -> if (second.toInt() >= obj) obj..second.toInt() else obj downTo second.toInt()
-                    is Number -> IntProgression.fromClosedRange(obj.toInt(), third.toInt(), second.toInt() - obj)
-                    else -> super.execute(op, obj, rest)
-                } else super.execute(op, obj, rest)
             }
         })
         register(object : PalmType(listOf("base", "int"), Int::class.javaObjectType) {
@@ -269,91 +215,77 @@ object TypeRegistry {
                 populate()
             }
 
-            override fun execute(op: UnaryOperation, obj: Any?): Any {
+            override fun callVirtual(name: String, scope: Scope, obj: Any?, args: List<Any?>): Any? {
                 obj as Int
-                return when (op) {
-                    is UnaryMinus -> -obj
-                    is UnaryPlus -> obj
-                    is Inv -> obj.inv()
-                    is Not -> super.execute(op, obj)
+                return when (args.size) {
+                    0 -> when (name) {
+                        "unary_minus" -> -obj
+                        "unary_plus" -> obj
+                        "inv" -> obj.inv()
+                        else -> super.callVirtual(name, scope, obj, args)
+                    }
+                    1 -> {
+                        val second = args[0]
+                        if (second is Number) when (name) {
+                            "plus" -> when (second) {
+                                is Byte -> obj + second
+                                is Short -> obj + second
+                                is Int -> obj + second
+                                is Long -> obj + second
+                                is Float -> obj + second
+                                is Double -> obj + second
+                                else -> super.callVirtual(name, scope, obj, args)
+                            }
+                            "minus" -> when (second) {
+                                is Byte -> obj - second
+                                is Short -> obj - second
+                                is Int -> obj - second
+                                is Long -> obj - second
+                                is Float -> obj - second
+                                is Double -> obj - second
+                                else -> super.callVirtual(name, scope, obj, args)
+                            }
+                            "mul" -> when (second) {
+                                is Byte -> obj * second
+                                is Short -> obj * second
+                                is Int -> obj * second
+                                is Long -> obj * second
+                                is Float -> obj * second
+                                is Double -> obj * second
+                                else -> super.callVirtual(name, scope, obj, args)
+                            }
+                            "div" -> when (second) {
+                                is Byte -> obj.toDouble() / second
+                                is Short -> obj.toDouble() / second
+                                is Int -> obj.toDouble() / second
+                                is Long -> obj.toDouble() / second
+                                is Float -> obj / second
+                                is Double -> obj / second
+                                else -> super.callVirtual(name, scope, obj, args)
+                            }
+                            "rem" -> when (second) {
+                                is Byte -> obj.toDouble() % second
+                                is Short -> obj.toDouble() % second
+                                is Int -> obj.toDouble() % second
+                                is Long -> obj.toDouble() % second
+                                is Float -> obj % second
+                                is Double -> obj % second
+                                else -> super.callVirtual(name, scope, obj, args)
+                            }
+                            "shl" -> obj shl second.toInt()
+                            "shr" -> obj shr second.toInt()
+                            "ushr" -> obj ushr second.toInt()
+                            "or" -> obj or second.toInt()
+                            "and" -> obj and second.toInt()
+                            "range_to" -> if (second.toInt() >= obj) obj..second.toInt() else obj downTo second.toInt()
+                            else -> super.callVirtual(name, scope, obj, args)
+                        } else super.callVirtual(name, scope, obj, args)
+                    }
+                    2 -> if (args[0] is Number && args[1] is Number) IntProgression.fromClosedRange(
+                        obj, (args[1] as Number).toInt(), (args[0] as Number).toInt() - obj
+                    ) else super.callVirtual(name, scope, obj, args)
+                    else -> super.callVirtual(name, scope, obj, args)
                 }
-            }
-
-            override fun execute(op: BinaryOperation, obj: Any?, second: Any?): Any {
-                obj as Int
-                return when (op) {
-                    is Plus -> when (second) {
-                        is Byte -> obj + second
-                        is Short -> obj + second
-                        is Int -> obj + second
-                        is Long -> obj + second
-                        is Float -> obj + second
-                        is Double -> obj + second
-                        else -> super.execute(op, obj, second)
-                    }
-                    is Minus -> when (second) {
-                        is Byte -> obj - second
-                        is Short -> obj - second
-                        is Int -> obj - second
-                        is Long -> obj - second
-                        is Float -> obj - second
-                        is Double -> obj - second
-                        else -> super.execute(op, obj, second)
-                    }
-                    is Mul -> when (second) {
-                        is Byte -> obj * second
-                        is Short -> obj * second
-                        is Int -> obj * second
-                        is Long -> obj * second
-                        is Float -> obj * second
-                        is Double -> obj * second
-                        else -> super.execute(op, obj, second)
-                    }
-                    is Div -> when (second) {
-                        is Byte -> obj.toDouble() / second
-                        is Short -> obj.toDouble() / second
-                        is Int -> obj.toDouble() / second
-                        is Long -> obj.toDouble() / second
-                        is Float -> obj / second
-                        is Double -> obj / second
-                        else -> super.execute(op, obj, second)
-                    }
-                    is Rem -> when (second) {
-                        is Byte -> obj.toDouble() % second
-                        is Short -> obj.toDouble() % second
-                        is Int -> obj.toDouble() % second
-                        is Long -> obj.toDouble() % second
-                        is Float -> obj % second
-                        is Double -> obj % second
-                        else -> super.execute(op, obj, second)
-                    }
-                    is Shl ->
-                        if (second is Number) (obj shl second.toInt())
-                        else super.execute(op, obj, second)
-                    is Shr ->
-                        if (second is Number) (obj shr second.toInt())
-                        else super.execute(op, obj, second)
-                    is Ushr ->
-                        if (second is Number) (obj ushr second.toInt())
-                        else super.execute(op, obj, second)
-                    is Or ->
-                        if (second is Number) (obj or second.toInt())
-                        else super.execute(op, obj, second)
-                    is And ->
-                        if (second is Number) (obj and second.toInt())
-                        else super.execute(op, obj, second)
-                    else -> super.execute(op, obj, second)
-                }
-            }
-
-            override fun execute(op: MultiOperation, obj: Any?, rest: List<Any?>): Any {
-                obj as Int
-                val second = rest.first()
-                return if (op == RangeTo && second is Number) when (val third = rest.getOrNull(1)) {
-                    null -> if (second.toInt() >= obj) obj..second.toInt() else obj downTo second.toInt()
-                    is Number -> IntProgression.fromClosedRange(obj, third.toInt(), second.toInt() - obj)
-                    else -> super.execute(op, obj, rest)
-                } else super.execute(op, obj, rest)
             }
         })
         register(object : PalmType(listOf("base", "long"), Long::class.javaObjectType) {
@@ -361,91 +293,77 @@ object TypeRegistry {
                 populate()
             }
 
-            override fun execute(op: UnaryOperation, obj: Any?): Any {
+            override fun callVirtual(name: String, scope: Scope, obj: Any?, args: List<Any?>): Any? {
                 obj as Long
-                return when (op) {
-                    is UnaryMinus -> -obj
-                    is UnaryPlus -> obj
-                    is Inv -> obj.inv()
-                    is Not -> super.execute(op, obj)
+                return when (args.size) {
+                    0 -> when (name) {
+                        "unary_minus" -> -obj
+                        "unary_plus" -> obj
+                        "inv" -> obj.inv()
+                        else -> super.callVirtual(name, scope, obj, args)
+                    }
+                    1 -> {
+                        val second = args[0]
+                        if (second is Number) when (name) {
+                            "plus" -> when (second) {
+                                is Byte -> obj + second
+                                is Short -> obj + second
+                                is Int -> obj + second
+                                is Long -> obj + second
+                                is Float -> obj + second
+                                is Double -> obj + second
+                                else -> super.callVirtual(name, scope, obj, args)
+                            }
+                            "minus" -> when (second) {
+                                is Byte -> obj - second
+                                is Short -> obj - second
+                                is Int -> obj - second
+                                is Long -> obj - second
+                                is Float -> obj - second
+                                is Double -> obj - second
+                                else -> super.callVirtual(name, scope, obj, args)
+                            }
+                            "mul" -> when (second) {
+                                is Byte -> obj * second
+                                is Short -> obj * second
+                                is Int -> obj * second
+                                is Long -> obj * second
+                                is Float -> obj * second
+                                is Double -> obj * second
+                                else -> super.callVirtual(name, scope, obj, args)
+                            }
+                            "div" -> when (second) {
+                                is Byte -> obj.toDouble() / second
+                                is Short -> obj.toDouble() / second
+                                is Int -> obj.toDouble() / second
+                                is Long -> obj.toDouble() / second
+                                is Float -> obj / second
+                                is Double -> obj / second
+                                else -> super.callVirtual(name, scope, obj, args)
+                            }
+                            "rem" -> when (second) {
+                                is Byte -> obj.toDouble() % second
+                                is Short -> obj.toDouble() % second
+                                is Int -> obj.toDouble() % second
+                                is Long -> obj.toDouble() % second
+                                is Float -> obj % second
+                                is Double -> obj % second
+                                else -> super.callVirtual(name, scope, obj, args)
+                            }
+                            "shl" -> obj shl second.toInt()
+                            "shr" -> obj shr second.toInt()
+                            "ushr" -> obj ushr second.toInt()
+                            "or" -> obj or second.toLong()
+                            "and" -> obj and second.toLong()
+                            "range_to" -> if (second.toLong() >= obj) obj..second.toLong() else obj downTo second.toLong()
+                            else -> super.callVirtual(name, scope, obj, args)
+                        } else super.callVirtual(name, scope, obj, args)
+                    }
+                    2 -> if (args[0] is Number && args[1] is Number) LongProgression.fromClosedRange(
+                        obj, (args[1] as Number).toLong(), (args[0] as Number).toLong() - obj
+                    ) else super.callVirtual(name, scope, obj, args)
+                    else -> super.callVirtual(name, scope, obj, args)
                 }
-            }
-
-            override fun execute(op: BinaryOperation, obj: Any?, second: Any?): Any {
-                obj as Long
-                return when (op) {
-                    is Plus -> when (second) {
-                        is Byte -> obj + second
-                        is Short -> obj + second
-                        is Int -> obj + second
-                        is Long -> obj + second
-                        is Float -> obj + second
-                        is Double -> obj + second
-                        else -> super.execute(op, obj, second)
-                    }
-                    is Minus -> when (second) {
-                        is Byte -> obj - second
-                        is Short -> obj - second
-                        is Int -> obj - second
-                        is Long -> obj - second
-                        is Float -> obj - second
-                        is Double -> obj - second
-                        else -> super.execute(op, obj, second)
-                    }
-                    is Mul -> when (second) {
-                        is Byte -> obj * second
-                        is Short -> obj * second
-                        is Int -> obj * second
-                        is Long -> obj * second
-                        is Float -> obj * second
-                        is Double -> obj * second
-                        else -> super.execute(op, obj, second)
-                    }
-                    is Div -> when (second) {
-                        is Byte -> obj.toDouble() / second
-                        is Short -> obj.toDouble() / second
-                        is Int -> obj.toDouble() / second
-                        is Long -> obj.toDouble() / second
-                        is Float -> obj / second
-                        is Double -> obj / second
-                        else -> super.execute(op, obj, second)
-                    }
-                    is Rem -> when (second) {
-                        is Byte -> obj.toDouble() % second
-                        is Short -> obj.toDouble() % second
-                        is Int -> obj.toDouble() % second
-                        is Long -> obj.toDouble() % second
-                        is Float -> obj % second
-                        is Double -> obj % second
-                        else -> super.execute(op, obj, second)
-                    }
-                    is Shl ->
-                        if (second is Number) (obj shl second.toInt())
-                        else super.execute(op, obj, second)
-                    is Shr ->
-                        if (second is Number) (obj shr second.toInt())
-                        else super.execute(op, obj, second)
-                    is Ushr ->
-                        if (second is Number) (obj ushr second.toInt())
-                        else super.execute(op, obj, second)
-                    is Or ->
-                        if (second is Number) (obj or second.toLong())
-                        else super.execute(op, obj, second)
-                    is And ->
-                        if (second is Number) (obj and second.toLong())
-                        else super.execute(op, obj, second)
-                    else -> super.execute(op, obj, second)
-                }
-            }
-
-            override fun execute(op: MultiOperation, obj: Any?, rest: List<Any?>): Any {
-                obj as Long
-                val second = rest.first()
-                return if (op == RangeTo && second is Number) when (val third = rest.getOrNull(1)) {
-                    null -> if (second.toLong() >= obj) obj..second.toLong() else obj downTo second.toLong()
-                    is Number -> LongProgression.fromClosedRange(obj, third.toLong(), second.toLong() - obj)
-                    else -> super.execute(op, obj, rest)
-                } else super.execute(op, obj, rest)
             }
         })
         register(object : PalmType(listOf("base", "float"), Float::class.javaObjectType) {
@@ -453,80 +371,66 @@ object TypeRegistry {
                 populate()
             }
 
-            override fun execute(op: UnaryOperation, obj: Any?): Any {
+            override fun callVirtual(name: String, scope: Scope, obj: Any?, args: List<Any?>): Any? {
                 obj as Float
-                return when (op) {
-                    is UnaryMinus -> -obj
-                    is UnaryPlus -> obj
-                    is Inv -> obj.toInt().inv().toFloat()
-                    is Not -> super.execute(op, obj)
-                }
-            }
-
-            override fun execute(op: BinaryOperation, obj: Any?, second: Any?): Any {
-                obj as Float
-                return when (op) {
-                    is Plus -> when (second) {
-                        is Byte -> obj + second
-                        is Short -> obj + second
-                        is Int -> obj + second
-                        is Long -> obj + second
-                        is Float -> obj + second
-                        is Double -> obj + second
-                        else -> super.execute(op, obj, second)
+                return when (args.size) {
+                    0 -> when (name) {
+                        "unary_minus" -> -obj
+                        "unary_plus" -> obj
+                        else -> super.callVirtual(name, scope, obj, args)
                     }
-                    is Minus -> when (second) {
-                        is Byte -> obj - second
-                        is Short -> obj - second
-                        is Int -> obj - second
-                        is Long -> obj - second
-                        is Float -> obj - second
-                        is Double -> obj - second
-                        else -> super.execute(op, obj, second)
+                    1 -> {
+                        val second = args[0]
+                        if (second is Number) when (name) {
+                            "plus" -> when (second) {
+                                is Byte -> obj + second
+                                is Short -> obj + second
+                                is Int -> obj + second
+                                is Long -> obj + second
+                                is Float -> obj + second
+                                is Double -> obj + second
+                                else -> super.callVirtual(name, scope, obj, args)
+                            }
+                            "minus" -> when (second) {
+                                is Byte -> obj - second
+                                is Short -> obj - second
+                                is Int -> obj - second
+                                is Long -> obj - second
+                                is Float -> obj - second
+                                is Double -> obj - second
+                                else -> super.callVirtual(name, scope, obj, args)
+                            }
+                            "mul" -> when (second) {
+                                is Byte -> obj * second
+                                is Short -> obj * second
+                                is Int -> obj * second
+                                is Long -> obj * second
+                                is Float -> obj * second
+                                is Double -> obj * second
+                                else -> super.callVirtual(name, scope, obj, args)
+                            }
+                            "div" -> when (second) {
+                                is Byte -> obj / second
+                                is Short -> obj / second
+                                is Int -> obj / second
+                                is Long -> obj / second
+                                is Float -> obj / second
+                                is Double -> obj / second
+                                else -> super.callVirtual(name, scope, obj, args)
+                            }
+                            "rem" -> when (second) {
+                                is Byte -> obj % second
+                                is Short -> obj % second
+                                is Int -> obj % second
+                                is Long -> obj % second
+                                is Float -> obj % second
+                                is Double -> obj % second
+                                else -> super.callVirtual(name, scope, obj, args)
+                            }
+                            else -> super.callVirtual(name, scope, obj, args)
+                        } else super.callVirtual(name, scope, obj, args)
                     }
-                    is Mul -> when (second) {
-                        is Byte -> obj * second
-                        is Short -> obj * second
-                        is Int -> obj * second
-                        is Long -> obj * second
-                        is Float -> obj * second
-                        is Double -> obj * second
-                        else -> super.execute(op, obj, second)
-                    }
-                    is Div -> when (second) {
-                        is Byte -> obj / second
-                        is Short -> obj / second
-                        is Int -> obj / second
-                        is Long -> obj / second
-                        is Float -> obj / second
-                        is Double -> obj / second
-                        else -> super.execute(op, obj, second)
-                    }
-                    is Rem -> when (second) {
-                        is Byte -> obj % second
-                        is Short -> obj % second
-                        is Int -> obj % second
-                        is Long -> obj % second
-                        is Float -> obj % second
-                        is Double -> obj % second
-                        else -> super.execute(op, obj, second)
-                    }
-                    is Shl ->
-                        if (second is Number) (obj.toInt() shl second.toInt()).toFloat()
-                        else super.execute(op, obj, second)
-                    is Shr ->
-                        if (second is Number) (obj.toInt() shr second.toInt()).toFloat()
-                        else super.execute(op, obj, second)
-                    is Ushr ->
-                        if (second is Number) (obj.toInt() ushr second.toInt()).toFloat()
-                        else super.execute(op, obj, second)
-                    is Or ->
-                        if (second is Number) (obj.toInt() or second.toInt()).toFloat()
-                        else super.execute(op, obj, second)
-                    is And ->
-                        if (second is Number) (obj.toInt() and second.toInt()).toFloat()
-                        else super.execute(op, obj, second)
-                    else -> super.execute(op, obj, second)
+                    else -> super.callVirtual(name, scope, obj, args)
                 }
             }
         })
@@ -535,80 +439,66 @@ object TypeRegistry {
                 populate()
             }
 
-            override fun execute(op: UnaryOperation, obj: Any?): Any {
+            override fun callVirtual(name: String, scope: Scope, obj: Any?, args: List<Any?>): Any? {
                 obj as Double
-                return when (op) {
-                    is UnaryMinus -> -obj
-                    is UnaryPlus -> obj
-                    is Inv -> obj.toLong().inv().toDouble()
-                    is Not -> super.execute(op, obj)
-                }
-            }
-
-            override fun execute(op: BinaryOperation, obj: Any?, second: Any?): Any {
-                obj as Double
-                return when (op) {
-                    is Plus -> when (second) {
-                        is Byte -> obj + second
-                        is Short -> obj + second
-                        is Int -> obj + second
-                        is Long -> obj + second
-                        is Float -> obj + second
-                        is Double -> obj + second
-                        else -> super.execute(op, obj, second)
+                return when (args.size) {
+                    0 -> when (name) {
+                        "unary_minus" -> -obj
+                        "unary_plus" -> obj
+                        else -> super.callVirtual(name, scope, obj, args)
                     }
-                    is Minus -> when (second) {
-                        is Byte -> obj - second
-                        is Short -> obj - second
-                        is Int -> obj - second
-                        is Long -> obj - second
-                        is Float -> obj - second
-                        is Double -> obj - second
-                        else -> super.execute(op, obj, second)
+                    1 -> {
+                        val second = args[0]
+                        if (second is Number) when (name) {
+                            "plus" -> when (second) {
+                                is Byte -> obj + second
+                                is Short -> obj + second
+                                is Int -> obj + second
+                                is Long -> obj + second
+                                is Float -> obj + second
+                                is Double -> obj + second
+                                else -> super.callVirtual(name, scope, obj, args)
+                            }
+                            "minus" -> when (second) {
+                                is Byte -> obj - second
+                                is Short -> obj - second
+                                is Int -> obj - second
+                                is Long -> obj - second
+                                is Float -> obj - second
+                                is Double -> obj - second
+                                else -> super.callVirtual(name, scope, obj, args)
+                            }
+                            "mul" -> when (second) {
+                                is Byte -> obj * second
+                                is Short -> obj * second
+                                is Int -> obj * second
+                                is Long -> obj * second
+                                is Float -> obj * second
+                                is Double -> obj * second
+                                else -> super.callVirtual(name, scope, obj, args)
+                            }
+                            "div" -> when (second) {
+                                is Byte -> obj / second
+                                is Short -> obj / second
+                                is Int -> obj / second
+                                is Long -> obj / second
+                                is Float -> obj / second
+                                is Double -> obj / second
+                                else -> super.callVirtual(name, scope, obj, args)
+                            }
+                            "rem" -> when (second) {
+                                is Byte -> obj % second
+                                is Short -> obj % second
+                                is Int -> obj % second
+                                is Long -> obj % second
+                                is Float -> obj % second
+                                is Double -> obj % second
+                                else -> super.callVirtual(name, scope, obj, args)
+                            }
+                            else -> super.callVirtual(name, scope, obj, args)
+                        } else super.callVirtual(name, scope, obj, args)
                     }
-                    is Mul -> when (second) {
-                        is Byte -> obj * second
-                        is Short -> obj * second
-                        is Int -> obj * second
-                        is Long -> obj * second
-                        is Float -> obj * second
-                        is Double -> obj * second
-                        else -> super.execute(op, obj, second)
-                    }
-                    is Div -> when (second) {
-                        is Byte -> obj / second
-                        is Short -> obj / second
-                        is Int -> obj / second
-                        is Long -> obj / second
-                        is Float -> obj / second
-                        is Double -> obj / second
-                        else -> super.execute(op, obj, second)
-                    }
-                    is Rem -> when (second) {
-                        is Byte -> obj % second
-                        is Short -> obj % second
-                        is Int -> obj % second
-                        is Long -> obj % second
-                        is Float -> obj % second
-                        is Double -> obj % second
-                        else -> super.execute(op, obj, second)
-                    }
-                    is Shl ->
-                        if (second is Number) (obj.toLong() shl second.toInt()).toDouble()
-                        else super.execute(op, obj, second)
-                    is Shr ->
-                        if (second is Number) (obj.toLong() shr second.toInt()).toDouble()
-                        else super.execute(op, obj, second)
-                    is Ushr ->
-                        if (second is Number) (obj.toLong() ushr second.toInt()).toDouble()
-                        else super.execute(op, obj, second)
-                    is Or ->
-                        if (second is Number) (obj.toLong() or second.toLong()).toDouble()
-                        else super.execute(op, obj, second)
-                    is And ->
-                        if (second is Number) (obj.toLong() and second.toLong()).toDouble()
-                        else super.execute(op, obj, second)
-                    else -> super.execute(op, obj, second)
+                    else -> super.callVirtual(name, scope, obj, args)
                 }
             }
         })
@@ -618,97 +508,56 @@ object TypeRegistry {
                 populate()
             }
 
-            override fun execute(op: BinaryOperation, obj: Any?, second: Any?): Any {
+            override fun callVirtual(name: String, scope: Scope, obj: Any?, args: List<Any?>): Any? {
                 obj as Char
-                return when (op) {
-                    is Plus -> when (second) {
-                        is Byte -> obj + second.toInt()
-                        is Short -> obj + second.toInt()
-                        is Int -> obj + second
-                        else -> super.execute(op, obj, second)
+                return when (args.size) {
+                    1 -> {
+                        val second = args[0]
+                        when (name) {
+                            "plus" -> when (second) {
+                                is Byte -> obj + second.toInt()
+                                is Short -> obj + second.toInt()
+                                is Int -> obj + second
+                                else -> super.callVirtual(name, scope, obj, args)
+                            }
+                            "minus" -> when (second) {
+                                is Byte -> obj - second.toInt()
+                                is Short -> obj - second.toInt()
+                                is Int -> obj - second
+                                is Char -> obj - second
+                                else -> super.callVirtual(name, scope, obj, args)
+                            }
+                            "range_to" ->
+                                if (second is Char) if (second >= obj) obj..second else obj downTo second
+                                else super.callVirtual(name, scope, obj, args)
+                            else -> super.callVirtual(name, scope, obj, args)
+                        }
                     }
-                    is Minus -> when (second) {
-                        is Byte -> obj - second.toInt()
-                        is Short -> obj - second.toInt()
-                        is Int -> obj - second
-                        is Char -> obj - second
-                        else -> super.execute(op, obj, second)
-                    }
-                    else -> super.execute(op, obj, second)
+                    2 -> if (args[0] is Char && args[1] is Char) CharProgression.fromClosedRange(
+                        obj, args[1] as Char, args[0] as Char - obj
+                    ) else super.callVirtual(name, scope, obj, args)
+                    else -> super.callVirtual(name, scope, obj, args)
                 }
-            }
-
-            override fun execute(op: MultiOperation, obj: Any?, rest: List<Any?>): Any {
-                obj as Char
-                val second = rest.first()
-                return if (op == RangeTo && second is Char) when (val third = rest.getOrNull(1)) {
-                    null -> if (second >= obj) obj..second else obj downTo second
-                    is Char -> CharProgression.fromClosedRange(obj, third, second - obj)
-                    else -> super.execute(op, obj, rest)
-                } else super.execute(op, obj, rest)
             }
         })
         register(object : PalmType(listOf("base", "string"), String::class.java) {
             init {
                 populate()
-                multiOps[Get] = MethodHandles.publicLookup().findVirtual(
+                virtual["get"] = MethodHandles.publicLookup().findVirtual(
                     String::class.java, "charAt",
                     MethodType.methodType(Char::class.java, Int::class.java)
                 )
             }
 
-            override fun iterator(obj: Any?) = (obj as String).iterator()
-
-            override fun execute(op: BinaryOperation, obj: Any?, second: Any?) = if (op == Plus)
-                (obj as String) + second else super.execute(op, obj, second)
-
-            override fun cast(obj: Any?, type: Class<*>) =
-                if (type.isEnum) MethodHandles.publicLookup()
-                    .findStatic(type, "valueOf", MethodType.methodType(type, String::class.java))
-                    .invokeWithArguments(obj)
-                else super.cast(obj, type)
+            override fun callVirtual(name: String, scope: Scope, obj: Any?, args: List<Any?>) =
+                if (args.size == 1 && name == "plus") (obj as String) + args[0]
+                else super.callVirtual(name, scope, obj, args)
         })
+        getOrRegister(java.lang.Math::class.java)
         getOrRegister<Iterator<*>>()
         getOrRegister<Iterable<*>>()
         getOrRegister<Collection<*>>()
-        getOrRegister<AbstractCollection<*>>().invoke {
-            val loopUp = MethodHandles.publicLookup()
-            autoCasters[LinkedList::class.java] =
-                loopUp.findConstructor(
-                    LinkedList::class.java,
-                    MethodType.methodType(Void::class.javaPrimitiveType!!, Collection::class.java)
-                )
-            autoCasters[ArrayList::class.java] =
-                loopUp.findConstructor(
-                    ArrayList::class.java,
-                    MethodType.methodType(Void::class.javaPrimitiveType!!, Collection::class.java)
-                )
-            autoCasters[Vector::class.java] =
-                loopUp.findConstructor(
-                    Vector::class.java,
-                    MethodType.methodType(Void::class.javaPrimitiveType!!, Collection::class.java)
-                )
-            autoCasters[PriorityQueue::class.java] =
-                loopUp.findConstructor(
-                    PriorityQueue::class.java,
-                    MethodType.methodType(Void::class.javaPrimitiveType!!, Collection::class.java)
-                )
-            autoCasters[HashSet::class.java] =
-                loopUp.findConstructor(
-                    HashSet::class.java,
-                    MethodType.methodType(Void::class.javaPrimitiveType!!, Collection::class.java)
-                )
-            autoCasters[LinkedHashSet::class.java] =
-                loopUp.findConstructor(
-                    LinkedHashSet::class.java,
-                    MethodType.methodType(Void::class.javaPrimitiveType!!, Collection::class.java)
-                )
-            autoCasters[TreeSet::class.java] =
-                loopUp.findConstructor(
-                    TreeSet::class.java,
-                    MethodType.methodType(Void::class.javaPrimitiveType!!, Collection::class.java)
-                )
-        }
+        getOrRegister<AbstractCollection<*>>()
         getOrRegister<List<*>>()
         getOrRegister<AbstractList<*>>()
         getOrRegister<ArrayList<*>>()
@@ -729,22 +578,38 @@ object TypeRegistry {
         getOrRegister<HashMap<*, *>>()
         getOrRegister<LinkedHashMap<*, *>>()
         getOrRegister<TreeMap<*, *>>()
+        getOrRegister<Sequence<*>>()
         getOrRegister<Pair<*, *>>()
+        getOrRegister<Triple<*, *, *>>()
         getOrRegister<IntRange>()
         getOrRegister<CharRange>()
         getOrRegister<LongRange>()
         getOrRegister<Random>()
+        getOrRegister(Class.forName("kotlin.collections.CollectionsKt"))
+        getOrRegister(Class.forName("kotlin.collections.ArraysKt"))
+        getOrRegister(Class.forName("kotlin.collections.MapsKt"))
+        getOrRegister(Class.forName("kotlin.collections.SetsKt"))
+        getOrRegister(Class.forName("kotlin.ranges.RangesKt"))
+        getOrRegister(Class.forName("kotlin.text.StringsKt"))
     }
 
     fun register(type: IPalmType) {
-        RootPathNode.addType(type.name, type)
+        RootPathNode.addType(type.name, type).also { node ->
+            if (type.name.first() == "base") {
+                if (type.clazz.declaredConstructors.isNotEmpty())
+                    Scope.GLOBAL.imports[type.name.last()] = node
+                for ((name, functions) in type.getAllStatic()) if (name != "new") functions.forEach {
+                    Scope.GLOBAL.addStaticImport(name, it)
+                }
+            }
+        }
         TYPES[type.clazz] = type
     }
 
     inline fun <reified T> getOrRegister() = getOrRegister(T::class.java)
 
     fun getOrRegister(clazz: Class<*>) = register(
-        clazz, clazz.getAnnotation(Palm.Name::class.java)?.name?.split('.') ?: clazz.typeName.tolistOf()
+        clazz, clazz.getAnnotation(Palm.Name::class.java)?.name?.split('.') ?: clazz.typeName.toList()
     )
 
     fun register(clazz: Class<*>, vararg path: String) = register(clazz, path.toList())
@@ -756,59 +621,9 @@ object TypeRegistry {
         if (!clazz.isInterface) type.populate()
         return type
     }
-
-    fun registerExtension(clazz: Class<*>, extending: Class<*>) {
-        val loopUp = MethodHandles.lookup()
-        val type = TYPES[extending] as? PalmType ?: error("Tried to extended unregistered type for class: $extending")
-        clazz.declaredMethods.forEach {
-            if (!Modifier.isPublic(it.modifiers) || it.isAnnotationPresent(Palm.Ignore::class.java) || !Modifier.isStatic(
-                    it.modifiers
-                ) || it.parameterCount < 1 || it.parameterTypes.first() != extending
-            ) return@forEach
-            val registryName = it.getAnnotation(Palm.Name::class.java)?.name ?: it.name
-            when {
-                registryName == "get" && it.parameters.size > 1 -> {
-                    type.multiOps[Get] =
-                        loopUp.findStatic(clazz, it.name, MethodType.methodType(it.returnType, it.parameterTypes))
-                }
-                registryName == "rangeTo" && it.parameters.size in 2..3 -> {
-                    type.multiOps[RangeTo] =
-                        loopUp.findStatic(clazz, it.name, MethodType.methodType(it.returnType, it.parameterTypes))
-                }
-                registryName.startsWith("to") && registryName.length > 2 && it.parameterCount == 1 && it.returnType != extending && it.returnType != Void::class.javaPrimitiveType -> {
-                    type.autoCasters[it.returnType] =
-                        loopUp.findStatic(clazz, it.name, MethodType.methodType(it.returnType, extending))
-                }
-                registryName in UNARY_OPS -> {
-                    val op = UNARY_OPS[registryName]
-                    if (it.parameterCount == 1)
-                        type.unaryOps[op!!] =
-                            loopUp.findStatic(clazz, it.name, MethodType.methodType(it.returnType, extending))
-                }
-                it.parameterCount == 1 && it.returnType != Void::class.javaPrimitiveType -> {
-                    val getterName = (if (registryName.startsWith("get")) registryName.drop(3)
-                        .decapitalize() else registryName).toSnakeCase()
-                    val method = loopUp.findStatic(clazz, it.name, MethodType.methodType(it.returnType, extending))
-                    if (registryName == "iter" || registryName == "iterator") type.iterator = method
-                    type.getters[getterName] = method
-                }
-                it.parameterCount == 2 && it.returnType == Void::class.javaPrimitiveType -> {
-                    val setterName = (if (registryName.startsWith("set")) registryName.drop(3)
-                        .decapitalize() else registryName).toSnakeCase()
-                    type.setters[setterName] =
-                        loopUp.findStatic(clazz, it.name, MethodType.methodType(it.returnType, it.parameterTypes))
-                }
-                else -> BINARY_OPS[registryName]?.let { op ->
-                    if (it.parameterCount == 2 && op.returnType?.equals(it.returnType) != false)
-                        type.binaryOps[op] =
-                            loopUp.findStatic(clazz, it.name, MethodType.methodType(it.returnType, it.parameterTypes))
-                }
-            }
-        }
-    }
 }
 
-fun String.tolistOf(): List<String> {
+fun String.toList(): List<String> {
     val name = substringAfterLast(".")
     val path = TypeRegistry.replaceJavaPath(dropLast(name.length + 1))
     return path.split('.') + name.toSnakeCase()

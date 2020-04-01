@@ -76,7 +76,10 @@ fun handleToken(traverser: StringTraverser, char: Char, list: TokenList): Pair<P
         } else handleSingleLineString(traverser, next, startPos)
     }
     '\'' -> handleChar(traverser, traverser.pop())
-    '(' -> OpenParenToken on traverser.lastPos to traverser.pop()
+    '(' -> {
+        val previous = traverser.beforePopped
+        (if (previous?.isLetterOrDigit() == true) FunctionParenToken else OpenParenToken) on traverser.lastPos to traverser.pop()
+    }
     ')' -> {
         val bracketPos = traverser.lastPos
         val next = traverser.pop()

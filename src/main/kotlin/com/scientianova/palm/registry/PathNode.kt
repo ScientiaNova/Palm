@@ -16,17 +16,17 @@ object RootPathNode : PathNode() {
         return (get(iterator.next()) ?: error("Invalid type path")).getType(iterator)
     }
 
-    internal fun addType(path: List<String>, type: IPalmType) {
+    internal fun addType(path: List<String>, type: IPalmType): RegularPathNode {
         val iterator = path.iterator()
         val start = iterator.next()
-        addType(iterator, type, get(start) ?: RegularPathNode(this).also { set(start, it) })
+        return addType(iterator, type, get(start) ?: RegularPathNode(this).also { set(start, it) })
     }
 
-    private fun addType(pathIterator: Iterator<String>, type: IPalmType, lastNode: RegularPathNode): Unit =
+    private fun addType(pathIterator: Iterator<String>, type: IPalmType, lastNode: RegularPathNode): RegularPathNode =
         if (pathIterator.hasNext()) {
             val next = pathIterator.next()
             addType(pathIterator, type, lastNode[next] ?: RegularPathNode(lastNode).also { lastNode[next] = it })
-        } else lastNode.type = type
+        } else lastNode.also { it.type = type }
 }
 
 class RegularPathNode(val parent: PathNode) : PathNode() {

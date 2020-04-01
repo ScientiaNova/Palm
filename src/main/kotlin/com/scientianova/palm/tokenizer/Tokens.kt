@@ -114,6 +114,7 @@ object SemicolonToken : SeparatorToken(";")
 object DoubleDotToken : SpecialSymbol("..")
 object SafeAccessToken : SpecialSymbol("?.")
 object ArrowToken : SpecialSymbol("->")
+object DoubleColonToken : SpecialSymbol("::")
 
 object TernaryOperatorToken : BinaryOperatorToken("?", 0) {
     override fun handleExpression(first: IOperationPart, second: IOperationPart) = error("Impossible")
@@ -240,7 +241,8 @@ val SYMBOL_MAP = mapOf(
     ";" to SemicolonToken,
     ".." to DoubleDotToken,
     "?." to SafeAccessToken,
-    "->" to ArrowToken
+    "->" to ArrowToken,
+    "::" to DoubleColonToken
 )
 
 val UNARY_OPS_MAP = mapOf(
@@ -293,5 +295,9 @@ data class TokensPart(val tokens: TokenList) : StringTokenPart() {
 data class CharToken(val char: Char) : IToken
 
 object GetBracketToken : IToken {
-    override fun toString() = "GetBracket"
+    override fun toString() = "GetBracketToken"
+}
+
+object FunctionParenToken : IToken {
+    override fun toString() = "FunctionParenthesisToken"
 }
