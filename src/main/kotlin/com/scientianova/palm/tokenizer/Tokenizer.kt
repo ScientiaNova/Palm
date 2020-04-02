@@ -64,6 +64,10 @@ fun handleToken(traverser: StringTraverser, char: Char, list: TokenList): Pair<P
         }
     }
     in '1'..'9' -> handleNumber(traverser, char, list)
+    '`' -> {
+        val startPos = traverser.lastPos
+        handleBacktickedIdentifier(traverser, traverser.pop(), startPos)
+    }
     '.' ->
         if (traverser.peek()?.isDigit() == true) handleNumber(traverser, char, list)
         else handleMisc(traverser, char, list)
@@ -76,10 +80,7 @@ fun handleToken(traverser: StringTraverser, char: Char, list: TokenList): Pair<P
         } else handleSingleLineString(traverser, next, startPos)
     }
     '\'' -> handleChar(traverser, traverser.pop())
-    '(' -> {
-        val previous = traverser.beforePopped
-        (if (previous?.isLetterOrDigit() == true) FunctionParenToken else OpenParenToken) on traverser.lastPos to traverser.pop()
-    }
+    '(' -> OpenParenToken on traverser.lastPos to traverser.pop()
     ')' -> {
         val bracketPos = traverser.lastPos
         val next = traverser.pop()
@@ -88,11 +89,7 @@ fun handleToken(traverser: StringTraverser, char: Char, list: TokenList): Pair<P
             TimesToken on traverser.lastPos to traverser.pop()
         } else ClosedParenToken on traverser.lastPos to next
     }
-    '[' -> {
-        val previous = traverser.beforePopped
-        (if (previous != null && (previous.isLetterOrDigit() || previous == '"' || previous.isClosedBracket())) GetBracketToken
-        else OpenSquareBracketToken) on traverser.lastPos to traverser.pop()
-    }
+    '[' -> OpenSquareBracketToken on traverser.lastPos to traverser.pop()
     ']' -> ClosedSquareBracketToken on traverser.lastPos to traverser.pop()
     '}' -> ClosedCurlyBracketToken on traverser.lastPos to traverser.pop()
     ';' -> traverser.error(GREEK_QUESTION_MARK_ERROR, traverser.lastPos)

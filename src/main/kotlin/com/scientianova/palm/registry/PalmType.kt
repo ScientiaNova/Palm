@@ -100,7 +100,7 @@ open class PalmType(override val name: List<String>, override val clazz: Class<*
             if (!Modifier.isPublic(it.modifiers) || it.isAnnotationPresent(Palm.Ignore::class.java)) return@forEach
             val actualName = it.name
             val registryName = it.getAnnotation(Palm.Name::class.java)?.name ?: when {
-                actualName.startsWith("add") || actualName.startsWith("put") -> return@forEach
+                actualName.startsWith("add") || actualName.startsWith("put") || actualName.startsWith("remove") -> return@forEach
                 actualName == "<init>" -> "new"
                 actualName == "mod" -> "rem"
                 actualName.startsWith("get") && actualName.length > 3 -> actualName.drop(3).toSnakeCase()

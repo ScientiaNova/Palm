@@ -27,7 +27,6 @@ object TypeRegistry {
         addPathReplacement("kotlin.ranges", "base")
         addPathReplacement("kotlin.collections", "base")
         addPathReplacement("kotlin.text", "base")
-
         register(Any::class.java, "base", "any")
         register(object : PalmType(listOf("base", "number"), Number::class.java) {
             init {
@@ -128,18 +127,21 @@ object TypeRegistry {
                                 is Double -> obj % second
                                 else -> super.callVirtual(name, scope, obj, args)
                             }
+                            "range_to" -> when (second) {
+                                is Byte -> obj..second
+                                is Short -> obj..second
+                                is Int -> obj..second
+                                is Long -> obj..second
+                                else -> super.callVirtual(name, scope, obj, args)
+                            }
                             "shl" -> (obj.toInt() shl second.toInt()).toByte()
                             "shr" -> (obj.toInt() shr second.toInt()).toByte()
                             "ushr" -> (obj.toInt() ushr second.toInt()).toByte()
                             "or" -> (obj.toInt() or second.toInt()).toByte()
                             "and" -> (obj.toInt() and second.toInt()).toByte()
-                            "range_to" -> if (second.toInt() >= obj) obj..second.toInt() else obj downTo second.toInt()
                             else -> super.callVirtual(name, scope, obj, args)
                         } else super.callVirtual(name, scope, obj, args)
                     }
-                    2 -> if (args[0] is Number && args[1] is Number) IntProgression.fromClosedRange(
-                        obj.toInt(), (args[1] as Number).toInt(), (args[0] as Number).toInt() - obj
-                    ) else super.callVirtual(name, scope, obj, args)
                     else -> super.callVirtual(name, scope, obj, args)
                 }
             }
@@ -206,18 +208,21 @@ object TypeRegistry {
                                 is Double -> obj % second
                                 else -> super.callVirtual(name, scope, obj, args)
                             }
+                            "range_to" -> when (second) {
+                                is Byte -> obj..second
+                                is Short -> obj..second
+                                is Int -> obj..second
+                                is Long -> obj..second
+                                else -> super.callVirtual(name, scope, obj, args)
+                            }
                             "shl" -> (obj.toInt() shl second.toInt()).toShort()
                             "shr" -> (obj.toInt() shr second.toInt()).toShort()
                             "ushr" -> (obj.toInt() ushr second.toInt()).toShort()
                             "or" -> (obj.toInt() or second.toInt()).toShort()
                             "and" -> (obj.toInt() and second.toInt()).toShort()
-                            "range_to" -> if (second.toInt() >= obj) obj..second.toInt() else obj downTo second.toInt()
                             else -> super.callVirtual(name, scope, obj, args)
                         } else super.callVirtual(name, scope, obj, args)
                     }
-                    2 -> if (args[0] is Number && args[1] is Number) IntProgression.fromClosedRange(
-                        obj.toInt(), (args[1] as Number).toInt(), (args[0] as Number).toInt() - obj
-                    ) else super.callVirtual(name, scope, obj, args)
                     else -> super.callVirtual(name, scope, obj, args)
                 }
             }
@@ -284,18 +289,21 @@ object TypeRegistry {
                                 is Double -> obj % second
                                 else -> super.callVirtual(name, scope, obj, args)
                             }
+                            "range_to" -> when (second) {
+                                is Byte -> obj..second
+                                is Short -> obj..second
+                                is Int -> obj..second
+                                is Long -> obj..second
+                                else -> super.callVirtual(name, scope, obj, args)
+                            }
                             "shl" -> obj shl second.toInt()
                             "shr" -> obj shr second.toInt()
                             "ushr" -> obj ushr second.toInt()
                             "or" -> obj or second.toInt()
                             "and" -> obj and second.toInt()
-                            "range_to" -> if (second.toInt() >= obj) obj..second.toInt() else obj downTo second.toInt()
                             else -> super.callVirtual(name, scope, obj, args)
                         } else super.callVirtual(name, scope, obj, args)
                     }
-                    2 -> if (args[0] is Number && args[1] is Number) IntProgression.fromClosedRange(
-                        obj, (args[1] as Number).toInt(), (args[0] as Number).toInt() - obj
-                    ) else super.callVirtual(name, scope, obj, args)
                     else -> super.callVirtual(name, scope, obj, args)
                 }
             }
@@ -362,18 +370,21 @@ object TypeRegistry {
                                 is Double -> obj % second
                                 else -> super.callVirtual(name, scope, obj, args)
                             }
+                            "range_to" -> when (second) {
+                                is Byte -> obj..second
+                                is Short -> obj..second
+                                is Int -> obj..second
+                                is Long -> obj..second
+                                else -> super.callVirtual(name, scope, obj, args)
+                            }
                             "shl" -> obj shl second.toInt()
                             "shr" -> obj shr second.toInt()
                             "ushr" -> obj ushr second.toInt()
                             "or" -> obj or second.toLong()
                             "and" -> obj and second.toLong()
-                            "range_to" -> if (second.toLong() >= obj) obj..second.toLong() else obj downTo second.toLong()
                             else -> super.callVirtual(name, scope, obj, args)
                         } else super.callVirtual(name, scope, obj, args)
                     }
-                    2 -> if (args[0] is Number && args[1] is Number) LongProgression.fromClosedRange(
-                        obj, (args[1] as Number).toLong(), (args[0] as Number).toLong() - obj
-                    ) else super.callVirtual(name, scope, obj, args)
                     else -> super.callVirtual(name, scope, obj, args)
                 }
             }
@@ -439,6 +450,9 @@ object TypeRegistry {
                                 is Double -> obj % second
                                 else -> super.callVirtual(name, scope, obj, args)
                             }
+                            "range_to" ->
+                                if (second is Float) obj..second
+                                else super.callVirtual(name, scope, obj, args)
                             else -> super.callVirtual(name, scope, obj, args)
                         } else super.callVirtual(name, scope, obj, args)
                     }
@@ -507,6 +521,9 @@ object TypeRegistry {
                                 is Double -> obj % second
                                 else -> super.callVirtual(name, scope, obj, args)
                             }
+                            "range_to" ->
+                                if (second is Double) obj..second
+                                else super.callVirtual(name, scope, obj, args)
                             else -> super.callVirtual(name, scope, obj, args)
                         } else super.callVirtual(name, scope, obj, args)
                     }
@@ -522,34 +539,28 @@ object TypeRegistry {
 
             override fun callVirtual(name: String, scope: Scope, obj: Any?, args: List<Any?>): Any? {
                 obj as Char
-                return when (args.size) {
-                    1 -> {
-                        val second = args[0]
-                        when (name) {
-                            "plus" -> when (second) {
-                                is Byte -> obj + second.toInt()
-                                is Short -> obj + second.toInt()
-                                is Int -> obj + second
-                                else -> super.callVirtual(name, scope, obj, args)
-                            }
-                            "minus" -> when (second) {
-                                is Byte -> obj - second.toInt()
-                                is Short -> obj - second.toInt()
-                                is Int -> obj - second
-                                is Char -> obj - second
-                                else -> super.callVirtual(name, scope, obj, args)
-                            }
-                            "range_to" ->
-                                if (second is Char) if (second >= obj) obj..second else obj downTo second
-                                else super.callVirtual(name, scope, obj, args)
+                return if (args.size == 1) {
+                    val second = args[0]
+                    when (name) {
+                        "plus" -> when (second) {
+                            is Byte -> obj + second.toInt()
+                            is Short -> obj + second.toInt()
+                            is Int -> obj + second
                             else -> super.callVirtual(name, scope, obj, args)
                         }
+                        "minus" -> when (second) {
+                            is Byte -> obj - second.toInt()
+                            is Short -> obj - second.toInt()
+                            is Int -> obj - second
+                            is Char -> obj - second
+                            else -> super.callVirtual(name, scope, obj, args)
+                        }
+                        "range_to" ->
+                            if (second is Char) obj..second
+                            else super.callVirtual(name, scope, obj, args)
+                        else -> super.callVirtual(name, scope, obj, args)
                     }
-                    2 -> if (args[0] is Char && args[1] is Char) CharProgression.fromClosedRange(
-                        obj, args[1] as Char, args[0] as Char - obj
-                    ) else super.callVirtual(name, scope, obj, args)
-                    else -> super.callVirtual(name, scope, obj, args)
-                }
+                } else super.callVirtual(name, scope, obj, args)
             }
         })
         register(object : PalmType(listOf("base", "string"), String::class.java) {
@@ -603,6 +614,13 @@ object TypeRegistry {
         getOrRegister(Class.forName("kotlin.collections.SetsKt"))
         getOrRegister(Class.forName("kotlin.ranges.RangesKt"))
         getOrRegister(Class.forName("kotlin.text.StringsKt"))
+        PalmType(
+            listOf("base", "infix_extensions"),
+            Class.forName("com.scientianova.palm.registry.InfixCopiesKt")
+        ).let {
+            it.populate()
+            register(it)
+        }
     }
 
     fun register(type: IPalmType) {

@@ -350,7 +350,7 @@ fun handleExpressionPart(
                         val (expr, next) = handleExpression(parser, first)
                         when (next?.value) {
                             is CommaToken ->
-                                handleSecondInList(parser, parser.pop(), token.area.start, expr.value)
+                                handleList(parser, parser.pop(), token.area.start, listOf(expr.value))
                             is SemicolonToken ->
                                 handleList(parser, parser.pop(), token.area.start, emptyList(), listOf(Lis(expr.value)))
                             is ColonToken -> {
@@ -367,18 +367,8 @@ fun handleExpressionPart(
                                     )
                                 }
                             }
-                            is DoubleDotToken -> {
-                                val (last, closedBracket) = handleExpression(parser, parser.pop())
-                                if (closedBracket?.value is ClosedSquareBracketToken)
-                                    MultiOp(RangeTo, expr.value, listOf(last.value)) on
-                                            token.area.start..closedBracket.area.end to parser.pop()
-                                else parser.error(
-                                    UNCLOSED_SQUARE_BRACKET_ERROR,
-                                    closedBracket?.area?.start ?: parser.lastPos
-                                )
-                            }
                             is ForToken -> handleListComprehension(parser, parser.pop(), expr.value, token.area.start)
-                            else -> handleSecondInList(parser, next, token.area.start, expr.value)
+                            else -> handleList(parser, next, token.area.start, listOf(expr.value))
                         }
                     }
                 }
@@ -397,7 +387,7 @@ fun handleExpressionPart(
             }) on token to parser.pop()
             is UnaryOperatorToken -> {
                 val (expr, next) = handleExpressionPart(parser, parser.pop())
-                UnaryOp(token.value.op, expr.value) on token.area.start..expr.area.end to next
+                VirtualCall(expr.value, token.value.name) on token.area.start..expr.area.end to next
             }
             is IfToken -> handleIf(parser, parser.pop(), token.area.start, untilLineEnd)
             is WhenToken -> {
@@ -425,7 +415,7 @@ fun handlePostfixOperations(
         if (name == null || name.value !is IdentifierToken)
             parser.error(INVALID_PROPERTY_NAME_ERROR, name?.area ?: parser.lastArea)
         val next = parser.pop()
-        if (next?.value is FunctionParenToken) {
+        if (next?.value is OpenParenToken) {
             val args = handleFunctionArguments(parser, parser.pop())
             handlePostfixOperations(
                 parser, parser.pop(),
@@ -443,7 +433,7 @@ fun handlePostfixOperations(
             parser, parser.pop(), SafeVirtualCall(expr.value, name.value.name) on expr.area.start..name.area.end
         )
     }
-    is GetBracketToken -> {
+    is OpenSquareBracketToken -> {
         val (getter, next) = handleGetter(parser, parser.pop(), expr.value, expr.area.start)
         handlePostfixOperations(parser, next, getter)
     }
@@ -465,7 +455,7 @@ fun handleIdentifier(
         handleIdentifier(parser, parser.pop(), startPos, top.area.end, name, path + current)
     }
     is OpenCurlyBracketToken -> handleTypedObject(parser, parser.pop(), startPos, path)
-    is FunctionParenToken -> {
+    is OpenParenToken -> {
         val args = handleFunctionArguments(parser, parser.pop())
         StaticCall(current, path, args.first) on startPos..args.second to parser.pop()
     }
@@ -484,36 +474,7 @@ fun handleFunctionArguments(
         when (next?.value) {
             is ClosedParenToken -> args + expr.value to next.area.end
             is CommaToken -> handleFunctionArguments(parser, parser.pop(), args + expr.value)
-            else -> handleFunctionArguments(parser, next, args + expr.value)
-        }
-    }
-}
-
-fun handleSecondInList(
-    parser: Parser,
-    token: PositionedToken?,
-    startPos: StringPos,
-    first: IExpression
-): Pair<PositionedExpression, PositionedToken?> = when {
-    token == null -> parser.error(UNCLOSED_SQUARE_BRACKET_ERROR, parser.lastPos)
-    token.value is ClosedSquareBracketToken -> Lis(first) on startPos..token.area.end to parser.pop()
-    else -> {
-        val (expr, next) = handleExpression(parser, token)
-        when (next?.value) {
-            is ClosedSquareBracketToken ->
-                Lis(listOf(first, expr.value)) on startPos..token.area.end to parser.pop()
-            is CommaToken ->
-                handleList(parser, parser.pop(), startPos, listOf(first, expr.value))
-            is SemicolonToken ->
-                handleList(parser, parser.pop(), startPos, emptyList(), listOf(Lis(listOf(first, expr.value))))
-            is DoubleDotToken -> {
-                val (last, closedBracket) = handleExpression(parser, parser.pop())
-                if (closedBracket?.value is ClosedSquareBracketToken)
-                    MultiOp(RangeTo, first, listOf(expr.value, last.value)) on startPos..closedBracket.area.end to
-                            parser.pop()
-                else parser.error(UNCLOSED_SQUARE_BRACKET_ERROR, closedBracket?.area?.start ?: parser.lastPos)
-            }
-            else -> handleList(parser, next, startPos, listOf(first, expr.value))
+            else -> parser.error(UNCLOSED_PARENTHESIS_ERROR, next?.area?.start ?: parser.lastPos)
         }
     }
 }
@@ -538,7 +499,7 @@ fun handleList(
                 handleList(parser, parser.pop(), startPos, values + expr.value, parsers)
             is SemicolonToken ->
                 handleList(parser, parser.pop(), startPos, emptyList(), parsers + Lis(values + expr.value))
-            else -> handleList(parser, next, startPos, values + expr.value, parsers)
+            else -> parser.error(UNCLOSED_SQUARE_BRACKET_ERROR, next?.area?.start ?: parser.lastPos)
         }
     }
 }
@@ -563,7 +524,7 @@ fun handleDict(
                 Dict(values + (key.value to value.value)) on startPos..token.area.end to parser.pop()
             is CommaToken ->
                 handleDict(parser, parser.pop(), startPos, values + (key.value to value.value))
-            else -> handleDict(parser, colon, startPos, values + (key.value to value.value))
+            else -> parser.error(UNCLOSED_SQUARE_BRACKET_ERROR, next?.area?.start ?: parser.lastPos)
         }
     }
 }
@@ -646,7 +607,7 @@ fun handleObject(
                             exprStart.value.name.split("([.:])".toRegex())
                         )
                     }
-                    handleExpression(parser, exprStart)
+                    handleExpression(parser, exprStart, true)
                 }
                 is OpenCurlyBracketToken -> handleObject(parser, parser.pop(), assignToken.area.start)
                 else -> parser.error(
@@ -743,12 +704,12 @@ fun handleGetter(
 ): Pair<PositionedExpression, PositionedToken?> = when {
     token == null -> parser.error(UNCLOSED_SQUARE_BRACKET_ERROR, parser.lastPos)
     token.value is ClosedSquareBracketToken ->
-        MultiOp(Get, expr, params) on startPos..token.area.end to parser.pop()
+        VirtualCall(expr, "get", params) on startPos..token.area.end to parser.pop()
     else -> {
         val (currentExpr, next) = handleExpression(parser, token)
         when (next?.value) {
             is ClosedSquareBracketToken ->
-                MultiOp(Get, expr, params + currentExpr.value) on startPos..next.area.end to parser.pop()
+                VirtualCall(expr, "get", params + currentExpr.value) on startPos..next.area.end to parser.pop()
             is CommaToken ->
                 handleGetter(parser, parser.pop(), expr, startPos, params + currentExpr.value)
             else -> handleGetter(parser, next, expr, startPos, params + currentExpr.value)

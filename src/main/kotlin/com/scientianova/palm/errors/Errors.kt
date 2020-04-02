@@ -90,6 +90,12 @@ val UNCLOSED_MULTILINE_STRING = PalmError(
     "Closed it off using triple double quotes (\"\"\")."
 )
 
+val MISSING_BACKTICK_ERROR = PalmError(
+    "MISSING BACKTICK",
+    "I went to the end of this line and couldn't find the end of a backticked identifier name:",
+    "Add a ` here."
+)
+
 val UNKNOWN_UNARY_OPERATOR_ERROR = PalmError(
     "UNKNOWN UNARY OPERATOR",
     "I found a symbol that I don't recognize as a unary operator:",
@@ -204,7 +210,7 @@ val INVALID_KEY_NAME_ERROR = PalmError(
     """
 Raw key names have to start with a letter and can contain digits and underscores. 
 
-Note: If you want to use additional characters, you can use a string (without interpolation) as a key name i.e. put the name in quotes.
+Note: If you want to use additional characters, you need to surround it with double ticks.
 """.trimIndent()
 )
 

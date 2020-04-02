@@ -12,7 +12,7 @@ data class Scope(
     private val parent: Scope? = GLOBAL
 ) {
     val imports = mutableMapOf<String, RegularPathNode>()
-    private val staticImports: HashMultiMap<String, MethodHandle> = HashMultiMap()
+    internal val staticImports: HashMultiMap<String, MethodHandle> = HashMultiMap()
     private val staticCasters: HashMultiMap<Class<*>, MethodHandle> = HashMultiMap()
 
     fun getInScope(name: String): Optional<Any?> =
@@ -20,7 +20,7 @@ data class Scope(
 
     operator fun get(name: String): Any? = when (val optional = getInScope(name)) {
         is Some -> optional.value
-        is None -> staticImports[name]?.firstOrNull { it.type().parameterCount() == 0 }
+        is None -> staticImports[name]?.firstOrNull { it.type().parameterCount() == 0 }?.invokeWithArguments()
             ?: error("Not such variable called $name in scope")
     }
 
