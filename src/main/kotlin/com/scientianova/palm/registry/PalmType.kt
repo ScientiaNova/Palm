@@ -23,10 +23,6 @@ interface IPalmType {
     fun set(name: String, obj: Any?, value: Any?)
 }
 
-operator fun IPalmType.invoke(builder: PalmType.() -> Unit) {
-    if (this is PalmType) this.builder()
-}
-
 open class PalmType(override val name: List<String>, override val clazz: Class<*>) : IPalmType {
     override val constructors = mutableListOf<MethodHandle>()
     protected var constructor: PalmConstructor? = null

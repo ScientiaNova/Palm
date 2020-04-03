@@ -30,11 +30,22 @@ data class Scope(
     operator fun set(name: String, obj: Any?) {
         values[name] = obj
     }
-    
+
     fun addImports(otherImports: Imports) {
         imports += otherImports.paths
         staticImports += otherImports.static
         staticCasters += otherImports.casters
+    }
+
+    fun import(type: IPalmType) {
+        val simpleName = type.name.last()
+        imports[simpleName] = RootPathNode.getNode(type.name)
+        type.constructors.forEach { staticImports[simpleName] = it }
+    }
+
+    fun importAll(type: IPalmType) {
+        val node = RootPathNode.getNode(type.name)
+        addImports(node.getAllImports())
     }
 
     fun getImport(name: String): RegularPathNode? = imports[name] ?: parent?.getImport(name)
