@@ -30,6 +30,12 @@ data class Scope(
     operator fun set(name: String, obj: Any?) {
         values[name] = obj
     }
+    
+    fun addImports(otherImports: Imports) {
+        imports += otherImports.paths
+        staticImports += otherImports.static
+        staticCasters += otherImports.casters
+    }
 
     fun getImport(name: String): RegularPathNode? = imports[name] ?: parent?.getImport(name)
 
