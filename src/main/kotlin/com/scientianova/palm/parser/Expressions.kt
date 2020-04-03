@@ -2,7 +2,6 @@ package com.scientianova.palm.parser
 
 import com.scientianova.palm.errors.*
 import com.scientianova.palm.evaluator.Scope
-import com.scientianova.palm.evaluator.callVirtual
 import com.scientianova.palm.registry.TypeRegistry
 import com.scientianova.palm.registry.toType
 import com.scientianova.palm.tokenizer.*
@@ -126,10 +125,7 @@ data class VirtualCall(
     val name: String,
     val args: List<IExpression> = emptyList()
 ) : IExpression {
-    override fun evaluate(scope: Scope): Any? {
-        val value = expr.evaluate(scope)
-        return value.callVirtual(name, scope, args.map { it.evaluate(scope) })
-    }
+    override fun evaluate(scope: Scope) = scope.callVirtual(name, expr.evaluate(scope), args.map { it.evaluate(scope) })
 }
 
 data class SafeVirtualCall(
@@ -139,7 +135,7 @@ data class SafeVirtualCall(
 ) : IExpression {
     override fun evaluate(scope: Scope): Any? {
         val value = expr.evaluate(scope) ?: return null
-        return value.callVirtual(name, scope, args.map { it.evaluate(scope) })
+        return scope.callVirtual(name, value, args.map { it.evaluate(scope) })
     }
 }
 
@@ -192,16 +188,11 @@ data class WhenSwitch(
                 when (pattern) {
                     is ExpressionPattern -> evaluated == pattern.expression.evaluate(scope)
                     is TypePattern -> pattern.inverted != scope.getType(pattern.type).clazz.isInstance(evaluated)
-                    is ContainingPattern -> {
-                        val collection = pattern.collection.evaluate(scope)
-                        pattern.inverted != collection.callVirtual("contains", scope, evaluated)
-                    }
-                    is ComparisonPattern -> {
-                        val second = pattern.expression.evaluate(scope)
-                        pattern.operator.comparisonType.handle(
-                            evaluated.callVirtual("compareTo", scope, second) as Int
-                        )
-                    }
+                    is ContainingPattern ->
+                        pattern.inverted != scope.callVirtual("contains", pattern.collection.evaluate(scope), evaluated)
+                    is ComparisonPattern -> pattern.operator.comparisonType.handle(
+                        scope.callVirtual("compareTo", evaluated, pattern.expression.evaluate(scope)) as Int
+                    )
                 }
             }
         }?.second?.evaluate(scope) ?: elseBranch?.evaluate(scope) ?: error("Not exhaustive when statement")
@@ -450,7 +441,7 @@ fun handleIdentifier(
 ): Pair<PositionedExpression, PositionedToken?> = when (token?.value) {
     is DoubleColonToken -> {
         val top = parser.pop()
-        val name = (top.value as? IdentifierToken)?.name
+        val name = (top?.value as? IdentifierToken)?.name
             ?: parser.error(INVALID_PROPERTY_NAME_ERROR, top?.area ?: parser.lastArea)
         handleIdentifier(parser, parser.pop(), startPos, top.area.end, name, path + current)
     }

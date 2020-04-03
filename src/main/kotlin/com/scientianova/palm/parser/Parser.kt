@@ -1,25 +1,14 @@
 package com.scientianova.palm.parser
 
-import com.scientianova.palm.errors.INVALID_KEY_NAME_ERROR
-import com.scientianova.palm.errors.MISSING_COLON_OR_EQUALS_IN_OBJECT_ERROR
-import com.scientianova.palm.errors.PalmCompilationException
-import com.scientianova.palm.errors.PalmError
+import com.scientianova.palm.errors.*
+import com.scientianova.palm.registry.PathNode
+import com.scientianova.palm.registry.RootPathNode
 import com.scientianova.palm.tokenizer.*
 import com.scientianova.palm.util.StringArea
 import com.scientianova.palm.util.StringPos
 
-fun parse(code: String, fileName: String = "REPL"): Object {
-    val parser = Parser(tokenize(code, fileName), code, fileName)
-    val first = parser.pop()
-    return when (first?.value) {
-        null -> Object()
-        is OpenCurlyBracketToken -> handleObject(parser, parser.pop(), StringPos(1, 1)).first.value
-        else -> handleFreeObject(parser, first)
-    }
-}
-
-class Parser(private val tokens: TokenList, private val code: String, private val fileName: String = "REPL") {
-    fun pop() = tokens.poll()
+class Parser(private val tokens: TokenList, private val code: String, val fileName: String = "REPL") {
+    fun pop(): PositionedToken? = tokens.poll()
 
     val lastPos = code.lines().let {
         StringPos(it.size.coerceAtLeast(1), it.lastOrNull()?.run { length + 1 } ?: 1)
@@ -34,6 +23,68 @@ class Parser(private val tokens: TokenList, private val code: String, private va
 
     fun error(error: PalmError, pos: StringPos): Nothing =
         throw PalmCompilationException(code, fileName, pos..pos, error)
+}
+
+class FileAST {
+    val imports = Imports()
+    val objects = mutableMapOf<String, Object>()
+}
+
+fun parse(code: String, fileName: String = "REPL"): FileAST {
+    val parser = Parser(tokenize(code, fileName), code, fileName)
+    return handleFileStart(parser.pop(), parser, FileAST())
+}
+
+fun handleFileStart(token: PositionedToken?, parser: Parser, ast: FileAST): FileAST =
+    if (token?.value is ImportToken)
+        handleFileStart(handleImport(parser.pop(), parser, ast.imports), parser, ast)
+    else handleTopLevelObject(token, parser, ast)
+
+fun handleImport(
+    token: PositionedToken?,
+    parser: Parser,
+    imports: Imports,
+    lastNode: PathNode = RootPathNode
+): PositionedToken? = when (val nameToken = token?.value) {
+    is IdentifierToken -> {
+        val next = parser.pop()
+        when (next?.value) {
+            is ColonToken -> handleImport(
+                parser.pop(), parser, imports, lastNode[nameToken.name] ?: parser.error(INVALID_PATH_ERROR, token.area)
+            )
+            is AsToken -> {
+                val aliasToken = parser.pop()
+                val alias = aliasToken?.value as? IdentifierToken ?: parser.error(
+                    INVALID_ALIAS_ERROR,
+                    aliasToken?.area ?: parser.lastArea
+                )
+                imports += lastNode.getImports(nameToken.name, alias.name)
+                parser.pop()
+            }
+            else -> {
+                imports += lastNode.getImports(nameToken.name)
+                parser.pop()
+            }
+        }
+    }
+    is TimesToken -> {
+        imports += lastNode.getAllImports()
+        parser.pop()
+    }
+    else -> parser.error(INVALID_TYPE_NAME_ERROR, token?.area ?: parser.lastArea)
+}
+
+fun handleTopLevelObject(token: PositionedToken?, parser: Parser, ast: FileAST): FileAST = when (token?.value) {
+    null -> ast
+    is OpenCurlyBracketToken -> {
+        ast.objects[parser.fileName.substringAfterLast('/')] =
+            handleObject(parser, parser.pop(), token.area.start).first.value
+        handleTopLevelObject(parser.pop(), parser, ast)
+    }
+    else -> {
+        ast.objects[parser.fileName.substringAfterLast('/')] = handleFreeObject(parser, token)
+        handleTopLevelObject(parser.pop(), parser, ast)
+    }
 }
 
 fun handleFreeObject(

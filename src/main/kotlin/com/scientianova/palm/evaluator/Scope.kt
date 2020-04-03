@@ -1,5 +1,6 @@
 package com.scientianova.palm.evaluator
 
+import com.scientianova.palm.parser.Imports
 import com.scientianova.palm.registry.*
 import com.scientianova.palm.util.HashMultiMap
 import com.scientianova.palm.util.None
@@ -9,11 +10,13 @@ import java.lang.invoke.MethodHandle
 
 data class Scope(
     private val values: MutableMap<String, Any?> = mutableMapOf(),
-    private val parent: Scope? = GLOBAL
-) {
-    val imports = mutableMapOf<String, RegularPathNode>()
-    internal val staticImports: HashMultiMap<String, MethodHandle> = HashMultiMap()
+    private val parent: Scope? = GLOBAL,
+    internal val imports: MutableMap<String, RegularPathNode> = mutableMapOf(),
+    internal val staticImports: HashMultiMap<String, MethodHandle> = HashMultiMap(),
     private val staticCasters: HashMultiMap<Class<*>, MethodHandle> = HashMultiMap()
+) {
+    constructor(values: MutableMap<String, Any?> = mutableMapOf(), parent: Scope? = GLOBAL, imports: Imports) :
+            this(values, parent, imports.paths, imports.static, imports.casters)
 
     fun getInScope(name: String): Optional<Any?> =
         if (name in values) Some(values[name]) else parent?.getInScope(name) ?: None
@@ -30,11 +33,13 @@ data class Scope(
 
     fun getImport(name: String): RegularPathNode? = imports[name] ?: parent?.getImport(name)
 
-    fun getType(path: List<String>): IPalmType {
+    fun getNode(path: List<String>): RegularPathNode {
         val iterator = path.iterator()
         val first = iterator.next()
-        return (getImport(first) ?: RootPathNode[first])?.getType(iterator) ?: error("Unknown type")
+        return getImport(first) ?: RootPathNode[first] ?: error("Unknown path node")
     }
+
+    fun getType(path: List<String>) = getNode(path).type ?: error("Unknown type")
 
     fun addStaticImport(name: String, function: StaticFunction) {
         val handle = function.handle
@@ -61,7 +66,15 @@ data class Scope(
             }
         }
 
-    fun getIterator(obj: Any?) = obj.callVirtual("iterator", this) as Iterator<*>
+    fun callVirtual(name: String, obj: Any?, args: List<Any?>): Any? = handlePrimitives(name, obj, args)
+        ?: getMethod(name, obj, args)?.invokeWithArguments(obj, *args.toTypedArray())
+        ?: error("Couldn't find a function with the signature ${obj.palmType}.$name(${args.joinToString { it.palmType.toString() }})")
+
+    fun callVirtual(name: String, obj: Any?, vararg args: Any?): Any? = handlePrimitives(name, obj, args.toList())
+        ?: getMethod(name, obj, args.toList())?.invokeWithArguments(obj, *args)
+        ?: error("Couldn't find a function with the signature ${obj.palmType}.$name(${args.joinToString { it.palmType.toString() }})")
+
+    fun getIterator(obj: Any?) = callVirtual("iterator", obj) as Iterator<*>
 
     fun getCaster(obj: Any?, type: Class<*>) =
         obj.palmType.getVirtualCaster(obj, type) ?: getStaticCasters(type).firstOrNull {
@@ -75,10 +88,10 @@ data class Scope(
     }
 
     fun getStatic(name: String, path: List<String>, args: List<Any?>): MethodHandle? =
-        if (path.isEmpty()) getStaticImports(name).firstOrNull {
+        (if (path.isEmpty()) getStaticImports(name) else getNode(path).getStatic(name)).firstOrNull {
             val type = it.type()
             args.size == type.parameterCount() && args.indices.all { i -> args[i] instanceOf type.parameterType(i) }
-        } else getType(path).getStatic(name, args)?.handle
+        }
 
     fun callStatic(name: String, path: List<String>, args: List<Any?>) =
         getStatic(name, path, args)?.invokeWithArguments(args)

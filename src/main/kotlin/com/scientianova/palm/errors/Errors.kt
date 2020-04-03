@@ -280,14 +280,26 @@ val UNCLOSED_WHEN_ERROR = PalmError(
     "Add a } here."
 )
 
-val INVALID_TYPE_NAME = PalmError(
+val INVALID_TYPE_NAME_ERROR = PalmError(
     "INVALID TYPE NAME",
     "I was expecting the name of a type, but instead got:",
-    "Type names have to start with a letter and can contain digits and underscores. The path of the type is separated via dots."
+    "Type names have to start with a letter and can contain digits and underscores. The path of the type is separated via double colons."
 )
 
 val INVALID_EMPTY_MAP_ERROR = PalmError(
     "INVALID EMPTY MAP",
     "I thought I was going through an empty map literal, but instead of a closed square  bracket, I got:",
     "Add a ] here."
+)
+
+val INVALID_PATH_ERROR = PalmError(
+    "INVALID PATH",
+    "I thought I was going through imports and couldn't find anything at this point of the path:",
+    ""
+)
+
+val INVALID_ALIAS_ERROR = PalmError(
+    "INVALID ALIAS",
+    "I was expecting an alias, but instead got:",
+    "Aliases have to start with a letter and can contain digits and underscores."
 )

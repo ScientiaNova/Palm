@@ -12,6 +12,10 @@ class HashBasedTable<R, C, V> {
         inner[column] = value
     }
 
+    fun putAll(other: HashBasedTable<R, C, V>) {
+        maps.putAll(other.maps)
+    }
+
     val rows get() = maps.keys
     val columns = maps.flatMap { it.value.keys }
     val values = maps.flatMap { it.value.values }

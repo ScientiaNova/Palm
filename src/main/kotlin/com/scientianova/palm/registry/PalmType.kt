@@ -3,7 +3,6 @@ package com.scientianova.palm.registry
 import com.scientianova.palm.evaluator.Scope
 import com.scientianova.palm.evaluator.instanceOf
 import com.scientianova.palm.evaluator.palm
-import com.scientianova.palm.evaluator.palmType
 import com.scientianova.palm.parser.IExpression
 import com.scientianova.palm.util.HashMultiMap
 import java.lang.invoke.MethodHandle
@@ -15,12 +14,12 @@ interface IPalmType {
     fun createInstance(obj: Map<String, IExpression>, scope: Scope): Any
     val clazz: Class<*>
     val name: List<String>
+    val constructors: List<MethodHandle>
     fun getSetter(name: String, obj: Any?, value: Any): MethodHandle?
+    val virtual: Map<String, List<MethodHandle>>
     fun getVirtual(name: String, obj: Any?, rest: List<Any?> = emptyList()): MethodHandle?
-    fun getAllStatic(): Map<String, List<StaticFunction>>
-    fun getStatic(name: String, args: List<Any?> = emptyList()): StaticFunction?
+    val static: Map<String, List<StaticFunction>>
     fun getVirtualCaster(obj: Any?, type: Class<*>): MethodHandle?
-    fun callVirtual(name: String, scope: Scope, obj: Any?, args: List<Any?>): Any?
     fun set(name: String, obj: Any?, value: Any?)
 }
 
@@ -29,7 +28,13 @@ operator fun IPalmType.invoke(builder: PalmType.() -> Unit) {
 }
 
 open class PalmType(override val name: List<String>, override val clazz: Class<*>) : IPalmType {
-    var constructor: PalmConstructor? = null
+    override val constructors = mutableListOf<MethodHandle>()
+    protected var constructor: PalmConstructor? = null
+    protected val virtualSetters = hashMapOf<String, MethodHandle>()
+    protected val staticSetters = hashMapOf<String, MethodHandle>()
+    override val virtual = HashMultiMap<String, MethodHandle>()
+    override val static = HashMultiMap<String, StaticFunction>()
+    protected val virtualCasters = hashMapOf<Class<*>, MethodHandle>()
 
     override fun createInstance(obj: Map<String, IExpression>, scope: Scope) = constructor?.let {
         val used = mutableSetOf<String>()
@@ -56,21 +61,8 @@ open class PalmType(override val name: List<String>, override val clazz: Class<*
         }
     } ?: clazz.superclass?.palm?.getVirtual(name, obj, rest)
 
-    override fun getAllStatic() = static
-
-    override fun getStatic(name: String, args: List<Any?>) = static[name]?.firstOrNull {
-        val type = it.handle.type()
-        type.parameterCount() == args.size && args.indices.all { i ->
-            args[i].instanceOf(type.parameterType(i))
-        }
-    }
-
     override fun getVirtualCaster(obj: Any?, type: Class<*>) =
         virtualCasters[type] ?: clazz.superclass?.palm?.getVirtualCaster(obj, type)
-
-    override fun callVirtual(name: String, scope: Scope, obj: Any?, args: List<Any?>): Any? =
-        scope.getMethod(name, obj, args)?.invokeWithArguments(obj, *args.toTypedArray())
-            ?: error("Couldn't find a function with the signature ${obj.palmType}.$name(${args.joinToString { it.palmType.toString() }})")
 
     override fun set(name: String, obj: Any?, value: Any?) {
         virtualSetters[name]?.invokeWithArguments(obj, value) ?: clazz.superclass?.palm?.set(name, obj, value)
@@ -83,7 +75,7 @@ open class PalmType(override val name: List<String>, override val clazz: Class<*
             val handle = loopUp.findConstructor(
                 clazz, MethodType.methodType(Void::class.javaPrimitiveType!!, constructor.parameterTypes)
             )
-            static["new"] = StaticFunction(handle)
+            constructors += handle
             val annotation = constructor.getAnnotation(Palm.Constructor::class.java) ?: continue
             if (annotation.params.size != constructor.parameterCount) continue
             this.constructor = PalmConstructor(handle, annotation.params.map(PalmParameter.Companion::fromString))
@@ -152,12 +144,6 @@ open class PalmType(override val name: List<String>, override val clazz: Class<*
             }
         }
     }
-
-    protected val virtualSetters = hashMapOf<String, MethodHandle>()
-    protected val staticSetters = hashMapOf<String, MethodHandle>()
-    protected val virtual = HashMultiMap<String, MethodHandle>()
-    protected val static = HashMultiMap<String, StaticFunction>()
-    protected val virtualCasters = hashMapOf<Class<*>, MethodHandle>()
 }
 
 data class PalmConstructor(val handle: MethodHandle, val params: List<PalmParameter> = emptyList())

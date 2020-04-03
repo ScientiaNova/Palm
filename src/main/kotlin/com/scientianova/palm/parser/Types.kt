@@ -1,6 +1,6 @@
 package com.scientianova.palm.parser
 
-import com.scientianova.palm.errors.INVALID_TYPE_NAME
+import com.scientianova.palm.errors.INVALID_TYPE_NAME_ERROR
 import com.scientianova.palm.tokenizer.DotToken
 import com.scientianova.palm.tokenizer.IdentifierToken
 import com.scientianova.palm.tokenizer.PositionedToken
@@ -19,7 +19,7 @@ fun handleType(
     val next = parser.pop()
     if (next?.value is DotToken) handleType(parser, parser.pop(), token.area.start, listOf(token.value.name))
     else PalmType(listOf(token.value.name)) on token.area.start..token.area.end to next
-} else parser.error(INVALID_TYPE_NAME, token?.area ?: parser.lastArea)
+} else parser.error(INVALID_TYPE_NAME_ERROR, token?.area ?: parser.lastArea)
 
 fun handleType(
     parser: Parser,
@@ -30,4 +30,4 @@ fun handleType(
     val next = parser.pop()
     if (next?.value is DotToken) handleType(parser, parser.pop(), startPos, path + token.value.name)
     else PalmType(path + token.value.name) on startPos..token.area.end to next
-} else parser.error(INVALID_TYPE_NAME, token?.area ?: parser.lastArea)
+} else parser.error(INVALID_TYPE_NAME_ERROR, token?.area ?: parser.lastArea)
