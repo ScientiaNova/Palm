@@ -25,20 +25,17 @@ class Parser(private val tokens: TokenList, private val code: String, val fileNa
         throw PalmCompilationException(code, fileName, pos..pos, error)
 }
 
-class FileAST {
-    val imports = Imports()
-    val objects = mutableMapOf<String, Object>()
-}
+data class FileAST(val imports: Imports, val obj: Object)
 
 fun parse(code: String, fileName: String = "REPL"): FileAST {
     val parser = Parser(tokenize(code, fileName), code, fileName)
-    return handleFileStart(parser.pop(), parser, FileAST())
+    return handleFileStart(parser.pop(), parser, Imports())
 }
 
-fun handleFileStart(token: PositionedToken?, parser: Parser, ast: FileAST): FileAST =
+fun handleFileStart(token: PositionedToken?, parser: Parser, imports: Imports): FileAST =
     if (token?.value is ImportToken)
-        handleFileStart(handleImport(parser.pop(), parser, ast.imports), parser, ast)
-    else handleTopLevelObject(token, parser, ast)
+        handleFileStart(handleImport(parser.pop(), parser, imports), parser, imports)
+    else FileAST(imports, handleTopLevelObject(token, parser))
 
 fun handleImport(
     token: PositionedToken?,
@@ -74,17 +71,10 @@ fun handleImport(
     else -> parser.error(INVALID_TYPE_NAME_ERROR, token?.area ?: parser.lastArea)
 }
 
-fun handleTopLevelObject(token: PositionedToken?, parser: Parser, ast: FileAST): FileAST = when (token?.value) {
-    null -> ast
-    is OpenCurlyBracketToken -> {
-        ast.objects[parser.fileName.substringAfterLast('/')] =
-            handleObject(parser, parser.pop(), token.area.start).first.value
-        handleTopLevelObject(parser.pop(), parser, ast)
-    }
-    else -> {
-        ast.objects[parser.fileName.substringAfterLast('/')] = handleFreeObject(parser, token)
-        handleTopLevelObject(parser.pop(), parser, ast)
-    }
+fun handleTopLevelObject(token: PositionedToken?, parser: Parser): Object = when (token?.value) {
+    null -> Object()
+    is OpenCurlyBracketToken -> handleObject(parser, parser.pop(), token.area.start).first.value
+    else -> handleFreeObject(parser, token)
 }
 
 fun handleFreeObject(

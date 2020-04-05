@@ -15,8 +15,8 @@ data class Scope(
     internal val staticImports: HashMultiMap<String, MethodHandle> = HashMultiMap(),
     private val staticCasters: HashMultiMap<Class<*>, MethodHandle> = HashMultiMap()
 ) {
-    constructor(values: MutableMap<String, Any?> = mutableMapOf(), parent: Scope? = GLOBAL, imports: Imports) :
-            this(values, parent, imports.paths, imports.static, imports.casters)
+    constructor(values: MutableMap<String, Any?> = mutableMapOf(), parent: Scope? = GLOBAL, importsObj: Imports) :
+            this(values, parent, importsObj.paths, importsObj.static, importsObj.casters)
 
     fun getInScope(name: String): Optional<Any?> =
         if (name in values) Some(values[name]) else parent?.getInScope(name) ?: None
