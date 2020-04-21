@@ -106,7 +106,7 @@ fun handleMisc(
     val symbolString = symbolRes.first.value
     val next = symbolRes.second
     if ((previous == null || previous.isWhitespace() || previous.isSeparator()) && next?.isWhitespace() == false)
-        return (UNARY_OPS_MAP[symbolString] ?: SYMBOL_MAP[symbolString]
+        return (PREFIX_OPS_MAP[symbolString] ?: SYMBOL_MAP[symbolString]
         ?: traverser.error(UNKNOWN_UNARY_OPERATOR_ERROR, symbolRes.first.area)) on symbolRes.first.area to next
     val symbol = BINARY_OPS_MAP[symbolString] ?: SYMBOL_MAP[symbolString]
     ?: traverser.error(UNKNOWN_BINARY_OPERATOR_ERROR, symbolRes.first.area)

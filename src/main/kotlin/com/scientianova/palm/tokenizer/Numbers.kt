@@ -3,6 +3,8 @@ package com.scientianova.palm.tokenizer
 import com.scientianova.palm.util.StringPos
 import com.scientianova.palm.util.on
 
+data class NumberToken(val number: Number) : IToken
+
 fun handleNumber(
     traverser: StringTraverser,
     char: Char?,

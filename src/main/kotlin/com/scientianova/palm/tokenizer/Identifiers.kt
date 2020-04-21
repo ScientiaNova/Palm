@@ -1,9 +1,19 @@
 package com.scientianova.palm.tokenizer
 
 import com.scientianova.palm.errors.MISSING_BACKTICK_ERROR
+import com.scientianova.palm.parser.IExpression
+import com.scientianova.palm.parser.IOperationPart
+import com.scientianova.palm.parser.VirtualCall
 import com.scientianova.palm.util.Positioned
 import com.scientianova.palm.util.StringPos
 import com.scientianova.palm.util.on
+
+open class IdentifierToken(override val name: String) : InfixOperatorToken(name, 10), IKeyToken {
+    override fun handleExpression(first: IOperationPart, second: IOperationPart) =
+        VirtualCall(first as IExpression, name, listOf(second as IExpression))
+
+    override fun toString() = "IdentifierToken(name=$name)"
+}
 
 fun handleIdentifier(
     traverser: StringTraverser,

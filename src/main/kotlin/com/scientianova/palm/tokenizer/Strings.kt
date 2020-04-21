@@ -9,6 +9,19 @@ import com.scientianova.palm.util.StringPos
 import com.scientianova.palm.util.on
 import java.util.*
 
+sealed class StringToken : IToken
+data class PureStringToken(override val name: String) : StringToken(), IKeyToken
+data class StringTemplateToken(val parts: List<StringTokenPart>) : StringToken()
+
+sealed class StringTokenPart
+data class StringPart(val string: String) : StringTokenPart() {
+    constructor(builder: StringBuilder) : this(builder.toString())
+}
+
+data class TokensPart(val tokens: TokenList) : StringTokenPart() {
+    constructor(token: PositionedToken) : this(TokenList().apply { offer(token) })
+}
+
 fun handleSingleLineString(
     traverser: StringTraverser,
     char: Char?,

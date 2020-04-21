@@ -226,7 +226,7 @@ fun handleExpression(
     val (first, op) = handleExpressionPart(parser, token)
     val expr: PositionedExpression
     val next: PositionedToken?
-    if (op != null && op.value is BinaryOperatorToken && (!untilLineEnd || op.area.end.row == first.area.start.row)) {
+    if (op != null && op.value is InfixOperatorToken && (!untilLineEnd || op.area.end.row == first.area.start.row)) {
         val res = handleBinOps(parser, op.value, Stack<Positioned<IOperationPart>>().pushing(first))
         expr = res.first
         next = res.second
@@ -244,9 +244,9 @@ fun handleExpression(
 
 fun handleBinOps(
     parser: Parser,
-    op: BinaryOperatorToken,
+    op: InfixOperatorToken,
     operandStack: Stack<Positioned<IOperationPart>>,
-    operatorStack: Stack<BinaryOperatorToken> = Stack(),
+    operatorStack: Stack<InfixOperatorToken> = Stack(),
     untilLineEnd: Boolean = true
 ): Pair<PositionedExpression, PositionedToken?> =
     if (operatorStack.isEmpty() || op.precedence > operatorStack.peek().precedence) {
@@ -269,7 +269,7 @@ fun handleBinOps(
                     else handleExpressionPart(parser, parser.pop())
                 operatorStack.push(op)
                 operandStack.push(operand)
-                if (next != null && next.value is BinaryOperatorToken && (!untilLineEnd || next.area.end.row == operand.area.start.row)) {
+                if (next != null && next.value is InfixOperatorToken && (!untilLineEnd || next.area.end.row == operand.area.start.row)) {
                     if (op is ComparisonOperatorToken && next.value is ComparisonOperatorToken) {
                         operatorStack.push(AndToken)
                         operandStack.push(operand)
@@ -291,7 +291,7 @@ fun handleBinOps(
 fun emptyStacks(
     next: PositionedToken?,
     operandStack: Stack<Positioned<IOperationPart>>,
-    operatorStack: Stack<BinaryOperatorToken> = Stack()
+    operatorStack: Stack<InfixOperatorToken> = Stack()
 ): Pair<PositionedExpression, PositionedToken?> =
     if (operatorStack.isEmpty()) {
         val result = operandStack.pop()
@@ -749,14 +749,14 @@ fun handleWhen(
     is ClosedCurlyBracketToken -> When(branches, elseExpr) on startPos..token.area.end to parser.pop()
     is ElseToken -> {
         val arrow = parser.pop()
-        if (arrow?.value !is ArrowToken) parser.error(MISSING_ARROW_ERROR, arrow?.area ?: parser.lastArea)
+        if (arrow?.value !is RightArrowToken) parser.error(MISSING_ARROW_ERROR, arrow?.area ?: parser.lastArea)
         val (expr, next) = handleExpression(parser, parser.pop())
         if (elseExpr == null) handleWhen(parser, next, startPos, branches, expr.value)
         else handleWhen(parser, next, startPos, branches, elseExpr)
     }
     else -> {
         val (condition, arrow) = handleExpression(parser, token)
-        if (arrow?.value !is ArrowToken) parser.error(MISSING_ARROW_ERROR, arrow?.area ?: parser.lastArea)
+        if (arrow?.value !is RightArrowToken) parser.error(MISSING_ARROW_ERROR, arrow?.area ?: parser.lastArea)
         val (expr, next) = handleExpression(parser, parser.pop())
         if (elseExpr == null) handleWhen(parser, next, startPos, branches + (condition.value to expr.value))
         else handleWhen(parser, next, startPos, branches, elseExpr)
@@ -774,7 +774,7 @@ fun handleWhenSwitch(
     is ClosedCurlyBracketToken -> WhenSwitch(value, branches, elseExpr) on startPos..token.area.end to parser.pop()
     is ElseToken -> {
         val arrow = parser.pop()
-        if (arrow?.value !is ArrowToken) parser.error(MISSING_ARROW_ERROR, arrow?.area ?: parser.lastArea)
+        if (arrow?.value !is RightArrowToken) parser.error(MISSING_ARROW_ERROR, arrow?.area ?: parser.lastArea)
         val (expr, next) = handleExpression(parser, parser.pop(), true)
         if (elseExpr == null) handleWhenSwitch(parser, next, startPos, value, branches, expr.value)
         else handleWhenSwitch(parser, next, startPos, value, branches, elseExpr)
@@ -812,7 +812,7 @@ fun handleSwitchBranch(
     }
     return when (separator?.value) {
         is CommaToken -> handleSwitchBranch(parser, parser.pop(), patterns + pattern)
-        is ArrowToken -> {
+        is RightArrowToken -> {
             val (res, next) = handleExpression(parser, parser.pop(), true)
             patterns + pattern to res.value to next
         }

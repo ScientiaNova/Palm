@@ -1,0 +1,22 @@
+package com.scientianova.palm.tokenizer
+
+object ElseToken : IdentifierToken("else")
+object CatchToken : IdentifierToken("catch")
+object FinallyToken : IdentifierToken("finally")
+object NobreakToken : IdentifierToken("finally")
+object GetToken : IdentifierToken("get")
+object SetToken : IdentifierToken("set")
+object ConstructorToken : IdentifierToken("constructor")
+object WhereToken : IdentifierToken("where")
+object InitToken : IdentifierToken("init")
+
+sealed class DeclarationToken(name: String) : IdentifierToken(name)
+object TypeToken : DeclarationToken("type")
+object AliasToken : DeclarationToken("alias")
+object ClassToken : DeclarationToken("enum")
+object EnumToken : DeclarationToken("enum")
+object RecordToken : DeclarationToken("record")
+object InterfaceToken : DeclarationToken("interface")
+object AnnotationToken : DeclarationToken("annotation")
+object ObjectToken : DeclarationToken("object")
+object ImplToken : DeclarationToken("impl")

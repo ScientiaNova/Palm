@@ -16,21 +16,23 @@ interface IPalmType {
     val name: List<String>
     val constructors: List<MethodHandle>
     fun getSetter(name: String, obj: Any?, value: Any): MethodHandle?
-    val virtual: Map<String, List<MethodHandle>>
+    val virtual: Map<String, List<PalmTypeComponent>>
     fun getVirtual(name: String, obj: Any?, rest: List<Any?> = emptyList()): MethodHandle?
     val static: Map<String, List<StaticFunction>>
     fun getVirtualCaster(obj: Any?, type: Class<*>): MethodHandle?
     fun set(name: String, obj: Any?, value: Any?)
 }
 
-open class PalmType(override val name: List<String>, override val clazz: Class<*>) : IPalmType {
+open class PalmType(override val name: List<String>, final override val clazz: Class<*>) : IPalmType {
     override val constructors = mutableListOf<MethodHandle>()
     protected var constructor: PalmConstructor? = null
     protected val virtualSetters = hashMapOf<String, MethodHandle>()
     protected val staticSetters = hashMapOf<String, MethodHandle>()
-    override val virtual = HashMultiMap<String, MethodHandle>()
+    override val virtual = HashMultiMap<String, PalmTypeComponent>()
     override val static = HashMultiMap<String, StaticFunction>()
-    protected val virtualCasters = hashMapOf<Class<*>, MethodHandle>()
+    protected val virtualCasters = hashMapOf<Class<*>, PalmFunction>()
+    val superClass = clazz.genericSuperclass?.let(::handleJavaType)
+    val implementations = clazz.genericInterfaces.map(::handleJavaType)
 
     override fun createInstance(obj: Map<String, IExpression>, scope: Scope) = constructor?.let {
         val used = mutableSetOf<String>()
@@ -116,7 +118,16 @@ open class PalmType(override val name: List<String>, override val clazz: Class<*
                         )
                     return@forEach
                 }
-                val handle = loopUp.findVirtual(clazz, it.name, MethodType.methodType(it.returnType, it.parameterTypes))
+                val handle = PalmFunction(
+                    loopUp.findVirtual(clazz, it.name, MethodType.methodType(it.returnType, it.parameterTypes)),
+                    it.genericParameterTypes.map(::handleJavaType), handleJavaType(it.genericReturnType),
+                    it.typeParameters.map { variable ->
+                        GenericParameter(
+                            variable.name,
+                            variable.bounds.map(::handleJavaType)
+                        )
+                    }
+                )
 
                 if (registryName.startsWith("to_") && it.returnType != clazz && it.parameterCount == 0)
                     virtualCasters[it.returnType] = handle
@@ -134,7 +145,7 @@ open class PalmType(override val name: List<String>, override val clazz: Class<*
             if (Modifier.isStatic(it.modifiers))
                 static[registryName] = StaticFunction(loopUp.findStaticGetter(clazz, it.name, it.type))
             else {
-                virtual[registryName] = loopUp.findGetter(clazz, it.name, it.type)
+                virtual[registryName] = PalmProperty(loopUp.findGetter(clazz, it.name, it.type), handleJavaType(it.genericType))
                 if (!Modifier.isFinal(it.modifiers))
                     virtualSetters[registryName] = loopUp.findSetter(clazz, it.name, it.type)
             }
@@ -143,6 +154,22 @@ open class PalmType(override val name: List<String>, override val clazz: Class<*
 }
 
 data class PalmConstructor(val handle: MethodHandle, val params: List<PalmParameter> = emptyList())
+
+sealed class PalmTypeComponent {
+    abstract val handle: MethodHandle
+}
+
+data class PalmProperty(
+    override val handle: MethodHandle,
+    val type: ParameterType
+) : PalmTypeComponent()
+
+data class PalmFunction(
+    override val handle: MethodHandle,
+    val paramTypes: List<ParameterType>,
+    val returnType: ParameterType,
+    val typeVars: List<GenericParameter>
+) : PalmTypeComponent()
 
 data class PalmParameter(val name: String, val default: IExpression? = null) {
     companion object {

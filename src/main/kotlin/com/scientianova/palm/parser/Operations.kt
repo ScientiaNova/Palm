@@ -34,6 +34,10 @@ data class EqualityCheck(val first: IExpression, val second: IExpression) : IExp
     override fun evaluate(scope: Scope) = first.evaluate(scope) == second.evaluate(scope)
 }
 
+data class RefEqualityCheck(val first: IExpression, val second: IExpression) : IExpression {
+    override fun evaluate(scope: Scope) = first.evaluate(scope) === second.evaluate(scope)
+}
+
 data class Comparison(val type: ComparisonType, val expr: IExpression) : IExpression {
     override fun evaluate(scope: Scope) = type.handle(expr.evaluate(scope) as Int)
 }
