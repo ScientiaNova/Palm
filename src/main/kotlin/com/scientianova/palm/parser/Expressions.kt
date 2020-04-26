@@ -315,7 +315,7 @@ fun handleExpressionPart(
         if (token == null)
             parser.error(MISSING_EXPRESSION_ERROR, parser.lastPos)
         else when (token.value) {
-            is NumberToken -> Num(token.value.number) on token to parser.pop()
+            is ByteTokenToken -> Num(token.value.value) on token to parser.pop()
             is CharToken -> Chr(token.value.char) on token to parser.pop()
             is BoolToken -> Bool(token.value.bool) on token to parser.pop()
             is NullToken -> Null on token to parser.pop()

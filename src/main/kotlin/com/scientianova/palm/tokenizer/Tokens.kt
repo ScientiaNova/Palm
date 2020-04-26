@@ -37,10 +37,11 @@ object OpenCurlyBracketToken : SpecialSymbol("{")
 object ClosedCurlyBracketToken : SpecialSymbol("}")
 object OpenSquareBracketToken : SpecialSymbol("[")
 object ClosedSquareBracketToken : SpecialSymbol("]")
+object OpenArrayBracketToken : SpecialSymbol("[|")
+object ClosedArrayBracketToken : SpecialSymbol("|]")
 object DotToken : SpecialSymbol(".")
 object SafeAccessToken : SpecialSymbol("?.")
 object RightArrowToken : SpecialSymbol("->")
-object LeftArrowToken : SpecialSymbol("<-")
 object DoubleColonToken : SpecialSymbol("::")
 object SpreadToken : SpecialSymbol("*")
 object PostQuestionMark : SpecialSymbol("?")
@@ -69,6 +70,5 @@ val SYMBOL_MAP = mapOf(
     ".." to DoubleDotToken,
     "?." to SafeAccessToken,
     "->" to RightArrowToken,
-    "<-" to LeftArrowToken,
     "::" to DoubleColonToken
 )

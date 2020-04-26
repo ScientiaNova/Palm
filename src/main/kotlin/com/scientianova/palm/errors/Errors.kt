@@ -150,6 +150,12 @@ val INVALID_EXPRESSION_ERROR = PalmError(
     ""
 )
 
+val INVALID_EXPONENT_ERROR = PalmError(
+    "INVALID EXPONENT",
+    "I was going through a decimal literal with scientific notation and was expecting a digit next, but instead got:",
+    ""
+)
+
 val MISSING_EXPRESSION_ERROR = PalmError(
     "MISSING EXPRESSION",
     "I was expecting an expression, but couldn't find one",

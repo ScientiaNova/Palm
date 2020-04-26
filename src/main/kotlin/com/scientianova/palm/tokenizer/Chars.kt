@@ -56,6 +56,16 @@ fun handleUnicode(
     else -> idBuilder.toString().toInt().toChar() to char
 }
 
+fun Char.isOpenBracket() = when (this) {
+    '(', '[', '{' -> true
+    else -> false
+}
+
+fun Char.isClosedBracket() = when (this) {
+    ')', ']', '}' -> true
+    else -> false
+}
+
 fun Char.isBracket() = when (this) {
     '(', ')', '[', ']', '{', '}' -> true
     else -> false

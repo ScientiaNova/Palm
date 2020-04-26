@@ -24,7 +24,6 @@ object FinalToken : InheritanceModifier("final")
 sealed class SpecialDefinitionToken(name: String) : IdentifierToken(name), DefinitionModifier
 object InlineToken : SpecialDefinitionToken("inline")
 object TailrecToken : SpecialDefinitionToken("tailrec")
-object IteratorToken : SpecialDefinitionToken("iterator")
 
 sealed class TypeModifier(name: String) : IdentifierToken(name), DefinitionModifier
 object CompanionToken : TypeModifier("companion")
@@ -32,5 +31,5 @@ object InnerToken : TypeModifier("inner")
 object SealedToken : TypeModifier("sealed")
 
 interface ArgumentModifier : IToken
-object AutofunToken : IdentifierToken("autofn"), ArgumentModifier
+object AutofnToken : IdentifierToken("autofn"), ArgumentModifier
 object NoinlineToken : IdentifierToken("noinline"), ArgumentModifier

@@ -6,10 +6,14 @@ sealed class KeywordToken(private val word: String) : IToken {
     override fun toString() = "KeywordToken(word=$word)"
 }
 
+object WildcardToken : IToken {
+    override fun toString() = "WildcardToken"
+}
+
 object IfToken : KeywordToken("if")
 object WhenToken : KeywordToken("when")
 object ForToken : KeywordToken("for")
-object YieldToken : KeywordToken("yield")
+object GuardToken : KeywordToken("guard")
 object ImportToken : KeywordToken("import")
 object ReturnToken : KeywordToken("return")
 object BreakToken : KeywordToken("break")
@@ -63,6 +67,7 @@ object AsToken : TypeOperatorToken("as", 15) {
 }
 
 private val specialWords = mapOf(
+    "_" to WildcardToken,
     "true" to TrueToken,
     "false" to FalseToken,
     "null" to NullToken,
@@ -70,10 +75,10 @@ private val specialWords = mapOf(
     "else" to ElseToken,
     "when" to WhenToken,
     "for" to ForToken,
+    "guard" to GuardToken,
     "in" to InToken,
     "is" to IsToken,
     "as" to AsToken,
-    "yield" to YieldToken,
     "import" to ImportToken,
     "return" to ReturnToken,
     "continue" to ContinueToken,
@@ -115,13 +120,12 @@ private val specialWords = mapOf(
     "open" to OpenToken,
     "final" to FinalToken,
     "inline" to InlineToken,
-    "iterator" to IteratorToken,
     "tailrec" to TailrecToken,
     "const" to ConstToken,
     "companion" to CompanionToken,
     "inner" to InnerToken,
     "sealed" to SealedToken,
-    "autofun" to AutofunToken,
+    "autofn" to AutofnToken,
     "noinline" to NoinlineToken
 )
 

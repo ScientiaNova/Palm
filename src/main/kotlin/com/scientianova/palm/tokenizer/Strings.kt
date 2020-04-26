@@ -26,6 +26,7 @@ fun handleSingleLineString(
     traverser: StringTraverser,
     char: Char?,
     startPos: StringPos,
+    list: TokenList,
     parts: List<StringTokenPart> = emptyList(),
     builder: StringBuilder = StringBuilder()
 ): Pair<Positioned<StringToken>, Char?> = when (char) {
@@ -37,9 +38,9 @@ fun handleSingleLineString(
     '$' -> traverser.pop().let { next ->
         when {
             next?.isJavaIdentifierStart() == true && next.isLowerCase() -> {
-                val (identifier, newNext) = handleIdentifier(traverser, next)
+                val (identifier, newNext) = handleIdentifier(traverser, next, list)
                 handleSingleLineString(
-                    traverser, newNext, startPos, parts + StringPart(builder) + TokensPart(identifier)
+                    traverser, newNext, startPos, list, parts + StringPart(builder) + TokensPart(identifier)
                 )
             }
             next == '{' -> {
@@ -47,26 +48,27 @@ fun handleSingleLineString(
                 val bracketPos = traverser.lastPos
                 handleInterpolation(traverser, traverser.pop(), stack, bracketPos)
                 handleSingleLineString(
-                    traverser, traverser.pop(), startPos, parts + StringPart(builder) + TokensPart(stack)
+                    traverser, traverser.pop(), startPos, list, parts + StringPart(builder) + TokensPart(stack)
                 )
             }
-            else -> handleSingleLineString(traverser, next, startPos, parts, builder.append(char))
+            else -> handleSingleLineString(traverser, next, startPos, list, parts, builder.append(char))
         }
     }
     '\\' -> handleSingleLineString(
-        traverser, traverser.pop(), startPos, parts,
+        traverser, traverser.pop(), startPos, list, parts,
         builder.append(
             handleEscaped(traverser, traverser.pop())
                 ?: traverser.error(INVALID_ESCAPE_CHARACTER_ERROR, traverser.lastPos)
         )
     )
-    else -> handleSingleLineString(traverser, traverser.pop(), startPos, parts, builder.append(char))
+    else -> handleSingleLineString(traverser, traverser.pop(), startPos, list, parts, builder.append(char))
 }
 
 fun handleMultiLineString(
     traverser: StringTraverser,
     char: Char?,
     startPos: StringPos,
+    list: TokenList,
     parts: List<StringTokenPart> = emptyList(),
     builder: StringBuilder = StringBuilder()
 ): Pair<Positioned<StringTemplateToken>, Char?> = when (char) {
@@ -76,16 +78,16 @@ fun handleMultiLineString(
             if (second == '"')
                 StringTemplateToken(if (builder.isEmpty()) parts else parts + StringPart(builder)) on
                         startPos..traverser.lastPos to traverser.pop()
-            else handleMultiLineString(traverser, third, startPos, parts, builder.append("\"\""))
+            else handleMultiLineString(traverser, third, startPos, list, parts, builder.append("\"\""))
         }
-        else handleMultiLineString(traverser, second, startPos, parts, builder.append('"'))
+        else handleMultiLineString(traverser, second, startPos, list, parts, builder.append('"'))
     }
     '$' -> traverser.pop().let { next ->
         when {
             next?.isJavaIdentifierStart() == true && next.isLowerCase() -> {
-                val (identifier, newNext) = handleIdentifier(traverser, next)
+                val (identifier, newNext) = handleIdentifier(traverser, next, list)
                 handleMultiLineString(
-                    traverser, newNext, startPos, parts + StringPart(builder) + TokensPart(identifier)
+                    traverser, newNext, startPos, list, parts + StringPart(builder) + TokensPart(identifier)
                 )
             }
             next == '{' -> {
@@ -93,13 +95,13 @@ fun handleMultiLineString(
                 val bracketPos = traverser.lastPos
                 handleInterpolation(traverser, traverser.pop(), stack, bracketPos)
                 handleMultiLineString(
-                    traverser, traverser.pop(), startPos, parts + StringPart(builder) + TokensPart(stack)
+                    traverser, traverser.pop(), startPos, list, parts + StringPart(builder) + TokensPart(stack)
                 )
             }
-            else -> handleMultiLineString(traverser, next, startPos, parts, builder.append(char))
+            else -> handleMultiLineString(traverser, next, startPos, list, parts, builder.append(char))
         }
     }
-    else -> handleMultiLineString(traverser, traverser.pop(), startPos, parts, builder.append(char))
+    else -> handleMultiLineString(traverser, traverser.pop(), startPos, list, parts, builder.append(char))
 }
 
 fun handleInterpolation(
@@ -112,28 +114,13 @@ fun handleInterpolation(
     char == '}' -> Unit
     char.isWhitespace() -> handleInterpolation(traverser, traverser.pop(), list, startPos)
     char.isJavaIdentifierStart() -> {
-        val (identifier, next) = handleIdentifier(traverser, char)
+        val (identifier, next) = handleIdentifier(traverser, char, list)
         list.offer(identifier)
         handleInterpolation(traverser, next, list, startPos)
     }
-    char == '#' -> handleInterpolation(traverser, handleSingleLineComment(traverser, traverser.pop()), list, startPos)
-    char == '{' -> if (traverser.peek() == '-') {
-        traverser.pop()
-        val next = handleMultiLineComment(traverser, traverser.pop())
-        handleInterpolation(traverser, next, list, startPos)
-    } else {
-        list.offer(OpenCurlyBracketToken on traverser.lastPos)
-        handleInterpolation(traverser, traverser.pop(), list, startPos)
-        list.offer(ClosedCurlyBracketToken on traverser.lastPos)
-        handleInterpolation(traverser, traverser.pop(), list, startPos)
-    }
-    char == '-' -> if (traverser.peek() == '-') {
-        traverser.pop()
-        handleInterpolation(traverser, handleSingleLineComment(traverser, traverser.pop()), list, startPos)
-    } else {
-        val (token, next) = handleMisc(traverser, char, list)
-        list.offer(token)
-        handleInterpolation(traverser, next, list, startPos)
+    char == '#' -> when (traverser.peek()) {
+        '[' -> handleInterpolation(traverser, handleMultiLineComment(traverser, traverser.pop()), list, startPos)
+        else -> handleInterpolation(traverser, handleSingleLineComment(traverser, traverser.pop()), list, startPos)
     }
     else -> {
         val (token, next) = handleToken(traverser, char, list)
