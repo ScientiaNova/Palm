@@ -1,7 +1,5 @@
 package com.scientianova.palm.tokenizer
 
-import com.scientianova.palm.parser.*
-
 sealed class KeywordToken(private val word: String) : IToken {
     override fun toString() = "KeywordToken(word=$word)"
 }
@@ -39,32 +37,17 @@ object NullToken : IToken {
     override fun toString() = "NullToken"
 }
 
-sealed class ContainingOperatorToken(symbol: String, precedence: Int) : InfixOperatorToken(symbol, precedence)
-object InToken : ContainingOperatorToken("in", 9), TypeVariableModifier {
-    override fun handleExpression(first: IOperationPart, second: IOperationPart): IExpression =
-        VirtualCall(second as IExpression, "contains", listOf(first as IExpression))
-}
+sealed class ContainingOperatorToken(symbol: String) : InfixOperatorToken(symbol)
+object InToken : ContainingOperatorToken("in"), TypeVariableModifier
 
-object NotInToken : ContainingOperatorToken("!in", 9) {
-    override fun handleExpression(first: IOperationPart, second: IOperationPart): IExpression =
-        VirtualCall(VirtualCall(second as IExpression, "contains", listOf(first as IExpression)), "not")
-}
+object NotInToken : ContainingOperatorToken("!in")
 
-sealed class TypeOperatorToken(symbol: String, precedence: Int) : InfixOperatorToken(symbol, precedence)
-object IsToken : TypeOperatorToken("is", 9) {
-    override fun handleExpression(first: IOperationPart, second: IOperationPart): IExpression =
-        TypeCheck(first as IExpression, (second as PalmType).path)
-}
+sealed class TypeOperatorToken(symbol: String) : InfixOperatorToken(symbol)
+object IsToken : TypeOperatorToken("is")
 
-object IsNotToken : TypeOperatorToken("!is", 9) {
-    override fun handleExpression(first: IOperationPart, second: IOperationPart): IExpression =
-        VirtualCall(TypeCheck(first as IExpression, (second as PalmType).path), "not")
-}
+object IsNotToken : TypeOperatorToken("!is")
 
-object AsToken : TypeOperatorToken("as", 15) {
-    override fun handleExpression(first: IOperationPart, second: IOperationPart): IExpression =
-        Cast(first as IExpression, (second as PalmType).path)
-}
+object AsToken : TypeOperatorToken("as")
 
 private val specialWords = mapOf(
     "_" to WildcardToken,
@@ -107,7 +90,7 @@ private val specialWords = mapOf(
     "enum" to EnumToken,
     "record" to RecordToken,
     "annotation" to AnnotationToken,
-    "impl" to ImplToken,
+    "operator" to OperatorToken,
     "out" to OutToken,
     "mut" to MutToken,
     "override" to OverrideToken,
@@ -126,7 +109,10 @@ private val specialWords = mapOf(
     "inner" to InnerToken,
     "sealed" to SealedToken,
     "autofn" to AutofnToken,
-    "noinline" to NoinlineToken
+    "noinline" to NoinlineToken,
+    "prefix" to PrefixToken,
+    "infix" to InfixToken,
+    "postfix" to PostfixToken
 )
 
 fun handleUncapitalizedString(string: String) = specialWords[string] ?: IdentifierToken(string)

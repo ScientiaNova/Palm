@@ -104,7 +104,7 @@ fun handleMultiLineString(
     else -> handleMultiLineString(traverser, traverser.pop(), startPos, list, parts, builder.append(char))
 }
 
-fun handleInterpolation(
+tailrec fun handleInterpolation(
     traverser: StringTraverser,
     char: Char?,
     list: TokenList,

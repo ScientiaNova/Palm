@@ -39,21 +39,21 @@ fun handleEscaped(traverser: StringTraverser, char: Char?) = when (char) {
     'r' -> '\r' to traverser.pop()
     'f' -> 12.toChar() to traverser.pop()
     'v' -> 11.toChar() to traverser.pop()
-    'u' -> handleUnicode(traverser, traverser.pop())
+    'u' ->
+        if (traverser.pop() == '{') handleUnicode(traverser, traverser.pop())
+        else traverser.error(MISSING_BRACKET_IN_UNICODE_ERROR, traverser.lastPos)
     else -> null
 }
 
-fun handleUnicode(
+tailrec fun handleUnicode(
     traverser: StringTraverser,
     char: Char?,
     idBuilder: StringBuilder = StringBuilder()
 ): Pair<Char, Char?> = when (char) {
-    in '0'..'9', in 'a'..'f', in 'A'..'F' -> {
-        idBuilder.append(char)
-        if (idBuilder.length == 4) idBuilder.toString().toInt(radix = 16).toChar() to traverser.pop()
-        else handleUnicode(traverser, traverser.pop(), idBuilder)
-    }
-    else -> idBuilder.toString().toInt().toChar() to char
+    in '0'..'9', in 'a'..'f', in 'A'..'F' ->
+        handleUnicode(traverser, traverser.pop(), idBuilder.append(char))
+    '}'  -> idBuilder.toString().toInt().toChar() to char
+    else -> traverser.error(INVALID_HEX_LITERAL_ERROR, traverser.lastPos)
 }
 
 fun Char.isOpenBracket() = when (this) {
@@ -72,7 +72,7 @@ fun Char.isBracket() = when (this) {
 }
 
 fun Char.isSeparator() = when (this) {
-    ',', '.', ':', ';', '=', '>' -> true
+    ',', ';' -> true
     else -> false
 }
 

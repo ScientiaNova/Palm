@@ -150,10 +150,34 @@ val INVALID_EXPRESSION_ERROR = PalmError(
     ""
 )
 
+val MISSING_BRACKET_IN_UNICODE_ERROR = PalmError(
+    "MISSING CURLY BRACKET",
+    "I saw a \\u and was expecting an open curly bracket next, but instead got:",
+    "Put an { here."
+)
+
 val INVALID_EXPONENT_ERROR = PalmError(
     "INVALID EXPONENT",
     "I was going through a decimal literal with scientific notation and was expecting a digit next, but instead got:",
     ""
+)
+
+val INVALID_BINARY_LITERAL_ERROR = PalmError(
+    "INVALID BINARY LITERAL",
+    "I was going through a binary number literal and got:",
+    "Binary number literals can only contain the digits 0 and 1."
+)
+
+val INVALID_DECIMAL_LITERAL_ERROR = PalmError(
+    "INVALID DECIMAL LITERAL",
+    "I was going through a decimal number literal and got:",
+    "Decimal number literals can only contain the digits 0-9."
+)
+
+val INVALID_HEX_LITERAL_ERROR = PalmError(
+    "INVALID HEX LITERAL",
+    "I was going through a hexidecimal number literal and got:",
+    "Hexidecimal number literals can only contain the digits 0-9, a-f and A-F."
 )
 
 val MISSING_EXPRESSION_ERROR = PalmError(

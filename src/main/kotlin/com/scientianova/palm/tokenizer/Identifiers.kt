@@ -8,10 +8,7 @@ import com.scientianova.palm.util.Positioned
 import com.scientianova.palm.util.StringPos
 import com.scientianova.palm.util.on
 
-open class IdentifierToken(override val name: String) : InfixOperatorToken(name, 10), IKeyToken {
-    override fun handleExpression(first: IOperationPart, second: IOperationPart) =
-        VirtualCall(first as IExpression, name, listOf(second as IExpression))
-
+open class IdentifierToken(override val name: String) : InfixOperatorToken(name), IKeyToken {
     override fun toString() = "IdentifierToken(name=$name)"
 }
 

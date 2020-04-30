@@ -2,8 +2,6 @@ package com.scientianova.palm.parser
 
 import com.scientianova.palm.errors.*
 import com.scientianova.palm.evaluator.Scope
-import com.scientianova.palm.registry.TypeRegistry
-import com.scientianova.palm.registry.toType
 import com.scientianova.palm.tokenizer.*
 import com.scientianova.palm.util.Positioned
 import com.scientianova.palm.util.StringPos
@@ -15,42 +13,34 @@ interface IOperationPart
 
 interface IExpression : IOperationPart {
     override fun toString(): String
-
-    fun handleForType(type: Class<*>, scope: Scope) = if (this is Object && type == null) {
-        val palmType = TypeRegistry.getOrRegister(type)
-        palmType.createInstance(values, scope)
-    } else scope.cast(evaluate(scope), type)
-
-    fun evaluate(scope: Scope = Scope.GLOBAL): Any?
 }
 
 typealias PositionedExpression = Positioned<IExpression>
 
-data class Variable(val name: String) : IExpression {
-    override fun evaluate(scope: Scope) = scope[name]
-}
+data class Variable(val name: String) : IExpression
 
-data class Num(val num: Number) : IExpression {
-    override fun evaluate(scope: Scope) = num
-}
+data class ByteLit(val num: Byte) : IExpression
 
-data class Chr(val char: Char) : IExpression {
-    override fun evaluate(scope: Scope) = char
-}
+data class ShortLit(val num: Short) : IExpression
 
-data class Bool(val bool: Boolean) : IExpression {
-    override fun evaluate(scope: Scope) = bool
-}
+data class IntLit(val num: Int) : IExpression
+
+data class LongLit(val num: Long) : IExpression
+
+data class FloatLit(val num: Float) : IExpression
+
+data class DoubleLit(val num: Double) : IExpression
+
+data class CharLit(val char: Char) : IExpression
+
+data class BoolLit(val bool: Boolean) : IExpression
 
 object Null : IExpression {
     override fun toString() = "Null"
-    override fun evaluate(scope: Scope): Nothing? = null
 }
 
-data class Lis(val expressions: List<IExpression> = emptyList()) : IExpression {
+data class ListLit(val expressions: List<IExpression> = emptyList()) : IExpression {
     constructor(expr: IExpression) : this(listOf(expr))
-
-    override fun evaluate(scope: Scope) = expressions.map { it.evaluate(scope) }
 }
 
 data class ListComprehension(
@@ -59,8 +49,6 @@ data class ListComprehension(
     val collection: IExpression,
     val filter: IExpression? = null
 ) : IExpression {
-    override fun evaluate(scope: Scope) = mutableListOf<Any?>().apply { evaluate(Scope(parent = scope), this) }
-
     fun evaluate(scope: Scope, result: MutableList<Any?>) {
         val collection = collection.evaluate(scope)
         if (expression is ListComprehension)
@@ -78,96 +66,44 @@ data class ListComprehension(
     }
 }
 
-data class Dict(val values: Map<IExpression, IExpression> = emptyMap()) : IExpression {
-    override fun evaluate(scope: Scope) =
-        values.map { it.key.evaluate(scope) to it.value.evaluate(scope) }.toMap()
-}
+data class MapLit(val values: Map<IExpression, IExpression> = emptyMap()) : IExpression
 
-data class DictComprehension(
+data class MapComprehension(
     val keyExpr: IExpression,
     val valueExpr: IExpression,
     val name: String,
     val collection: IExpression,
     val filter: IExpression? = null
-) : IExpression {
-    override fun evaluate(scope: Scope): Map<Any?, Any?> {
-        val newScope = Scope(parent = scope)
-        val collection = collection.evaluate(newScope)
-        val result = mutableMapOf<Any?, Any?>()
-        for (thing in scope.getIterator(collection)) {
-            newScope[name] = thing
-            if (filter == null || filter.evaluate(newScope) == true)
-                result[keyExpr.evaluate(newScope)] = valueExpr.evaluate(newScope)
-        }
-        return result
-    }
-}
+) : IExpression
 
 sealed class StrPart
 data class StrStringPart(val string: String) : StrPart()
 data class StrExpressionPart(val expr: IExpression) : StrPart()
-data class Str(val parts: List<StrPart>) : IExpression {
-    override fun evaluate(scope: Scope) = parts.joinToString("") {
-        when (it) {
-            is StrStringPart -> it.string
-            is StrExpressionPart -> it.expr.evaluate(scope).toString()
-        }
-    }
-}
-
-data class Object(val values: Map<String, IExpression> = emptyMap(), val type: List<String>? = null) : IExpression {
-    override fun evaluate(scope: Scope) =
-        type?.toType()?.createInstance(values, scope) ?: error("Typeless object")
-}
+data class Str(val parts: List<StrPart>) : IExpression
 
 data class VirtualCall(
     val expr: IExpression,
     val name: String,
     val args: List<IExpression> = emptyList()
-) : IExpression {
-    override fun evaluate(scope: Scope) = scope.callVirtual(name, expr.evaluate(scope), args.map { it.evaluate(scope) })
-}
+) : IExpression
 
 data class SafeVirtualCall(
     val expr: IExpression,
     val name: String,
     val args: List<IExpression> = emptyList()
-) : IExpression {
-    override fun evaluate(scope: Scope): Any? {
-        val value = expr.evaluate(scope) ?: return null
-        return scope.callVirtual(name, value, args.map { it.evaluate(scope) })
-    }
-}
+) : IExpression
 
 data class StaticCall(
     val name: String,
     val path: List<String>,
     val args: List<IExpression> = emptyList()
-) : IExpression {
-    override fun evaluate(scope: Scope) = scope.callStatic(name, path, args.map { it.evaluate(scope) })
-}
+) : IExpression
 
-data class If(val condExpr: IExpression, val thenExpr: IExpression, val elseExpr: IExpression) : IExpression {
-    override fun evaluate(scope: Scope) =
-        if (condExpr.evaluate(scope) == true) thenExpr.evaluate(scope) else elseExpr.evaluate(scope)
-}
+data class If(val condExpr: IExpression, val thenExpr: IExpression, val elseExpr: IExpression) : IExpression
 
-data class Where(val expr: IExpression, val definitions: List<Pair<String, IExpression>>) : IExpression {
-    override fun evaluate(scope: Scope): Any? {
-        val newScope = Scope(parent = scope)
-        definitions.forEach { (name, expr) ->
-            newScope[name] = expr.evaluate(newScope)
-        }
-        return expr.evaluate(newScope)
-    }
-}
+data class Where(val expr: IExpression, val definitions: List<Pair<String, IExpression>>) : IExpression
 
-data class When(val branches: List<Pair<IExpression, IExpression>>, val elseBranch: IExpression?) : IExpression {
-    override fun evaluate(scope: Scope) =
-        branches.firstOrNull { it.first.evaluate(scope) == true }?.second?.evaluate(scope)
-            ?: elseBranch?.evaluate(scope)
-            ?: error("Non-exhaustive when statement")
-}
+data class When(val branches: List<Pair<IExpression, IExpression>>, val elseBranch: IExpression?) : IExpression
 
 sealed class Pattern
 data class ExpressionPattern(val expression: IExpression) : Pattern()
@@ -180,24 +116,7 @@ data class WhenSwitch(
     val expr: IExpression,
     val branches: List<SwitchBranch>,
     val elseBranch: IExpression?
-) : IExpression {
-    override fun evaluate(scope: Scope): Any? {
-        val evaluated = expr.evaluate(scope)
-        return branches.firstOrNull { branch ->
-            branch.first.any { pattern ->
-                when (pattern) {
-                    is ExpressionPattern -> evaluated == pattern.expression.evaluate(scope)
-                    is TypePattern -> pattern.inverted != scope.getType(pattern.type).clazz.isInstance(evaluated)
-                    is ContainingPattern ->
-                        pattern.inverted != scope.callVirtual("contains", pattern.collection.evaluate(scope), evaluated)
-                    is ComparisonPattern -> pattern.operator.comparisonType.handle(
-                        scope.callVirtual("compareTo", evaluated, pattern.expression.evaluate(scope)) as Int
-                    )
-                }
-            }
-        }?.second?.evaluate(scope) ?: elseBranch?.evaluate(scope) ?: error("Not exhaustive when statement")
-    }
-}
+) : IExpression
 
 data class Yield(
     val variableName: String,
@@ -205,18 +124,7 @@ data class Yield(
     val collection: IExpression,
     val iteratedName: String,
     val filter: IExpression?
-) : IExpression {
-    override fun evaluate(scope: Scope): Any? {
-        val newScope = Scope(parent = scope)
-        val collection = collection.evaluate(newScope)
-        for (thing in scope.getIterator(collection)) {
-            newScope[iteratedName] = thing
-            if (filter == null || filter.evaluate(newScope) == true)
-                newScope[variableName] = expr.evaluate(newScope)
-        }
-        return newScope[variableName]
-    }
-}
+) : IExpression
 
 fun handleExpression(
     parser: Parser,
@@ -315,9 +223,14 @@ fun handleExpressionPart(
         if (token == null)
             parser.error(MISSING_EXPRESSION_ERROR, parser.lastPos)
         else when (token.value) {
-            is ByteTokenToken -> Num(token.value.value) on token to parser.pop()
-            is CharToken -> Chr(token.value.char) on token to parser.pop()
-            is BoolToken -> Bool(token.value.bool) on token to parser.pop()
+            is ByteToken -> ByteLit(token.value.value) on token to parser.pop()
+            is ShortToken -> ShortLit(token.value.value) on token to parser.pop()
+            is IntToken -> IntLit(token.value.value) on token to parser.pop()
+            is LongToken -> LongLit(token.value.value) on token to parser.pop()
+            is FloatToken -> FloatLit(token.value.value) on token to parser.pop()
+            is DoubleToken -> DoubleLit(token.value.value) on token to parser.pop()
+            is CharToken -> CharLit(token.value.char) on token to parser.pop()
+            is BoolToken -> BoolLit(token.value.bool) on token to parser.pop()
             is NullToken -> Null on token to parser.pop()
             is IdentifierToken ->
                 handleIdentifier(parser, parser.pop(), token.area.start, token.area.end, token.value.name)
@@ -331,10 +244,10 @@ fun handleExpressionPart(
             is OpenSquareBracketToken -> {
                 val first = parser.pop()
                 when (first?.value) {
-                    is ClosedSquareBracketToken -> Lis() on token.area.start..first.area.end to parser.pop()
+                    is ClosedSquareBracketToken -> ListLit() on token.area.start..first.area.end to parser.pop()
                     is ColonToken -> {
                         val bracket = parser.pop()
-                        if (bracket?.value is ClosedSquareBracketToken) Dict() on bracket.area to parser.pop()
+                        if (bracket?.value is ClosedSquareBracketToken) MapLit() on bracket.area to parser.pop()
                         else parser.error(INVALID_EMPTY_MAP_ERROR, bracket?.area ?: parser.lastArea)
                     }
                     else -> {
@@ -343,7 +256,7 @@ fun handleExpressionPart(
                             is CommaToken ->
                                 handleList(parser, parser.pop(), token.area.start, listOf(expr.value))
                             is SemicolonToken ->
-                                handleList(parser, parser.pop(), token.area.start, emptyList(), listOf(Lis(expr.value)))
+                                handleList(parser, parser.pop(), token.area.start, emptyList(), listOf(ListLit(expr.value)))
                             is ColonToken -> {
                                 val (value, newNext) = handleExpression(parser, parser.pop())
                                 when (newNext?.value) {
@@ -364,7 +277,6 @@ fun handleExpressionPart(
                     }
                 }
             }
-            is YieldToken -> handleYield(parser, parser.pop(), token.area.start, untilLineEnd)
             is PureStringToken -> Str(listOf(StrStringPart(token.value.name))) on token to parser.pop()
             is StringTemplateToken -> Str(token.value.parts.map {
                 when (it) {
@@ -475,21 +387,21 @@ fun handleList(
     token: PositionedToken?,
     startPos: StringPos,
     values: List<IExpression>,
-    parsers: List<Lis> = emptyList()
-): Pair<Positioned<Lis>, PositionedToken?> = when {
+    parsers: List<ListLit> = emptyList()
+): Pair<Positioned<ListLit>, PositionedToken?> = when {
     token == null -> parser.error(UNCLOSED_SQUARE_BRACKET_ERROR, parser.lastPos)
     token.value is ClosedSquareBracketToken ->
-        (if (parsers.isEmpty()) Lis(values) else Lis(parsers + Lis(values))) on startPos..token.area.end to parser.pop()
+        (if (parsers.isEmpty()) ListLit(values) else ListLit(parsers + ListLit(values))) on startPos..token.area.end to parser.pop()
     else -> {
         val (expr, next) = handleExpression(parser, token)
         when (next?.value) {
             is ClosedSquareBracketToken ->
-                (if (parsers.isEmpty()) Lis(values + expr.value) else Lis(parsers + Lis(values + expr.value))) on
+                (if (parsers.isEmpty()) ListLit(values + expr.value) else ListLit(parsers + ListLit(values + expr.value))) on
                         startPos..token.area.end to parser.pop()
             is CommaToken ->
                 handleList(parser, parser.pop(), startPos, values + expr.value, parsers)
             is SemicolonToken ->
-                handleList(parser, parser.pop(), startPos, emptyList(), parsers + Lis(values + expr.value))
+                handleList(parser, parser.pop(), startPos, emptyList(), parsers + ListLit(values + expr.value))
             else -> parser.error(UNCLOSED_SQUARE_BRACKET_ERROR, next?.area?.start ?: parser.lastPos)
         }
     }
@@ -500,9 +412,9 @@ fun handleDict(
     token: PositionedToken?,
     startPos: StringPos,
     values: Map<IExpression, IExpression>
-): Pair<Positioned<Dict>, PositionedToken?> = when {
+): Pair<Positioned<MapLit>, PositionedToken?> = when {
     token == null -> parser.error(UNCLOSED_SQUARE_BRACKET_ERROR, parser.lastPos)
-    token.value is ClosedSquareBracketToken -> Dict(values) on startPos..token.area.end to parser.pop()
+    token.value is ClosedSquareBracketToken -> MapLit(values) on startPos..token.area.end to parser.pop()
     else -> {
         val (key, colon) = handleExpression(parser, token)
         if (colon?.value !is ColonToken) parser.error(
@@ -512,7 +424,7 @@ fun handleDict(
         val (value, next) = handleExpression(parser, parser.pop())
         when (next?.value) {
             is ClosedSquareBracketToken ->
-                Dict(values + (key.value to value.value)) on startPos..token.area.end to parser.pop()
+                MapLit(values + (key.value to value.value)) on startPos..token.area.end to parser.pop()
             is CommaToken ->
                 handleDict(parser, parser.pop(), startPos, values + (key.value to value.value))
             else -> parser.error(UNCLOSED_SQUARE_BRACKET_ERROR, next?.area?.start ?: parser.lastPos)
@@ -566,12 +478,12 @@ fun handleDictComprehension(
     if (inToken?.value !is InToken) parser.error(MISSING_IN_IN_MAP_ERROR, inToken?.area ?: parser.lastArea)
     val (collection, afterCollection) = handleExpression(parser, parser.pop())
     return when (afterCollection?.value) {
-        is ClosedSquareBracketToken -> DictComprehension(keyExpr, valueExpr, name, collection.value) on
+        is ClosedSquareBracketToken -> MapComprehension(keyExpr, valueExpr, name, collection.value) on
                 startPos..afterCollection.area.end to parser.pop()
         is IfToken -> {
             val (filter, afterFilter) = handleExpression(parser, parser.pop())
             if (afterFilter?.value is ClosedSquareBracketToken)
-                DictComprehension(keyExpr, valueExpr, name, collection.value, filter.value) on
+                MapComprehension(keyExpr, valueExpr, name, collection.value, filter.value) on
                         startPos..afterCollection.area.end to parser.pop()
             else parser.error(UNCLOSED_SQUARE_BRACKET_ERROR, afterFilter?.area?.start ?: parser.lastPos)
         }
@@ -749,14 +661,14 @@ fun handleWhen(
     is ClosedCurlyBracketToken -> When(branches, elseExpr) on startPos..token.area.end to parser.pop()
     is ElseToken -> {
         val arrow = parser.pop()
-        if (arrow?.value !is RightArrowToken) parser.error(MISSING_ARROW_ERROR, arrow?.area ?: parser.lastArea)
+        if (arrow?.value !is ArrowToken) parser.error(MISSING_ARROW_ERROR, arrow?.area ?: parser.lastArea)
         val (expr, next) = handleExpression(parser, parser.pop())
         if (elseExpr == null) handleWhen(parser, next, startPos, branches, expr.value)
         else handleWhen(parser, next, startPos, branches, elseExpr)
     }
     else -> {
         val (condition, arrow) = handleExpression(parser, token)
-        if (arrow?.value !is RightArrowToken) parser.error(MISSING_ARROW_ERROR, arrow?.area ?: parser.lastArea)
+        if (arrow?.value !is ArrowToken) parser.error(MISSING_ARROW_ERROR, arrow?.area ?: parser.lastArea)
         val (expr, next) = handleExpression(parser, parser.pop())
         if (elseExpr == null) handleWhen(parser, next, startPos, branches + (condition.value to expr.value))
         else handleWhen(parser, next, startPos, branches, elseExpr)
@@ -774,7 +686,7 @@ fun handleWhenSwitch(
     is ClosedCurlyBracketToken -> WhenSwitch(value, branches, elseExpr) on startPos..token.area.end to parser.pop()
     is ElseToken -> {
         val arrow = parser.pop()
-        if (arrow?.value !is RightArrowToken) parser.error(MISSING_ARROW_ERROR, arrow?.area ?: parser.lastArea)
+        if (arrow?.value !is ArrowToken) parser.error(MISSING_ARROW_ERROR, arrow?.area ?: parser.lastArea)
         val (expr, next) = handleExpression(parser, parser.pop(), true)
         if (elseExpr == null) handleWhenSwitch(parser, next, startPos, value, branches, expr.value)
         else handleWhenSwitch(parser, next, startPos, value, branches, elseExpr)
@@ -812,7 +724,7 @@ fun handleSwitchBranch(
     }
     return when (separator?.value) {
         is CommaToken -> handleSwitchBranch(parser, parser.pop(), patterns + pattern)
-        is RightArrowToken -> {
+        is ArrowToken -> {
             val (res, next) = handleExpression(parser, parser.pop(), true)
             patterns + pattern to res.value to next
         }

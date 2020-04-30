@@ -33,3 +33,8 @@ object SealedToken : TypeModifier("sealed")
 interface ArgumentModifier : IToken
 object AutofnToken : IdentifierToken("autofn"), ArgumentModifier
 object NoinlineToken : IdentifierToken("noinline"), ArgumentModifier
+
+sealed class OperatorModifier(name: String) : IdentifierToken(name), DefinitionModifier
+object PrefixToken : TypeModifier("prefix")
+object InfixToken : TypeModifier("infix")
+object PostfixToken : TypeModifier("postfix")

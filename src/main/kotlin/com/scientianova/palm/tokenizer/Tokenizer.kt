@@ -71,6 +71,8 @@ fun handleToken(traverser: StringTraverser, char: Char, list: TokenList): Pair<P
     ']' -> ClosedSquareBracketToken on traverser.lastPos to traverser.pop()
     '{' -> OpenCurlyBracketToken on traverser.lastPos to traverser.pop()
     '}' -> ClosedCurlyBracketToken on traverser.lastPos to traverser.pop()
+    ',' -> CommaToken on traverser.lastPos to traverser.pop()
+    ';' -> SemicolonToken on traverser.lastPos to traverser.pop()
     ';' -> traverser.error(GREEK_QUESTION_MARK_ERROR, traverser.lastPos)
     '|' ->
         if (traverser.peek() == ']') ClosedArrayBracketToken on traverser.lastPos to traverser.pop()
@@ -91,11 +93,11 @@ fun handleMisc(
             if ((previous == null || previous.isWhitespace() || previous.isSeparator() || previous.isOpenBracket()))
                 if (next?.isWhitespace() == false)
                     PREFIX_OPS_MAP[symbolString] ?: PrefixOperatorToken(symbolString)
-                else BINARY_OPS_MAP[symbolString] ?: InfixOperatorToken(symbolString)
+                else InfixOperatorToken(symbolString)
             else
                 if (next?.isWhitespace() == false && !next.isClosedBracket())
-                    BINARY_OPS_MAP[symbolString] ?: InfixOperatorToken(symbolString)
-                else POSTFIX_OPS_MAP[symbolString] ?: InfixOperatorToken(symbolString)
+                    InfixOperatorToken(symbolString)
+                else POSTFIX_OPS_MAP[symbolString] ?: PostfixOperatorToken(symbolString)
             ) on symbolRes.first.area to next
 }
 
