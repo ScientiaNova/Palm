@@ -1,9 +1,9 @@
 package com.scientianova.palm.parser
 
-import com.scientianova.palm.errors.*
-import com.scientianova.palm.registry.PathNode
-import com.scientianova.palm.registry.RootPathNode
-import com.scientianova.palm.tokenizer.*
+import com.scientianova.palm.errors.PalmCompilationException
+import com.scientianova.palm.errors.PalmError
+import com.scientianova.palm.tokenizer.PositionedToken
+import com.scientianova.palm.tokenizer.TokenList
 import com.scientianova.palm.util.StringArea
 import com.scientianova.palm.util.StringPos
 
@@ -23,77 +23,4 @@ class Parser(private val tokens: TokenList, private val code: String, val fileNa
 
     fun error(error: PalmError, pos: StringPos): Nothing =
         throw PalmCompilationException(code, fileName, pos..pos, error)
-}
-
-data class FileAST(val imports: Imports, val obj: Object)
-
-fun parse(code: String, fileName: String = "REPL"): FileAST {
-    val parser = Parser(tokenize(code, fileName), code, fileName)
-    return handleFileStart(parser.pop(), parser, Imports())
-}
-
-fun handleFileStart(token: PositionedToken?, parser: Parser, imports: Imports): FileAST =
-    if (token?.value is ImportToken)
-        handleFileStart(handleImport(parser.pop(), parser, imports), parser, imports)
-    else FileAST(imports, handleTopLevelObject(token, parser))
-
-fun handleImport(
-    token: PositionedToken?,
-    parser: Parser,
-    imports: Imports,
-    lastNode: PathNode = RootPathNode
-): PositionedToken? = when (val nameToken = token?.value) {
-    is IdentifierToken -> {
-        val next = parser.pop()
-        when (next?.value) {
-            is ColonToken -> handleImport(
-                parser.pop(), parser, imports, lastNode[nameToken.name] ?: parser.error(INVALID_PATH_ERROR, token.area)
-            )
-            is AsToken -> {
-                val aliasToken = parser.pop()
-                val alias = aliasToken?.value as? IdentifierToken ?: parser.error(
-                    INVALID_ALIAS_ERROR,
-                    aliasToken?.area ?: parser.lastArea
-                )
-                imports += lastNode.getImports(nameToken.name, alias.name)
-                parser.pop()
-            }
-            else -> {
-                imports += lastNode.getImports(nameToken.name)
-                parser.pop()
-            }
-        }
-    }
-    is TimesToken -> {
-        imports += lastNode.getAllImports()
-        parser.pop()
-    }
-    else -> parser.error(INVALID_TYPE_NAME_ERROR, token?.area ?: parser.lastArea)
-}
-
-fun handleTopLevelObject(token: PositionedToken?, parser: Parser): Object = when (token?.value) {
-    null -> Object()
-    is OpenCurlyBracketToken -> handleObject(parser, parser.pop(), token.area.start).first.value
-    else -> handleFreeObject(parser, token)
-}
-
-fun handleFreeObject(
-    parser: Parser,
-    token: PositionedToken?,
-    values: Map<String, IExpression> = emptyMap()
-): Object = if (token == null) Object(values) else when (token.value) {
-    is IKeyToken -> parser.pop().let { assignToken ->
-        val (expr, next) = when (assignToken?.value) {
-            is AssignmentToken -> handleExpression(parser, parser.pop())
-            is OpenCurlyBracketToken -> handleObject(parser, parser.pop(), assignToken.area.start)
-            else -> parser.error(MISSING_COLON_OR_EQUALS_IN_OBJECT_ERROR, assignToken?.area?.start ?: parser.lastPos)
-        }
-        when (next?.value) {
-            null -> Object(values + (token.value.name to expr.value))
-            is SeparatorToken ->
-                handleFreeObject(parser, parser.pop(), values + (token.value.name to expr.value))
-            else -> handleFreeObject(parser, next, values + (token.value.name to expr.value))
-        }
-    }
-    else -> parser.error(INVALID_KEY_NAME_ERROR, token.area)
 }

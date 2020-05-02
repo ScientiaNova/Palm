@@ -37,6 +37,7 @@ object PostQuestionMark : SpecialSymbol("?")
 sealed class SeparatorToken(symbol: String) : SpecialSymbol(symbol)
 object CommaToken : SeparatorToken(",")
 object SemicolonToken : SeparatorToken(";")
+object TripleDotToken : SeparatorToken("...")
 
 val SYMBOL_MAP = mapOf(
     "=" to EqualToToken,
@@ -44,5 +45,6 @@ val SYMBOL_MAP = mapOf(
     ":" to ColonToken,
     "?." to SafeAccessToken,
     "->" to ArrowToken,
-    "::" to DoubleColonToken
+    "::" to DoubleColonToken,
+    "..." to TripleDotToken
 )

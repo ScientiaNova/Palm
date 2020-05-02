@@ -21,6 +21,7 @@ object FallthroughToken : KeywordToken("fallthrough")
 object LetToken : KeywordToken("let")
 object LoopToken : KeywordToken("loop")
 object ThisToken : KeywordToken("this")
+object ThisTypeToken : KeywordToken("This")
 object SuperToken : KeywordToken("super")
 object WhileToken : KeywordToken("while")
 object ThrowToken : KeywordToken("throw")
@@ -40,12 +41,8 @@ object NullToken : IToken {
 sealed class ContainingOperatorToken(symbol: String) : InfixOperatorToken(symbol)
 object InToken : ContainingOperatorToken("in"), TypeVariableModifier
 
-object NotInToken : ContainingOperatorToken("!in")
-
 sealed class TypeOperatorToken(symbol: String) : InfixOperatorToken(symbol)
 object IsToken : TypeOperatorToken("is")
-
-object IsNotToken : TypeOperatorToken("!is")
 
 object AsToken : TypeOperatorToken("as")
 
@@ -74,6 +71,7 @@ private val specialWords = mapOf(
     "let" to LetToken,
     "loop" to LoopToken,
     "this" to ThisToken,
+    "This" to ThisTypeToken,
     "super" to SuperToken,
     "while" to WhileToken,
     "throw" to ThrowToken,
@@ -112,7 +110,9 @@ private val specialWords = mapOf(
     "noinline" to NoinlineToken,
     "prefix" to PrefixToken,
     "infix" to InfixToken,
-    "postfix" to PostfixToken
+    "postfix" to PostfixToken,
+    "impl" to ImplToken,
+    "where" to WhereToken
 )
 
 fun handleUncapitalizedString(string: String) = specialWords[string] ?: IdentifierToken(string)

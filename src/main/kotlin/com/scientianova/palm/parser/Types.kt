@@ -1,33 +1,37 @@
 package com.scientianova.palm.parser
 
-import com.scientianova.palm.errors.INVALID_TYPE_NAME_ERROR
-import com.scientianova.palm.tokenizer.DotToken
-import com.scientianova.palm.tokenizer.IdentifierToken
-import com.scientianova.palm.tokenizer.PositionedToken
 import com.scientianova.palm.util.Positioned
-import com.scientianova.palm.util.StringPos
-import com.scientianova.palm.util.on
 
-data class PalmType(val path: List<String>) : IOperationPart
+enum class Nullability {
+    NON_NULL,
+    NULLABLE,
+    UNKNOWN,
+}
 
-typealias PositionedType = Positioned<PalmType>
+data class Type(
+    val name: String,
+    val generics: List<TypeArg> = emptyList(),
+    val nullability: Nullability = Nullability.NON_NULL
+)
 
-fun handleType(
-    parser: Parser,
-    token: PositionedToken?
-): Pair<PositionedType, PositionedToken?> = if (token != null && token.value is IdentifierToken) {
-    val next = parser.pop()
-    if (next?.value is DotToken) handleType(parser, parser.pop(), token.area.start, listOf(token.value.name))
-    else PalmType(listOf(token.value.name)) on token.area.start..token.area.end to next
-} else parser.error(INVALID_TYPE_NAME_ERROR, token?.area ?: parser.lastArea)
+typealias PType = Positioned<Type>
 
-fun handleType(
-    parser: Parser,
-    token: PositionedToken?,
-    startPos: StringPos,
-    path: List<String>
-): Pair<PositionedType, PositionedToken?> = if (token != null && token.value is IdentifierToken) {
-    val next = parser.pop()
-    if (next?.value is DotToken) handleType(parser, parser.pop(), startPos, path + token.value.name)
-    else PalmType(path + token.value.name) on startPos..token.area.end to next
-} else parser.error(INVALID_TYPE_NAME_ERROR, token?.area ?: parser.lastArea)
+enum class Variance {
+    INVARIANT,
+    COVARIANT,
+    CONTRAVARIANT
+}
+
+sealed class TypeArg
+object WildcardArgument : TypeArg()
+data class GenericType(
+    val name: String,
+    val generics: List<TypeArg> = emptyList(),
+    val nullability: Nullability = Nullability.NON_NULL,
+    val variance: Variance
+) : TypeArg()
+
+typealias PTypeArg = Positioned<Type>
+
+data class TypeVar(val name: String, val bounds: List<PType>)
+typealias PTypeVar = Positioned<TypeVar>
