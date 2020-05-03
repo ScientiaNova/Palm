@@ -9,7 +9,7 @@ enum class Nullability {
 }
 
 data class Type(
-    val name: String,
+    val path: List<String>,
     val generics: List<TypeArg> = emptyList(),
     val nullability: Nullability = Nullability.NON_NULL
 )
@@ -25,7 +25,7 @@ enum class Variance {
 sealed class TypeArg
 object WildcardArgument : TypeArg()
 data class GenericType(
-    val name: String,
+    val path: List<String>,
     val generics: List<TypeArg> = emptyList(),
     val nullability: Nullability = Nullability.NON_NULL,
     val variance: Variance

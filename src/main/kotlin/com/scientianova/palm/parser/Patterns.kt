@@ -22,6 +22,7 @@ data class ComponentsPattern(
 
 data class DeclarationPattern(
     val name: String,
+    val type: PType?,
     val modifiers: List<DefinitionModifier>
 ) : IPattern
 

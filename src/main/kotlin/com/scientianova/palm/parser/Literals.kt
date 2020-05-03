@@ -28,6 +28,10 @@ data class BoolExpr(
     val value: Boolean
 ) : IExpression
 
+data class CharExpr(
+    val value: Char
+) : IExpression
+
 object NullExpr : IExpression
 
 sealed class StringTemplateComponent
@@ -46,29 +50,34 @@ data class PairMapComponent(val key: PExpression, val value: PExpression) : List
 data class SpreadMapComponent(val expr: PExpression) : ListComponent()
 
 data class ListExpr(
-    val components: List<ListComponent>
+    val components: List<ListComponent>,
+    val mutable: Boolean
 ) : IExpression
 
 data class ArrayExpr(
-    val components: List<ListComponent>
+    val components: List<ListComponent>,
+    val obj: Boolean
 ) : IExpression
 
 data class MapExpr(
-    val components: List<MapComponent>
+    val components: List<MapComponent>,
+    val mutable: Boolean
 ) : IExpression
 
 data class ListCompExpr(
     val declaration: PPattern,
     val iterableExpr: PExpression,
     val forExpr: PExpression,
-    val condition: PExpression?
+    val condition: PExpression?,
+    val mutable: Boolean
 ) : IExpression
 
 data class ArrayCompExpr(
     val declaration: PPattern,
     val iterableExpr: PExpression,
     val forExpr: PExpression,
-    val condition: PExpression?
+    val condition: PExpression?,
+    val obj: Boolean
 ) : IExpression
 
 data class MapCompExpr(
@@ -76,5 +85,6 @@ data class MapCompExpr(
     val iterableExpr: PExpression,
     val keyExpr: PExpression,
     val valueExpr: PExpression,
-    val condition: PExpression?
+    val condition: PExpression?,
+    val mutable: Boolean
 ) : IExpression

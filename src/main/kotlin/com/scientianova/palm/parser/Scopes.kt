@@ -1,13 +1,23 @@
 package com.scientianova.palm.parser
 
 interface IScope {
-    val statements: MutableList<PStatement>
+    fun addStatement(statement: PStatement)
 }
 
-class SolidScope : IScope {
-    override val statements = mutableListOf<PStatement>()
+@Suppress("UNCHECKED_CAST")
+class FileScope : IScope  {
+    private val statements = mutableListOf<PStatement>()
+    private val declaration = mutableListOf<PDeclaration>()
+    override fun addStatement(statement: PStatement) {
+        statements += statement
+        if (statement.value is IDeclaration)
+            declaration += statement as PDeclaration
+    }
 }
 
 class NamedScope(val name: String = "") : IScope {
-    override val statements = mutableListOf<PStatement>()
+    private val statements = mutableListOf<PStatement>()
+    override fun addStatement(statement: PStatement) {
+        statements += statement
+    }
 }

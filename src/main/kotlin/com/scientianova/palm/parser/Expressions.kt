@@ -1,5 +1,7 @@
 package com.scientianova.palm.parser
 
+import com.scientianova.palm.tokenizer.DefinitionModifier
+import com.scientianova.palm.util.PString
 import com.scientianova.palm.util.Positioned
 
 interface IExpression : IStatement
@@ -7,7 +9,7 @@ typealias PExpression = Positioned<IExpression>
 
 sealed class ScopeSpecification
 object CurrentScope : ScopeSpecification()
-data class LabeledScope(val name: String) : ScopeSpecification()
+data class LabeledScope(val name: PString) : ScopeSpecification()
 
 data class IfExpr(
     val conditions: List<Condition>,
@@ -44,6 +46,12 @@ data class ForExpr(
     val iterableExpr: PExpression,
     val forScope: NamedScope,
     val noBreakScope: NamedScope?
+) : IExpression
+
+data class TryExpr(
+    val tryScope: NamedScope,
+    val catchBranches: List<Pair<PPattern, PExpression>>,
+    val finallyScope: NamedScope?
 ) : IExpression
 
 data class ThrowExpr(
@@ -85,19 +93,31 @@ data class VarExpr(
 ) : IExpression
 
 data class CallExpr(
-    val name: String,
+    val name: PString,
     val genericParams: List<PType> = emptyList(),
     val params: List<PExpression>
 ) : IExpression
 
 data class AccessExpr(
     val on: PExpression,
-    val name: String
+    val name: PString
+) : IExpression
+
+data class SafeAccessExpr(
+    val on: PExpression,
+    val name: PString
 ) : IExpression
 
 data class MethodCallExpr(
     val on: PExpression,
-    val name: String,
+    val name: PString,
+    val genericParams: List<PType> = emptyList(),
+    val params: List<PExpression>
+) : IExpression
+
+data class SafeMethodCallExpr(
+    val on: PExpression,
+    val name: PString,
     val genericParams: List<PType> = emptyList(),
     val params: List<PExpression>
 ) : IExpression
@@ -109,10 +129,20 @@ data class GetExpr(
 
 data class MethodRefExpr(
     val on: PExpression,
-    val name: String
+    val name: PString
 ) : IExpression
 
-data class LambdaExpr(
+data class AnonymousLambdaExpr(
     val scope: NamedScope,
-    val params: List<String>
+    val params: List<PString>
+) : IExpression
+
+data class TypedLambdaExpr(
+    val scope: NamedScope,
+    val params: List<Pair<PString, PType>>
+) : IExpression
+
+data class AnonymousObjectExpr(
+    val superTypes: List<SuperType>,
+    val scope: NamedScope
 ) : IExpression
