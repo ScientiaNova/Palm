@@ -6,11 +6,7 @@ interface IToken {
     override fun toString(): String
 }
 
-interface IKeyToken : IToken {
-    val name: String
-}
-
-typealias PositionedToken = Positioned<IToken>
+typealias PToken = Positioned<IToken>
 
 sealed class SpecialSymbol(private val symbol: String) : IToken {
     override fun toString() = "SpecialSymbol(symbol=$symbol)"
@@ -28,23 +24,23 @@ object ClosedSquareBracketToken : SpecialSymbol("]")
 object OpenArrayBracketToken : SpecialSymbol("[|")
 object ClosedArrayBracketToken : SpecialSymbol("|]")
 object DotToken : SpecialSymbol(".")
-object SafeAccessToken : SpecialSymbol("?.")
-object ArrowToken : SpecialSymbol("->")
-object DoubleColonToken : SpecialSymbol("::")
-object SpreadToken : SpecialSymbol("*")
-object PostQuestionMark : SpecialSymbol("?")
+object RightArrowToken : SpecialSymbol("->")
+object LeftArrowToken : SpecialSymbol("<-")
+object SuperTypeToken : SpecialSymbol(">:")
+object SubTypeToken : SpecialSymbol("<:")
+object TripleDotToken : SpecialSymbol("...")
 
 sealed class SeparatorToken(symbol: String) : SpecialSymbol(symbol)
 object CommaToken : SeparatorToken(",")
 object SemicolonToken : SeparatorToken(";")
-object TripleDotToken : SeparatorToken("...")
 
 val SYMBOL_MAP = mapOf(
     "=" to EqualToToken,
     "." to DotToken,
     ":" to ColonToken,
-    "?." to SafeAccessToken,
-    "->" to ArrowToken,
-    "::" to DoubleColonToken,
-    "..." to TripleDotToken
+    "->" to RightArrowToken,
+    "<-" to LeftArrowToken,
+    "..." to TripleDotToken,
+    ">:" to SuperTypeToken,
+    "<" to SubTypeToken
 )

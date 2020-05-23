@@ -1,14 +1,11 @@
 package com.scientianova.palm.tokenizer
 
 import com.scientianova.palm.errors.MISSING_BACKTICK_ERROR
-import com.scientianova.palm.parser.IExpression
-import com.scientianova.palm.parser.IOperationPart
-import com.scientianova.palm.parser.VirtualCall
 import com.scientianova.palm.util.Positioned
 import com.scientianova.palm.util.StringPos
 import com.scientianova.palm.util.on
 
-open class IdentifierToken(override val name: String) : InfixOperatorToken(name), IKeyToken {
+open class IdentifierToken(val name: String) : InfixOperatorToken(name) {
     override fun toString() = "IdentifierToken(name=$name)"
 }
 
@@ -18,7 +15,7 @@ fun handleIdentifier(
     list: TokenList,
     startPos: StringPos = traverser.lastPos,
     builder: StringBuilder = StringBuilder()
-): Pair<PositionedToken, Char?> = when {
+): Pair<PToken, Char?> = when {
     char?.isJavaIdentifierPart() == true ->
         handleIdentifier(traverser, traverser.pop(), list, startPos, builder.append(char))
     char == '@' -> {

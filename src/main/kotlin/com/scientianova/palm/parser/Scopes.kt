@@ -10,12 +10,12 @@ class FileScope : IScope  {
     private val declaration = mutableListOf<PDeclaration>()
     override fun addStatement(statement: PStatement) {
         statements += statement
-        if (statement.value is IDeclaration)
+        if (statement.value is Declaration)
             declaration += statement as PDeclaration
     }
 }
 
-class NamedScope(val name: String = "") : IScope {
+class FunctionScope : IScope {
     private val statements = mutableListOf<PStatement>()
     override fun addStatement(statement: PStatement) {
         statements += statement

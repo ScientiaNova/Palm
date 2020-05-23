@@ -6,11 +6,11 @@ import com.scientianova.palm.util.StringPos
 import com.scientianova.palm.util.on
 import java.util.*
 
-typealias TokenList = LinkedList<PositionedToken>
+typealias TokenList = LinkedList<PToken>
 
 fun tokenize(code: String, fileName: String = "REPL"): TokenList {
     val traverser = StringTraverser(code, fileName)
-    val queue = LinkedList<PositionedToken>()
+    val queue = LinkedList<PToken>()
     return tokenize(traverser, traverser.pop(), queue)
 }
 
@@ -33,7 +33,7 @@ tailrec fun tokenize(traverser: StringTraverser, char: Char?, list: TokenList): 
     }
 }
 
-fun handleToken(traverser: StringTraverser, char: Char, list: TokenList): Pair<PositionedToken, Char?> = when (char) {
+fun handleToken(traverser: StringTraverser, char: Char, list: TokenList): Pair<PToken, Char?> = when (char) {
     '0' -> {
         val startPos = traverser.lastPos
         when (traverser.peek()) {
@@ -83,7 +83,7 @@ fun handleToken(traverser: StringTraverser, char: Char, list: TokenList): Pair<P
 fun handleMisc(
     traverser: StringTraverser,
     char: Char
-): Pair<PositionedToken, Char?> {
+): Pair<PToken, Char?> {
     val previous = traverser.beforePopped
     val symbolRes = handleSymbol(traverser, char)
     val symbolString = symbolRes.first.value
@@ -91,13 +91,11 @@ fun handleMisc(
     SYMBOL_MAP[symbolString]?.let { return it on symbolRes.first.area to next }
     return (
             if ((previous == null || previous.isWhitespace() || previous.isSeparator() || previous.isOpenBracket()))
-                if (next?.isWhitespace() == false)
-                    PREFIX_OPS_MAP[symbolString] ?: PrefixOperatorToken(symbolString)
+                if (next?.isWhitespace() == false) PrefixOperatorToken(symbolString)
                 else InfixOperatorToken(symbolString)
             else
-                if (next?.isWhitespace() == false && !next.isClosedBracket())
-                    InfixOperatorToken(symbolString)
-                else POSTFIX_OPS_MAP[symbolString] ?: PostfixOperatorToken(symbolString)
+                if (next?.isWhitespace() == false && !next.isClosedBracket()) InfixOperatorToken(symbolString)
+                else PostfixOperatorToken(symbolString)
             ) on symbolRes.first.area to next
 }
 

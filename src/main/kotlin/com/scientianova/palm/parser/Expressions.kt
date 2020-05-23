@@ -1,148 +1,82 @@
 package com.scientianova.palm.parser
 
-import com.scientianova.palm.tokenizer.DefinitionModifier
 import com.scientianova.palm.util.PString
 import com.scientianova.palm.util.Positioned
 
-interface IExpression : IStatement
-typealias PExpression = Positioned<IExpression>
-
-sealed class ScopeSpecification
-object CurrentScope : ScopeSpecification()
-data class LabeledScope(val name: PString) : ScopeSpecification()
-
-data class IfExpr(
-    val conditions: List<Condition>,
-    val thenScope: NamedScope,
-    val elseScope: NamedScope?
-) : IExpression
-
-data class GuardExpr(
-    val conditions: List<Condition>,
-    val elseScope: NamedScope
-) : IExpression
-
-data class WhenExpr(
-    val branches: List<Pair<PExpression, NamedScope>>,
-    val elseBranch: NamedScope?
-) : IExpression
-
-data class WhenSwitchExpr(
-    val branches: List<Pair<List<PPattern>, NamedScope>>
-) : IExpression
-
-data class LoopExpr(
-    val scope: NamedScope
-) : IExpression
-
-data class WhileExpr(
-    val condition: PExpression,
-    val whileScope: NamedScope,
-    val noBreakScope: NamedScope?
-) : IExpression
-
-data class ForExpr(
-    val declaration: PPattern,
-    val iterableExpr: PExpression,
-    val forScope: NamedScope,
-    val noBreakScope: NamedScope?
-) : IExpression
-
-data class TryExpr(
-    val tryScope: NamedScope,
-    val catchBranches: List<Pair<PPattern, PExpression>>,
-    val finallyScope: NamedScope?
-) : IExpression
-
-data class ThrowExpr(
-    val expr: PExpression
-) : IExpression
-
-data class ReturnExpr(
-    val expr: PExpression?,
-    val scope: ScopeSpecification = CurrentScope
-) : IExpression
-
-data class BreakExpr(
-    val expr: PExpression?,
-    val scope: ScopeSpecification = CurrentScope
-) : IExpression
-
-data class ContinueExpr(
-    val scope: ScopeSpecification = CurrentScope
-) : IExpression
-
-data class ContinueWhenExpr(
-    val scope: ScopeSpecification = CurrentScope
-) : IExpression
-
-data class FallthroughExpr(
-    val scope: ScopeSpecification = CurrentScope
-) : IExpression
-
-data class ThisExpr(
-    val scope: ScopeSpecification = CurrentScope
-) : IExpression
-
-data class SuperExpr(
-    val scope: ScopeSpecification = CurrentScope
-) : IExpression
+sealed class Expression : IStatement
+typealias PExpression = Positioned<Expression>
 
 data class VarExpr(
     val name: String
-) : IExpression
+) : Expression()
 
 data class CallExpr(
     val name: PString,
-    val genericParams: List<PType> = emptyList(),
     val params: List<PExpression>
-) : IExpression
+) : Expression()
 
-data class AccessExpr(
-    val on: PExpression,
-    val name: PString
-) : IExpression
+data class LambdaExpr(
+    val scope: FunctionScope,
+    val params: List<PDecPattern>
+) : Expression()
 
-data class SafeAccessExpr(
-    val on: PExpression,
-    val name: PString
-) : IExpression
+data class IfExpr(
+    val conditions: PExpression,
+    val thenScope: FunctionScope,
+    val elseScope: FunctionScope?
+) : Expression()
 
-data class MethodCallExpr(
-    val on: PExpression,
-    val name: PString,
-    val genericParams: List<PType> = emptyList(),
-    val params: List<PExpression>
-) : IExpression
+data class IfLetExpr(
+    val conditions: PPattern,
+    val thenScope: FunctionScope,
+    val elseScope: FunctionScope?
+) : Expression()
 
-data class SafeMethodCallExpr(
-    val on: PExpression,
-    val name: PString,
-    val genericParams: List<PType> = emptyList(),
-    val params: List<PExpression>
-) : IExpression
+data class WhenExpr(
+    val branches: List<Pair<PExpression, FunctionScope>>,
+    val elseBranch: FunctionScope?
+) : Expression()
 
-data class GetExpr(
-    val on: PExpression,
-    val params: List<PExpression>
-) : IExpression
+data class WhenSwitchExpr(val branches: List<Pair<List<PPattern>, FunctionScope>>) : Expression()
 
-data class MethodRefExpr(
-    val on: PExpression,
-    val name: PString
-) : IExpression
+data class ScopeExpr(val scope: FunctionScope) : Expression()
+data class ByteExpr(val value: Byte) : Expression()
+data class ShortExpr(val value: Short) : Expression()
+data class IntExpr(val value: Int) : Expression()
+data class LongExpr(val value: Long) : Expression()
+data class FloatExpr(val value: Float) : Expression()
+data class DoubleExpr(val value: Double) : Expression()
+data class BoolExpr(val value: Boolean) : Expression()
+data class CharExpr(val value: Char) : Expression()
 
-data class AnonymousLambdaExpr(
-    val scope: NamedScope,
-    val params: List<PString>
-) : IExpression
+object UnitExpr : Expression()
+object WildcardExpr : Expression()
 
-data class TypedLambdaExpr(
-    val scope: NamedScope,
-    val params: List<Pair<PString, PType>>
-) : IExpression
+sealed class StringTemplateComponent
+data class StringStringComponent(val string: String) : StringTemplateComponent()
+data class ExprStringComponent(val expr: PExpression) : StringTemplateComponent()
 
-data class AnonymousObjectExpr(
-    val superTypes: List<SuperType>,
-    val scope: NamedScope
-) : IExpression
+data class PureStringExpr(val string: String) : Expression()
+data class StringTemplateExpr(val components: List<StringTemplateComponent>)
+
+data class ListExpr(
+    val components: List<PExpression>,
+    val mutable: Boolean
+) : Expression()
+
+data class ArrayExpr(
+    val components: List<PExpression>,
+    val obj: Boolean
+) : Expression()
+
+sealed class BinOp
+typealias PBinOp = Positioned<BinOp>
+
+data class SymbolOp(val symbol: String) : BinOp()
+data class InfixCall(val name: String, val negated: Boolean) : BinOp()
+
+data class UnaryOpExpr(val symbol: PString, val expr: PExpression) : Expression()
+data class PostfixOpExpr(val symbol: PString, val expr: PExpression) : Expression()
+data class BinaryOpsExpr(val body: List<Pair<PExpression, PBinOp>>, val end: PExpression) : Expression()
+
+data class TypeExpr(val expr: PExpression, val type: PType) : Expression()

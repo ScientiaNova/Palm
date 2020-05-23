@@ -1,36 +1,31 @@
 package com.scientianova.palm.parser
 
-import com.scientianova.palm.tokenizer.DefinitionModifier
+import com.scientianova.palm.util.PString
 import com.scientianova.palm.util.Positioned
 
-interface IPattern
-typealias PPattern = Positioned<IPattern>
+sealed class Pattern
+typealias PPattern = Positioned<Pattern>
+
+object WildcardPattern : Pattern()
+object UnitPattern : Pattern()
+
+data class TuplePattern(
+    val components: List<PPattern>
+) : Pattern()
 
 data class ExpressionPattern(
-    val expr: PExpression
-) : IPattern
-
-data class InPattern(
-    val expr: PExpression
-) : IPattern
-
-object WildcardPattern : IPattern
-
-data class ComponentsPattern(
-    val components: List<PPattern>
-) : IPattern
+    val expr: Expression
+) : Pattern()
 
 data class DeclarationPattern(
-    val name: String,
+    val name: PString,
     val type: PType?,
-    val modifiers: List<DefinitionModifier>
-) : IPattern
+    val mutable: Boolean
+) : Pattern()
 
-data class TypePattern(
-    val type: PType,
-    val components: List<PPattern>
-) : IPattern
+sealed class DecPattern
+typealias PDecPattern = Positioned<DecPattern>
 
-sealed class Condition
-data class ExpressionCondition(val expr: PExpression) : Condition()
-data class LetCondition(val pattern: Positioned<TypePattern>, val expr: PExpression) : Condition()
+object DecWildcardPattern : DecPattern()
+data class DecNamePattern(val name: PString) : DecPattern()
+data class DecTuplePattern(val values: List<PDecPattern>) : DecPattern()

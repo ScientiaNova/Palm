@@ -1,37 +1,30 @@
 package com.scientianova.palm.parser
 
+import com.scientianova.palm.util.PString
 import com.scientianova.palm.util.Positioned
 
-enum class Nullability {
-    NON_NULL,
-    NULLABLE,
-    UNKNOWN,
-}
-
-data class Type(
-    val path: List<String>,
-    val generics: List<TypeArg> = emptyList(),
-    val nullability: Nullability = Nullability.NON_NULL
-)
-
+sealed class Type
 typealias PType = Positioned<Type>
 
-enum class Variance {
-    INVARIANT,
-    COVARIANT,
-    CONTRAVARIANT
-}
+data class NamedType(
+    val path: List<PString>,
+    val generics: List<PType> = emptyList()
+) : Type()
 
-sealed class TypeArg
-object WildcardArgument : TypeArg()
-data class GenericType(
-    val path: List<String>,
-    val generics: List<TypeArg> = emptyList(),
-    val nullability: Nullability = Nullability.NON_NULL,
-    val variance: Variance
-) : TypeArg()
+data class TupleType(
+    val types: List<PType> = emptyList()
+) : Type()
 
-typealias PTypeArg = Positioned<Type>
+data class FunctionType(
+    val params: List<PType>,
+    val returnType: PType
+) : Type()
 
-data class TypeVar(val name: String, val bounds: List<PType>)
-typealias PTypeVar = Positioned<TypeVar>
+object UnitType : Type()
+
+sealed class TypeReq
+typealias PTypeReq = Positioned<TypeReq>
+
+data class SuperTypeReq(val type: PString, val superType: PType)
+data class SubTypeReq(val type: PString, val subType: PType)
+data class TypeClassReq(val typeClass: PType)

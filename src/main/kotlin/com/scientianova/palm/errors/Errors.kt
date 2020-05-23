@@ -333,3 +333,15 @@ val INVALID_ALIAS_ERROR = PalmError(
     "I was expecting an alias, but instead got:",
     "Aliases have to start with a letter and can contain digits and underscores."
 )
+
+val UNCLOSED_SCOPE_ERROR = PalmError(
+    "UNCLOSED SCOPE",
+    "I was expecting a closed curly bracket, but didn't get anything.",
+    "Put a } here."
+)
+
+val MISSING_IDENTIFIER_AFTER_NOT_ERROR = PalmError(
+    "MISSING IDENTIFIER",
+    "I saw a ! and was expecting an identifier next, but instead got:",
+    "You can only put function names, in or is after a !, when using it for negating operators."
+)

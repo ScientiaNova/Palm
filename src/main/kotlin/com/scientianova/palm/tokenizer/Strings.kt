@@ -10,7 +10,7 @@ import com.scientianova.palm.util.on
 import java.util.*
 
 sealed class StringToken : IToken
-data class PureStringToken(override val name: String) : StringToken(), IKeyToken
+data class PureStringToken(val text: String) : StringToken()
 data class StringTemplateToken(val parts: List<StringTokenPart>) : StringToken()
 
 sealed class StringTokenPart
@@ -19,7 +19,7 @@ data class StringPart(val string: String) : StringTokenPart() {
 }
 
 data class TokensPart(val tokens: TokenList) : StringTokenPart() {
-    constructor(token: PositionedToken) : this(TokenList().apply { offer(token) })
+    constructor(token: PToken) : this(TokenList().apply { offer(token) })
 }
 
 fun handleSingleLineString(
@@ -44,7 +44,7 @@ fun handleSingleLineString(
                 )
             }
             next == '{' -> {
-                val stack = LinkedList<PositionedToken>()
+                val stack = LinkedList<PToken>()
                 val bracketPos = traverser.lastPos
                 handleInterpolation(traverser, traverser.pop(), stack, bracketPos)
                 handleSingleLineString(

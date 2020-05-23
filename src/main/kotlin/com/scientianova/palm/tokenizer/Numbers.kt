@@ -20,7 +20,7 @@ fun handleNumber(
     char: Char?,
     startPos: StringPos = traverser.lastPos,
     builder: StringBuilder = StringBuilder()
-): Pair<PositionedToken, Char?> = when {
+): Pair<PToken, Char?> = when {
     char in '0'..'9' ->
         handleNumber(traverser, traverser.pop(), startPos, builder.append(char))
     char == '_' ->
@@ -58,7 +58,7 @@ fun handleDecimalNumber(
     char: Char?,
     startPos: StringPos,
     builder: StringBuilder = StringBuilder(".")
-): Pair<PositionedToken, Char?> = when {
+): Pair<PToken, Char?> = when {
     char in '0'..'9' -> handleDecimalNumber(traverser, traverser.pop(), startPos, builder.append(char))
     char == '_' -> handleDecimalNumber(traverser, traverser.pop(), startPos, builder)
     char == 'e' -> when (traverser.peek()) {
@@ -85,7 +85,7 @@ fun handleDecimalExponent(
     char: Char?,
     startPos: StringPos,
     builder: StringBuilder = StringBuilder(".")
-): Pair<PositionedToken, Char?> = when {
+): Pair<PToken, Char?> = when {
     char in '0'..'9' -> handleDecimalExponent(traverser, traverser.pop(), startPos, builder.append(char))
     char == '_' -> handleDecimalExponent(traverser, traverser.pop(), startPos, builder)
     char?.isLetter() == true -> traverser.error(INVALID_DECIMAL_LITERAL_ERROR, traverser.lastPos)
@@ -97,7 +97,7 @@ fun handleBinaryNumber(
     char: Char?,
     startPos: StringPos,
     builder: StringBuilder = StringBuilder()
-): Pair<PositionedToken, Char?> = when {
+): Pair<PToken, Char?> = when {
     char == '0' || char == '1' ->
         handleBinaryNumber(traverser, traverser.pop(), startPos, builder.append(char))
     char == '_' ->
@@ -122,7 +122,7 @@ fun handleHexNumber(
     char: Char?,
     startPos: StringPos,
     builder: StringBuilder = StringBuilder()
-): Pair<PositionedToken, Char?> = when {
+): Pair<PToken, Char?> = when {
     char in '0'..'9' || char in 'a'..'f' || char in 'A'..'F' ->
         handleHexNumber(traverser, traverser.pop(), startPos, builder.append(char))
     char == '_' ->
