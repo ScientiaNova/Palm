@@ -27,5 +27,5 @@ sealed class DecPattern
 typealias PDecPattern = Positioned<DecPattern>
 
 object DecWildcardPattern : DecPattern()
-data class DecNamePattern(val name: PString) : DecPattern()
+data class DecNamePattern(val name: PString, val mutable: Boolean) : DecPattern()
 data class DecTuplePattern(val values: List<PDecPattern>) : DecPattern()

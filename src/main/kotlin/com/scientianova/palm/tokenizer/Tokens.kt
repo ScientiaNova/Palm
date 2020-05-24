@@ -12,8 +12,12 @@ sealed class SpecialSymbol(private val symbol: String) : IToken {
     override fun toString() = "SpecialSymbol(symbol=$symbol)"
 }
 
-object EqualToToken : InfixOperatorToken("=")
-object ColonToken : InfixOperatorToken(":")
+object EqualToToken : IToken {
+    override fun toString() = "EqualToToken"
+}
+object ColonToken : IToken {
+    override fun toString() = "ColonToken"
+}
 
 object OpenParenToken : SpecialSymbol("(")
 object ClosedParenToken : SpecialSymbol(")")

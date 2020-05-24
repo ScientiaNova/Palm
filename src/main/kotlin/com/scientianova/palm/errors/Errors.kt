@@ -345,3 +345,15 @@ val MISSING_IDENTIFIER_AFTER_NOT_ERROR = PalmError(
     "I saw a ! and was expecting an identifier next, but instead got:",
     "You can only put function names, in or is after a !, when using it for negating operators."
 )
+
+val INVALID_PARAMETER_ERROR = PalmError(
+    "INVALID PARAMETER",
+    "I was going through the parameters of a function and found:",
+    "You can only use names, wildcard or tuples holding them as parameters."
+)
+
+val INVALID_DECLARATION_ERROR = PalmError(
+    "INVALID DECLARATION",
+    "I was going through a declaration and found:",
+    "You can only use names, wildcard or tuples when declaring variables."
+)

@@ -5,7 +5,7 @@ import com.scientianova.palm.util.Positioned
 import com.scientianova.palm.util.StringPos
 import com.scientianova.palm.util.on
 
-open class IdentifierToken(val name: String) : InfixOperatorToken(name) {
+open class IdentifierToken(val name: String) : IToken {
     override fun toString() = "IdentifierToken(name=$name)"
 }
 

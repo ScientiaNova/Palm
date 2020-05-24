@@ -7,5 +7,6 @@ interface IStatement
 typealias PStatement = Positioned<IStatement>
 
 sealed class ImportStmt
-data class RegularImport(val path: List<PString>, val alias: PString) : ImportStmt()
-data class PackageImport(val path: List<PString>) : ImportStmt()
+data class RegularImport(val path: PathExpr, val alias: PString) : ImportStmt()
+data class PackageImport(val path: PathExpr) : ImportStmt()
+

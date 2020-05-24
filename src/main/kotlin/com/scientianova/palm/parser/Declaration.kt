@@ -58,13 +58,13 @@ data class AliasDec(
 ) : Declaration()
 
 data class PrecedenceGroupDec(
-    val before: List<PString>,
-    val after: List<PString>,
+    val before: PathExpr,
+    val after: PathExpr,
     val leftAssociative: Boolean
 ) : Declaration()
 
 data class OperatorDec(
     val symbol: PString,
-    val groupPath: List<PString>,
+    val groupPath: PathExpr,
     val name: PString
 ) : Declaration()

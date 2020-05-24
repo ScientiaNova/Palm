@@ -3,7 +3,7 @@ package com.scientianova.palm.tokenizer
 object ElseToken : IdentifierToken("else")
 object WhereToken : IdentifierToken("where")
 object MutToken : IdentifierToken("mut")
-object VirtualToken : IdentifierToken("virtual")
+object AsToken : IdentifierToken("as")
 
 sealed class DeclarationToken(name: String) : IdentifierToken(name)
 object AliasToken : DeclarationToken("alias")
