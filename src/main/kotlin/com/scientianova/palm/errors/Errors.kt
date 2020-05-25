@@ -357,3 +357,15 @@ val INVALID_DECLARATION_ERROR = PalmError(
     "I was going through a declaration and found:",
     "You can only use names, wildcard or tuples when declaring variables."
 )
+
+val INVALID_IMPORT_ERROR = PalmError(
+    "INVALID IMPORT",
+    "I was going through an import statement and found:",
+    "Imports can only contain paths, that could end with ... or an operator, or could have an alias separated via 'as'."
+)
+
+val UNCLOSED_IMPORT_GROUP_ERROR = PalmError(
+    "UNCLOSED IMPORT GROUP",
+    "I was going through an import group and instead of a closed curly bracket found:",
+    "Put a } here."
+)
