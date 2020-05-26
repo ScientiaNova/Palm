@@ -12,8 +12,6 @@ object IfToken : KeywordToken("if")
 object WhenToken : KeywordToken("when")
 object ImportToken : KeywordToken("import")
 object LetToken : KeywordToken("let")
-object VirtualToken : IdentifierToken("virtual")
-
 
 private val specialWords = mapOf(
     "_" to WildcardToken,
@@ -22,6 +20,7 @@ private val specialWords = mapOf(
     "when" to WhenToken,
     "import" to ImportToken,
     "let" to LetToken,
+    "java" to JavaToken,
     "virtual" to VirtualToken,
     "class" to ClassToken,
     "alias" to AliasToken,

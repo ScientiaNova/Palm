@@ -4,6 +4,8 @@ object ElseToken : IdentifierToken("else")
 object WhereToken : IdentifierToken("where")
 object MutToken : IdentifierToken("mut")
 object AsToken : IdentifierToken("as")
+object JavaToken : IdentifierToken("java")
+object VirtualToken : IdentifierToken("virtual")
 
 sealed class DeclarationToken(name: String) : IdentifierToken(name)
 object AliasToken : DeclarationToken("alias")
