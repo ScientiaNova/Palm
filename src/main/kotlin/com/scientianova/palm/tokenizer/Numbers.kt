@@ -15,11 +15,11 @@ data class LongToken(val value: Long) : NumberToken()
 data class FloatToken(val value: Float) : NumberToken()
 data class DoubleToken(val value: Double) : NumberToken()
 
-fun handleNumber(
+tailrec fun handleNumber(
     traverser: StringTraverser,
     char: Char?,
-    startPos: StringPos = traverser.lastPos,
-    builder: StringBuilder = StringBuilder()
+    startPos: StringPos,
+    builder: StringBuilder
 ): Pair<PToken, Char?> = when {
     char in '0'..'9' ->
         handleNumber(traverser, traverser.pop(), startPos, builder.append(char))
@@ -53,7 +53,7 @@ fun convertIntString(builder: StringBuilder): NumberToken = when {
     else -> DoubleToken(builder.toString().toDouble())
 }
 
-fun handleDecimalNumber(
+tailrec fun handleDecimalNumber(
     traverser: StringTraverser,
     char: Char?,
     startPos: StringPos,
@@ -80,7 +80,7 @@ fun handleDecimalNumber(
     else -> DoubleToken(builder.toString().toDouble()) on startPos..traverser.lastPos.shift(-1) to char
 }
 
-fun handleDecimalExponent(
+tailrec fun handleDecimalExponent(
     traverser: StringTraverser,
     char: Char?,
     startPos: StringPos,
@@ -92,11 +92,11 @@ fun handleDecimalExponent(
     else -> DoubleToken(builder.toString().toDouble()) on startPos..traverser.lastPos.shift(-1) to char
 }
 
-fun handleBinaryNumber(
+tailrec fun handleBinaryNumber(
     traverser: StringTraverser,
     char: Char?,
     startPos: StringPos,
-    builder: StringBuilder = StringBuilder()
+    builder: StringBuilder
 ): Pair<PToken, Char?> = when {
     char == '0' || char == '1' ->
         handleBinaryNumber(traverser, traverser.pop(), startPos, builder.append(char))
@@ -117,11 +117,11 @@ fun handleBinaryNumber(
         else LongToken(builder.toString().toLong(radix = 2))) on startPos..traverser.lastPos.shift(-1) to char
 }
 
-fun handleHexNumber(
+tailrec fun handleHexNumber(
     traverser: StringTraverser,
     char: Char?,
     startPos: StringPos,
-    builder: StringBuilder = StringBuilder()
+    builder: StringBuilder
 ): Pair<PToken, Char?> = when {
     char in '0'..'9' || char in 'a'..'f' || char in 'A'..'F' ->
         handleHexNumber(traverser, traverser.pop(), startPos, builder.append(char))

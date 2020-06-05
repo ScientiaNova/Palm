@@ -25,6 +25,11 @@ data class FunctionType(
     val returnType: PType
 ) : Type()
 
+data class ImplicitFunctionType(
+    val params: List<PType>,
+    val returnType: PType
+) : Type()
+
 object UnitType : Type()
 
 sealed class TypeReq
@@ -91,30 +96,50 @@ tailrec fun handleParenthesizedType(
     types: List<PType> = emptyList()
 ): Pair<PType, PToken?> = if (token?.value is ClosedParenToken) {
     val next = parser.pop()
-    if (next?.value is RightArrowToken) {
-        val (returnType, newNext) = handleType(parser.pop(), parser)
-        FunctionType(
-            if (types.isEmpty()) listOf(UnitType on start..token.area.end) else types,
-            returnType
-        ) on start..returnType.area.end to newNext
-    } else when (types.size) {
-        0 -> UnitType on start..token.area.end
-        1 -> types.first()
-        else -> TupleType(types) on start..token.area.end
-    } to parser.pop()
+    when (next?.value) {
+        is RightArrowToken -> {
+            val (returnType, newNext) = handleType(parser.pop(), parser)
+            FunctionType(
+                if (types.isEmpty()) listOf(UnitType on start..token.area.end) else types,
+                returnType
+            ) on start..returnType.area.end to newNext
+        }
+        is ThickArrowToken -> {
+            val (returnType, newNext) = handleType(parser.pop(), parser)
+            ImplicitFunctionType(
+                if (types.isEmpty()) listOf(UnitType on start..token.area.end) else types,
+                returnType
+            ) on start..returnType.area.end to newNext
+        }
+        else -> when (types.size) {
+            0 -> UnitType on start..token.area.end
+            1 -> types.first()
+            else -> TupleType(types) on start..token.area.end
+        } to parser.pop()
+    }
 } else {
     val (type, symbol) = handleType(token, parser)
     when (symbol?.value) {
         is CommaToken -> handleParenthesizedType(parser.pop(), parser, start, types + type)
         is ClosedParenToken -> {
             val next = parser.pop()
-            if (next?.value is RightArrowToken) {
-                val (returnType, newNext) = handleType(parser.pop(), parser)
-                FunctionType(
-                    if (types.isEmpty()) listOf(UnitType on symbol.area.end) else types,
-                    returnType
-                ) on start..returnType.area.end to newNext
-            } else (if (types.isEmpty()) type else TupleType(types + type) on start..symbol.area.end) to parser.pop()
+            when (next?.value) {
+                is RightArrowToken -> {
+                    val (returnType, newNext) = handleType(parser.pop(), parser)
+                    FunctionType(
+                        if (types.isEmpty()) listOf(UnitType on symbol.area.end) else types,
+                        returnType
+                    ) on start..returnType.area.end to newNext
+                }
+                is ThickArrowToken -> {
+                    val (returnType, newNext) = handleType(parser.pop(), parser)
+                    ImplicitFunctionType(
+                        if (types.isEmpty()) listOf(UnitType on symbol.area.end) else types,
+                        returnType
+                    ) on start..returnType.area.end to newNext
+                }
+                else -> (if (types.isEmpty()) type else TupleType(types + type) on start..symbol.area.end) to parser.pop()
+            }
         }
         else -> parser.error(UNCLOSED_SQUARE_BRACKET_ERROR, symbol?.area ?: parser.lastArea)
     }

@@ -30,6 +30,7 @@ object ClosedArrayBracketToken : SpecialSymbol("|]")
 object DotToken : SpecialSymbol(".")
 object RightArrowToken : SpecialSymbol("->")
 object LeftArrowToken : SpecialSymbol("<-")
+object ThickArrowToken : SpecialSymbol("=>")
 object SuperTypeToken : SpecialSymbol(">:")
 object SubTypeToken : SpecialSymbol("<:")
 object TripleDotToken : SpecialSymbol("...")
@@ -44,6 +45,7 @@ val SYMBOL_MAP = mapOf(
     ":" to ColonToken,
     "->" to RightArrowToken,
     "<-" to LeftArrowToken,
+    "=>" to ThickArrowToken,
     "..." to TripleDotToken,
     ">:" to SuperTypeToken,
     "<" to SubTypeToken

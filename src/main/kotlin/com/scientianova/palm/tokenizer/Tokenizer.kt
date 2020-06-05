@@ -18,7 +18,7 @@ tailrec fun tokenize(traverser: StringTraverser, char: Char?, list: TokenList): 
     char == null -> list
     char.isWhitespace() -> tokenize(traverser, traverser.pop(), list)
     char.isJavaIdentifierStart() -> {
-        val (identifier, next) = handleIdentifier(traverser, char, list)
+        val (identifier, next) = handleIdentifier(traverser, char, list, traverser.lastPos, StringBuilder())
         list.offer(identifier)
         tokenize(traverser, next, list)
     }
@@ -39,30 +39,30 @@ fun handleToken(traverser: StringTraverser, char: Char, list: TokenList): Pair<P
         when (traverser.peek()) {
             'x', 'X' -> {
                 traverser.pop()
-                handleHexNumber(traverser, traverser.pop(), startPos)
+                handleHexNumber(traverser, traverser.pop(), startPos, StringBuilder())
             }
             'b', 'B' -> {
                 traverser.pop()
-                handleBinaryNumber(traverser, traverser.pop(), startPos)
+                handleBinaryNumber(traverser, traverser.pop(), startPos, StringBuilder())
             }
-            else -> handleNumber(traverser, char)
+            else -> handleNumber(traverser, char, traverser.lastPos, StringBuilder())
         }
     }
-    in '1'..'9' -> handleNumber(traverser, char)
+    in '1'..'9' -> handleNumber(traverser, char, traverser.lastPos, StringBuilder())
     '`' -> {
         val startPos = traverser.lastPos
-        handleBacktickedIdentifier(traverser, traverser.pop(), startPos)
+        handleBacktickedIdentifier(traverser, traverser.pop(), startPos, StringBuilder())
     }
     '.' ->
-        if (traverser.peek()?.isDigit() == true) handleNumber(traverser, char)
+        if (traverser.peek()?.isDigit() == true) handleNumber(traverser, char, traverser.lastPos, StringBuilder())
         else handleMisc(traverser, char)
     '"' -> {
         val startPos = traverser.lastPos
         val next = traverser.pop()
         if (next == '"' && traverser.peek() == '"') {
             traverser.pop()
-            handleMultiLineString(traverser, traverser.pop(), startPos, list)
-        } else handleSingleLineString(traverser, next, startPos, list)
+            handleMultiLineString(traverser, traverser.pop(), startPos, list, emptyList(), StringBuilder())
+        } else handleSingleLineString(traverser, next, startPos, list, emptyList(), StringBuilder())
     }
     '\'' -> handleChar(traverser, traverser.pop())
     '(' -> OpenParenToken on traverser.lastPos to traverser.pop()
@@ -85,7 +85,7 @@ fun handleMisc(
     char: Char
 ): Pair<PToken, Char?> {
     val previous = traverser.beforePopped
-    val symbolRes = handleSymbol(traverser, char)
+    val symbolRes = handleSymbol(traverser, char, traverser.lastPos, StringBuilder())
     val symbolString = symbolRes.first.value
     val next = symbolRes.second
     SYMBOL_MAP[symbolString]?.let { return it on symbolRes.first.area to next }
@@ -99,11 +99,11 @@ fun handleMisc(
             ) on symbolRes.first.area to next
 }
 
-fun handleSymbol(
+tailrec fun handleSymbol(
     traverser: StringTraverser,
     char: Char?,
-    startPos: StringPos = traverser.lastPos,
-    builder: StringBuilder = StringBuilder()
+    startPos: StringPos,
+    builder: StringBuilder
 ): Pair<Positioned<String>, Char?> =
     if (char == null || char.isLetterOrDigit() || char.isWhitespace() || char == '"' || char == '\'' || char.isBracket()) {
         val area = startPos..traverser.lastPos.shift(-1)

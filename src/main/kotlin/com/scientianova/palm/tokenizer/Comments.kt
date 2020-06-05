@@ -5,13 +5,16 @@ tailrec fun handleSingleLineComment(traverser: StringTraverser, char: Char?): Ch
     else -> handleSingleLineComment(traverser, traverser.pop())
 }
 
-fun handleMultiLineComment(traverser: StringTraverser, char: Char?): Char? = when (char) {
+@Suppress("NON_TAIL_RECURSIVE_CALL")
+tailrec fun handleMultiLineComment(traverser: StringTraverser, char: Char?): Char? = when (char) {
     null -> char
-    ']' -> traverser.pop().let { next ->
+    ']' ->  {
+        val next = traverser.pop()
         if (next == '#') char
         else handleMultiLineComment(traverser, next)
     }
-    '#' -> traverser.pop().let { next ->
+    '#' ->  {
+        val next = traverser.pop()
         if (next == '[') {
             val newNext = handleMultiLineComment(traverser, next)
             handleMultiLineComment(traverser, newNext)

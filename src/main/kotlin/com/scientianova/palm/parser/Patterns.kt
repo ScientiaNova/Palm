@@ -52,7 +52,7 @@ fun handleDeclarationPattern(
     else -> parser.error(error, token?.area ?: parser.lastArea)
 }
 
-fun handleTupleDecPattern(
+tailrec fun handleTupleDecPattern(
     token: PToken?,
     parser: Parser,
     error: PalmError,

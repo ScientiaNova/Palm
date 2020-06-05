@@ -93,7 +93,7 @@ tailrec fun handleScope(
         if (returnBracket) ScopeExpr(statements) on start..token.area.end to token
         else ScopeExpr(statements) on start..token.area.end to parser.pop()
     is ImportToken -> {
-        val (import, next) = handleImport(parser.pop(), parser, token.area.start)
+        val (import, next) = handleImportStart(parser.pop(), parser, token.area.start)
         val actualNext = when (next?.value) {
             is CommaToken, is SemicolonToken -> parser.pop()
             else -> next
@@ -200,18 +200,20 @@ fun handleExpressionPart(
         }
         is MutToken -> {
             val next = parser.pop()
-            if (next?.value is OpenSquareBracketToken) handleList(parser.pop(), parser, next.area.start, true)
+            if (next?.value is OpenSquareBracketToken)
+                handleList(parser.pop(), parser, next.area.start, true, emptyList(), emptyList())
             else handleIdentifiers("mut" on token.area, parser)
         }
         is ObjectToken -> {
             val next = parser.pop()
-            if (next?.value is OpenArrayBracketToken) handleArray(parser.pop(), parser, next.area.start, true)
+            if (next?.value is OpenArrayBracketToken)
+                handleArray(parser.pop(), parser, next.area.start, true, emptyList(), emptyList())
             else handleIdentifiers("object" on token.area, parser)
         }
         is IdentifierToken -> handleIdentifiers(value.name on token.area, parser)
         is OpenParenToken -> handleParenthesizedExpr(parser.pop(), parser, token.area.start)
-        is OpenSquareBracketToken -> handleList(parser.pop(), parser, token.area.start, false)
-        is OpenArrayBracketToken -> handleArray(parser.pop(), parser, token.area.start, false)
+        is OpenSquareBracketToken -> handleList(parser.pop(), parser, token.area.start, false, emptyList(), emptyList())
+        is OpenArrayBracketToken -> handleArray(parser.pop(), parser, token.area.start, false, emptyList(), emptyList())
         is OpenCurlyBracketToken -> handleScope(parser.pop(), parser, token.area.start, false)
         is PrefixOperatorToken -> {
             val (expr, next) = handleExpressionPart(parser.pop(), parser, ignoreBreak, inScope, excludeCurly)
@@ -294,7 +296,7 @@ tailrec fun handleInterpolation(
 ): PExpression = when (token?.value) {
     null -> ScopeExpr(statements) on area
     is ImportToken -> {
-        val (import, next) = handleImport(parser.pop(), parser, token.area.start)
+        val (import, next) = handleImportStart(parser.pop(), parser, token.area.start)
         val actualNext = when (next?.value) {
             is CommaToken, is SemicolonToken -> parser.pop()
             else -> next
@@ -355,14 +357,14 @@ tailrec fun handleParenthesizedExpr(
     }
 }
 
-fun handleList(
+tailrec fun handleList(
     token: PToken?,
     parser: Parser,
     start: StringPos,
     mutable: Boolean,
-    expressions: List<PExpression> = emptyList(),
-    lastStart: StringPos = start,
-    sections: List<Positioned<ListExpr>> = emptyList()
+    expressions: List<PExpression>,
+    sections: List<Positioned<ListExpr>>,
+    lastStart: StringPos = start
 ): Pair<PExpression, PToken?> = if (token?.value is ClosedSquareBracketToken)
     ListExpr(
         if (sections.isEmpty()) expressions else sections + (ListExpr(
@@ -380,9 +382,8 @@ else {
                     newExpressions,
                     mutable
                 ) on lastStart..symbol.area.end), mutable
-            ) on
-                    start..symbol.area.end to parser.pop()
-        is CommaToken -> handleList(parser.pop(), parser, start, mutable, expressions + expr, lastStart, sections)
+            ) on start..symbol.area.end to parser.pop()
+        is CommaToken -> handleList(parser.pop(), parser, start, mutable, expressions + expr, sections, lastStart)
         else -> parser.error(UNCLOSED_SQUARE_BRACKET_ERROR, symbol?.area ?: parser.lastArea)
     }
 }
@@ -392,9 +393,9 @@ fun handleArray(
     parser: Parser,
     start: StringPos,
     obj: Boolean,
-    expressions: List<PExpression> = emptyList(),
-    lastStart: StringPos = start,
-    sections: List<Positioned<ArrayExpr>> = emptyList()
+    expressions: List<PExpression>,
+    sections: List<Positioned<ArrayExpr>>,
+    lastStart: StringPos = start
 ): Pair<PExpression, PToken?> = if (token?.value is ClosedArrayBracketToken)
     ArrayExpr(
         if (sections.isEmpty()) expressions else sections + (ArrayExpr(
@@ -414,7 +415,7 @@ else {
                 ) on lastStart..symbol.area.end), obj
             ) on
                     start..symbol.area.end to parser.pop()
-        is CommaToken -> handleArray(parser.pop(), parser, start, obj, expressions + expr, lastStart, sections)
+        is CommaToken -> handleArray(parser.pop(), parser, start, obj, expressions + expr, sections, lastStart)
         else -> parser.error(UNCLOSED_SQUARE_BRACKET_ERROR, symbol?.area ?: parser.lastArea)
     }
 }
