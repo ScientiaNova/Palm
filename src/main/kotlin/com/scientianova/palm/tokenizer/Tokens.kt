@@ -28,7 +28,7 @@ sealed class SpecialSymbol(private val symbol: String) : Token() {
 }
 
 object EqualsToken : Token() {
-    override fun toString() = "EqualToToken"
+    override fun toString() = "EqualsToken"
 }
 
 object ColonToken : Token() {

@@ -13,4 +13,4 @@ tailrec fun handleIdentifier(
 ): Pair<PToken, Char?> =
     if (char?.isJavaIdentifierPart() == true)
         handleIdentifier(traverser, traverser.pop(), capitalized, list, startPos, builder.append(char))
-    else handleUncapitalizedString(builder.toString()) on startPos..traverser.lastPos.shift(-1) to char
+    else checkKeywords(builder.toString(), capitalized) on startPos..traverser.lastPos.shift(-1) to char

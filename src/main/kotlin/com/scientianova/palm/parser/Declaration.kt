@@ -4,27 +4,24 @@ import com.scientianova.palm.errors.*
 import com.scientianova.palm.tokenizer.*
 import com.scientianova.palm.util.*
 
-sealed class Declaration : IStatement
-typealias PDeclaration = Positioned<Declaration>
-
 data class ConstDef(
     val name: PString,
     val type: PType,
     val constraints: List<PType>
-) : Declaration()
+) : IStatement
 
 data class ConstAssignment(
     val pattern: PDecPattern,
     val expr: PExpression,
     val declaration: Boolean
-) : Declaration()
+) : IStatement
 
 data class FunctionAssignment(
     val name: PString,
     val params: List<PExpression>,
     val expr: PExpression,
     val declaration: Boolean
-) : Declaration()
+) : IStatement
 
 data class RecordProperty(
     val name: PString,
@@ -36,7 +33,7 @@ data class RecordDeclaration(
     val name: PString,
     val genericPool: List<PString>,
     val properties: List<RecordProperty>
-) : Declaration()
+) : IStatement
 
 data class EnumCase(
     val name: PString,
@@ -47,13 +44,13 @@ data class EnumDec(
     val name: PString,
     val genericPool: List<PString>,
     val cases: List<EnumCase>
-) : Declaration()
+) : IStatement
 
 data class AliasDec(
     val name: PString,
     val genericPool: List<PString>,
     val actualType: PType
-) : Declaration()
+) : IStatement
 
 enum class Associativity { LEFT, RIGHT, NONE }
 
@@ -62,31 +59,31 @@ data class InfixOperatorDec(
     val name: PString,
     val associativity: Associativity,
     val precedence: Int
-) : Declaration()
+) : IStatement
 
 data class PostfixOperatorDec(
     val symbol: PString,
     val name: PString
-) : Declaration()
+) : IStatement
 
 data class PrefixOperatorDec(
     val symbol: PString,
     val name: PString
-) : Declaration()
+) : IStatement
 
 data class ClassDec(
     val name: PString,
     val genericPool: List<PString>,
     val constraints: List<PType>,
     val declarations: List<PStatement>
-) : Declaration()
+) : IStatement
 
 data class InstanceDec(
     val name: PString,
     val type: PType,
     val constraints: List<PType>,
     val declarations: List<PStatement>
-) : Declaration()
+) : IStatement
 
 fun handleDeclaration(
     token: PToken?,
@@ -114,16 +111,14 @@ fun handleDeclaration(
                     LEFT_TOKEN -> Associativity.LEFT to parser.pop()
                     RIGHT_TOKEN -> Associativity.RIGHT to parser.pop()
                     NONE_TOKEN -> Associativity.NONE to parser.pop()
-                    is EqualsToken -> Associativity.LEFT to maybeAssoc
-                    else -> parser.error(MISSING_EQUALS_ERROR, maybeAssoc?.area ?: parser.lastArea)
+                    else -> Associativity.LEFT to maybeAssoc
                 }
                 val (precedence, equals) = when (val precValue = maybePrec?.value) {
                     is IntToken -> precValue.value to parser.pop()
-                    is EqualsToken -> 7 to maybePrec
-                    else -> parser.error(MISSING_EQUALS_ERROR, maybePrec?.area ?: parser.lastArea)
+                    else -> 7 to maybePrec
                 }
 
-                if (precedence !in 0..15) parser.error(INVALID_PRECEDENCE, maybePrec.area)
+                if (precedence !in 0..15) parser.error(INVALID_PRECEDENCE, maybePrec?.area ?: parser.lastArea)
                 if (equals?.value !is EqualsToken) parser.error(MISSING_EQUALS_ERROR, equals?.area ?: parser.lastArea)
 
                 val identifierToken = parser.pop()
@@ -347,7 +342,7 @@ tailrec fun handleClass(
             val symbol = parser.pop()
             when (symbol?.value) {
                 is EqualsToken -> {
-                    val (expr, next) = handleExpression(token, parser)
+                    val (expr, next) = handleExpression(parser.pop(), parser)
                     ConstAssignment(
                         DecNamePattern(value.name) on token.area, expr, false
                     ) on token.area.start..expr.area.end to next
@@ -395,7 +390,7 @@ tailrec fun handleInstance(
             val symbol = parser.pop()
             when (symbol?.value) {
                 is EqualsToken -> {
-                    val (expr, next) = handleExpression(token, parser)
+                    val (expr, next) = handleExpression(parser.pop(), parser)
                     ConstAssignment(
                         DecNamePattern(value.name) on token.area, expr, false
                     ) on token.area.start..expr.area.end to next

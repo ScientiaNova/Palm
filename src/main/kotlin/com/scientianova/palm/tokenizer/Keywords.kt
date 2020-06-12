@@ -7,4 +7,4 @@ private val specialWords = mapOf(
     "let" to LetToken
 )
 
-fun handleUncapitalizedString(string: String) = specialWords[string] ?: IdentifierToken(string)
+fun checkKeywords(string: String, capitalized: Boolean) = specialWords[string] ?: IdentifierToken(string, capitalized)

@@ -132,7 +132,7 @@ tailrec fun handleInterpolation(
     char.isWhitespace() -> handleInterpolation(traverser, traverser.pop(), list, startPos)
     char.isJavaIdentifierStart() -> {
         val (identifier, next) = handleIdentifier(
-            traverser, char, char.isLowerCase(), list, traverser.lastPos, StringBuilder()
+            traverser, char, char.isUpperCase(), list, traverser.lastPos, StringBuilder()
         )
         list.offer(identifier)
         handleInterpolation(traverser, next, list, startPos)

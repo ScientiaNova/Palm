@@ -52,12 +52,12 @@ tailrec fun handleTopLevel(token: PToken?, parser: Parser, module: ParsedModule)
         when (next?.value) {
             is EqualsToken -> if (expr.value is CallExpr) {
                 if (expr.value.expr.value !is PathExpr) parser.error(INVALID_FUNCTION_NAME, expr.value.expr.area)
-                if (expr.value.expr.value.parts.size == 1) parser.error(INVALID_FUNCTION_NAME, expr.value.expr.area)
+                if (expr.value.expr.value.parts.size != 1) parser.error(INVALID_FUNCTION_NAME, expr.value.expr.area)
                 val name = expr.value.expr.value.parts.first()
                 val (funExpr, next1) = handleExpression(parser.pop(), parser)
                 val actualNext = when (next1?.value) {
                     is CommaToken, is SemicolonToken -> parser.pop()
-                    else -> next
+                    else -> next1
                 }
                 handleTopLevel(
                     actualNext, parser, module.with(
@@ -69,7 +69,7 @@ tailrec fun handleTopLevel(token: PToken?, parser: Parser, module: ParsedModule)
                 val (valueExpr, next1) = handleExpression(parser.pop(), parser)
                 val actualNext = when (next1?.value) {
                     is CommaToken, is SemicolonToken -> parser.pop()
-                    else -> next
+                    else -> next1
                 }
                 handleTopLevel(
                     actualNext, parser, module.with(ConstAssignment(pattern, valueExpr, false) on expr.area.start..valueExpr.area.end)

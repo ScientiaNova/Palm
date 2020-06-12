@@ -125,7 +125,7 @@ tailrec fun handleScope(
                 val (funExpr, next1) = handleExpression(parser.pop(), parser)
                 val actualNext = when (next1?.value) {
                     is CommaToken, is SemicolonToken -> parser.pop()
-                    else -> next
+                    else -> next1
                 }
                 handleScope(
                     actualNext, parser, start, returnBracket,
@@ -138,7 +138,7 @@ tailrec fun handleScope(
                 val (valueExpr, next1) = handleExpression(parser.pop(), parser)
                 val actualNext = when (next1?.value) {
                     is CommaToken, is SemicolonToken -> parser.pop()
-                    else -> next
+                    else -> next1
                 }
                 handleScope(
                     actualNext, parser, start, returnBracket,
@@ -176,22 +176,22 @@ tailrec fun handleBinOps(
     excludeCurly: Boolean,
     body: List<Pair<PExpression, PBinOp>> = emptyList()
 ): Pair<PExpression, PToken?> = when (val value = token?.value) {
-    is IdentifierToken -> {
+    is IdentifierToken -> if (ignoreBreak || token.area.start.row == last.area.end.row) {
         val (part, next) = handleExpressionPart(parser.pop(), parser, ignoreBreak, inScope, excludeCurly)
         handleBinOps(
             next, parser, part, ignoreBreak, inScope, excludeCurly,
             body + (last to (InfixCall(value.name) on token.area))
         )
-    }
-    is InfixOperatorToken -> if (ignoreBreak || token.area.start.row == last.area.end.row) {
+    } else
+        (if (body.isEmpty()) last
+        else BinaryOpsExpr(body, last) on body.first().first.area.start..last.area.end) to token
+    is InfixOperatorToken -> {
         val (part, next) = handleExpressionPart(parser.pop(), parser, ignoreBreak, inScope, excludeCurly)
         handleBinOps(
             next, parser, part, ignoreBreak, inScope, excludeCurly,
             body + (last to (SymbolOp(value.symbol) on token.area))
         )
-    } else
-        (if (body.isEmpty()) last
-        else BinaryOpsExpr(body, last) on body.first().first.area.start..last.area.end) to token
+    }
     else ->
         (if (body.isEmpty()) last
         else BinaryOpsExpr(body, last) on body.first().first.area.start..last.area.end) to token
@@ -378,7 +378,7 @@ tailrec fun handleInterpolation(
                 val (funExpr, next1) = handleExpression(parser.pop(), parser)
                 val actualNext = when (next1?.value) {
                     is CommaToken, is SemicolonToken -> parser.pop()
-                    else -> next
+                    else -> next1
                 }
                 handleInterpolation(
                     actualNext, parser, area, statements + (
@@ -390,7 +390,7 @@ tailrec fun handleInterpolation(
                 val (valueExpr, next1) = handleExpression(parser.pop(), parser)
                 val actualNext = when (next1?.value) {
                     is CommaToken, is SemicolonToken -> parser.pop()
-                    else -> next
+                    else -> next1
                 }
                 handleInterpolation(
                     actualNext, parser, area,
@@ -420,7 +420,7 @@ tailrec fun handleIdentifiers(
             (name as? IdentifierToken ?: parser.error(INVALID_PATH_ERROR, parser.lastPos)).name on pos,
             parser, path + token
         )
-    } else PathExpr(path + token) on (path.firstOrNull() ?: token).area.start..token.area.end to parser.pop()
+    } else PathExpr(path + token) on (path.firstOrNull() ?: token).area.start..token.area.end to symbol
 }
 
 tailrec fun handleParenthesizedExpr(
@@ -466,6 +466,10 @@ else {
                         lastStart..symbol.area.end), mutable
             ) on start..symbol.area.end to parser.pop()
         is CommaToken -> handleList(parser.pop(), parser, start, mutable, expressions + expr, sections, lastStart)
+        is SemicolonToken -> handleList(
+            parser.pop(), parser, start, mutable, emptyList(),
+            sections + (ListExpr(expressions + expr, mutable) on lastStart..symbol.area.end), symbol.area.end
+        )
         else -> parser.error(UNCLOSED_SQUARE_BRACKET_ERROR, symbol?.area ?: parser.lastArea)
     }
 }
@@ -493,6 +497,10 @@ else {
                 ) on lastStart..symbol.area.end)
             ) on start..symbol.area.end to parser.pop()
         is CommaToken -> handleArray(parser.pop(), parser, start, expressions + expr, sections, lastStart)
+        is SemicolonToken -> handleArray(
+            parser.pop(), parser, start, emptyList(),
+            sections + (ArrayExpr(expressions + expr) on lastStart..symbol.area.end), symbol.area.end
+        )
         else -> parser.error(UNCLOSED_SQUARE_BRACKET_ERROR, symbol?.area ?: parser.lastArea)
     }
 }
