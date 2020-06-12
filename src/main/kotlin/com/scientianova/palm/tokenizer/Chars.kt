@@ -5,8 +5,6 @@ import com.scientianova.palm.util.Positioned
 import com.scientianova.palm.util.StringPos
 import com.scientianova.palm.util.on
 
-data class CharToken(val char: Char) : IToken
-
 fun handleChar(
     traverser: StringTraverser,
     char: Char?,

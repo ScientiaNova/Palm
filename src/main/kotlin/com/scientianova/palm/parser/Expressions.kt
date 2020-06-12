@@ -21,24 +21,15 @@ data class LambdaExpr(
     val expr: PExpression
 ) : Expression()
 
-data class IfExpr(
-    val conditions: PExpression,
-    val thenScope: ScopeExpr,
-    val elseScope: ScopeExpr?
-) : Expression()
-
-data class IfLetExpr(
-    val conditions: PPattern,
-    val thenScope: ScopeExpr,
-    val elseScope: ScopeExpr?
-) : Expression()
-
 data class WhenExpr(
-    val branches: List<Pair<PExpression, ScopeExpr>>,
-    val elseBranch: ScopeExpr?
+    val comparsing: PExpression,
+    val branches: List<Pair<PExpression, PExpression>>
 ) : Expression()
 
-data class WhenSwitchExpr(val branches: List<Pair<List<PPattern>, ScopeExpr>>) : Expression()
+data class DecExpr(
+    val pattern: PExpression,
+    val value: PExpression?
+) : Expression()
 
 data class ScopeExpr(val statements: List<PStatement>) : Expression()
 
@@ -65,8 +56,7 @@ data class ListExpr(
 ) : Expression()
 
 data class ArrayExpr(
-    val components: List<PExpression>,
-    val obj: Boolean
+    val components: List<PExpression>
 ) : Expression()
 
 sealed class BinOp
@@ -100,30 +90,68 @@ tailrec fun handleScope(
         }
         handleScope(actualNext, parser, start, returnBracket, statements + import)
     }
+    is LetToken -> {
+        val (declaration, next) = handleDeclaration(parser.pop(), parser, token.area.start)
+        val actualNext = when (next?.value) {
+            is CommaToken, is SemicolonToken -> parser.pop()
+            else -> next
+        }
+        handleScope(actualNext, parser, start, returnBracket, statements + declaration)
+    }
     else -> {
         val (expr, next) = handleExpression(token, parser, inScope = true)
-        if (next?.value is LeftArrowToken) {
-            val pattern = exprToDecPattern(expr, parser, INVALID_PARAMETER_ERROR)
-            val actualPattern = if (pattern.value is DecTuplePattern) pattern.value.values else listOf(pattern)
-            val (fromExpr, afterExpr) = handleExpression(parser.pop(), parser)
-            val actualAfterExpr = when (afterExpr?.value) {
-                is CommaToken, is SemicolonToken -> parser.pop()
-                else -> afterExpr
+        when (next?.value) {
+            is LeftArrowToken -> {
+                val pattern = exprToDecPattern(expr, parser, INVALID_PARAMETER_ERROR)
+                val actualPattern = if (pattern.value is DecTuplePattern) pattern.value.values else listOf(pattern)
+                val (fromExpr, afterExpr) = handleExpression(parser.pop(), parser)
+                val actualAfterExpr = when (afterExpr?.value) {
+                    is CommaToken, is SemicolonToken -> parser.pop()
+                    else -> afterExpr
+                }
+                val (scope, _) = handleScope(actualAfterExpr, parser, expr.area.start, false)
+                val area = expr.area.start..scope.area.end
+                val statement = BinaryOpsExpr(
+                    listOf(fromExpr to (SymbolOp(">>=") on next.area)),
+                    LambdaExpr(actualPattern, scope) on area
+                ) on area
+                if (returnBracket) ScopeExpr(statements + statement) on start..scope.area.end to token
+                else ScopeExpr(statements + statement) on start..scope.area.end to parser.pop()
             }
-            val (scope, _) = handleScope(actualAfterExpr, parser, expr.area.start, false)
-            val area = expr.area.start..scope.area.end
-            val statement = BinaryOpsExpr(
-                listOf(fromExpr to (SymbolOp(">>=") on next.area)),
-                LambdaExpr(actualPattern, scope) on area
-            ) on area
-            if (returnBracket) ScopeExpr(statements + statement) on start..scope.area.end to token
-            else ScopeExpr(statements + statement) on start..scope.area.end to parser.pop()
-        } else {
-            val actualNext = when (next?.value) {
-                is CommaToken, is SemicolonToken -> parser.pop()
-                else -> next
+            is EqualsToken -> if (expr.value is CallExpr) {
+                if (expr.value.expr.value !is PathExpr) parser.error(INVALID_FUNCTION_NAME, expr.value.expr.area)
+                if (expr.value.expr.value.parts.size == 1) parser.error(INVALID_FUNCTION_NAME, expr.value.expr.area)
+                val name = expr.value.expr.value.parts.first()
+                val (funExpr, next1) = handleExpression(parser.pop(), parser)
+                val actualNext = when (next1?.value) {
+                    is CommaToken, is SemicolonToken -> parser.pop()
+                    else -> next
+                }
+                handleScope(
+                    actualNext, parser, start, returnBracket,
+                    statements + (
+                            FunctionAssignment(name, expr.value.params, funExpr, false) on
+                                    expr.area.start..funExpr.area.end)
+                )
+            } else {
+                val pattern = exprToDecPattern(expr, parser, INVALID_DESTRUCTURED_DECLARATION_ERROR)
+                val (valueExpr, next1) = handleExpression(parser.pop(), parser)
+                val actualNext = when (next1?.value) {
+                    is CommaToken, is SemicolonToken -> parser.pop()
+                    else -> next
+                }
+                handleScope(
+                    actualNext, parser, start, returnBracket,
+                    statements + (ConstAssignment(pattern, valueExpr, false) on expr.area.start..valueExpr.area.end)
+                )
             }
-            handleScope(actualNext, parser, start, returnBracket, statements + expr)
+            else -> {
+                val actualNext = when (next?.value) {
+                    is CommaToken, is SemicolonToken -> parser.pop()
+                    else -> next
+                }
+                handleScope(actualNext, parser, start, returnBracket, statements + expr)
+            }
         }
     }
 }
@@ -198,26 +226,39 @@ fun handleExpressionPart(
             }
             BinaryOpsExpr(parts.dropLast(1), parts.last().first) on token.area to parser.pop()
         }
-        is MutToken -> {
+        MUT_TOKEN -> {
             val next = parser.pop()
             if (next?.value is OpenSquareBracketToken)
                 handleList(parser.pop(), parser, next.area.start, true, emptyList(), emptyList())
             else handleIdentifiers("mut" on token.area, parser)
         }
-        is ObjectToken -> {
-            val next = parser.pop()
-            if (next?.value is OpenArrayBracketToken)
-                handleArray(parser.pop(), parser, next.area.start, true, emptyList(), emptyList())
-            else handleIdentifiers("object" on token.area, parser)
-        }
         is IdentifierToken -> handleIdentifiers(value.name on token.area, parser)
         is OpenParenToken -> handleParenthesizedExpr(parser.pop(), parser, token.area.start)
         is OpenSquareBracketToken -> handleList(parser.pop(), parser, token.area.start, false, emptyList(), emptyList())
-        is OpenArrayBracketToken -> handleArray(parser.pop(), parser, token.area.start, false, emptyList(), emptyList())
+        is OpenArrayBracketToken -> handleArray(parser.pop(), parser, token.area.start, emptyList(), emptyList())
         is OpenCurlyBracketToken -> handleScope(parser.pop(), parser, token.area.start, false)
         is PrefixOperatorToken -> {
             val (expr, next) = handleExpressionPart(parser.pop(), parser, ignoreBreak, inScope, excludeCurly)
             PrefixOpExpr(value.symbol on token.area, expr) on token.area.start..expr.area.end to next
+        }
+        is WhenToken -> {
+            val next = parser.pop()
+            if (next?.value is OpenCurlyBracketToken) handleWhen(
+                parser.pop(), parser, PathExpr(listOf("True" on next.area)) on next.area,
+                token.area.start, emptyList()
+            ) else {
+                val (comparing, bracket) = handleExpression(next, parser, excludeCurly = true)
+                if (bracket?.value is OpenCurlyBracketToken) handleWhen(
+                    parser.pop(), parser, comparing, token.area.start, emptyList()
+                ) else parser.error(MISSING_CURLY_BRACKET_AFTER_WHEN_ERROR, bracket?.area?.start ?: parser.lastPos)
+            }
+        }
+        is LetToken -> {
+            val (pattern, equals) = handleExpression(parser.pop(), parser, ignoreBreak, excludeCurly = excludeCurly)
+            if (equals?.value is EqualsToken) {
+                val (expr, next) = handleExpression(parser.pop(), parser, ignoreBreak, excludeCurly = excludeCurly)
+                DecExpr(pattern, expr) on token.area.start..expr.area.end to next
+            } else DecExpr(pattern, null) on token.area.start..pattern.area.end to equals
         }
         else -> parser.error(INVALID_EXPRESSION_ERROR, token?.area ?: parser.lastArea)
     }
@@ -303,13 +344,67 @@ tailrec fun handleInterpolation(
         }
         handleInterpolation(actualNext, parser, area, statements + import)
     }
-    else -> {
-        val (expr, next) = handleExpression(token, parser)
+    is LetToken -> {
+        val (declaration, next) = handleDeclaration(parser.pop(), parser, token.area.start)
         val actualNext = when (next?.value) {
             is CommaToken, is SemicolonToken -> parser.pop()
             else -> next
         }
-        handleInterpolation(actualNext, parser, area, statements + expr)
+        handleInterpolation(actualNext, parser, area, statements + declaration)
+    }
+    else -> {
+        val (expr, next) = handleExpression(token, parser)
+        when (next?.value) {
+            is LeftArrowToken -> {
+                val pattern = exprToDecPattern(expr, parser, INVALID_PARAMETER_ERROR)
+                val actualPattern = if (pattern.value is DecTuplePattern) pattern.value.values else listOf(pattern)
+                val (fromExpr, afterExpr) = handleExpression(parser.pop(), parser)
+                val actualAfterExpr = when (afterExpr?.value) {
+                    is CommaToken, is SemicolonToken -> parser.pop()
+                    else -> afterExpr
+                }
+                val (scope, _) = handleScope(actualAfterExpr, parser, expr.area.start, false)
+                val lambdaArea = expr.area.start..scope.area.end
+                val statement = BinaryOpsExpr(
+                    listOf(fromExpr to (SymbolOp(">>=") on next.area)),
+                    LambdaExpr(actualPattern, scope) on lambdaArea
+                ) on lambdaArea
+                ScopeExpr(statements + statement) on area
+            }
+            is EqualsToken -> if (expr.value is CallExpr) {
+                if (expr.value.expr.value !is PathExpr) parser.error(INVALID_FUNCTION_NAME, expr.value.expr.area)
+                if (expr.value.expr.value.parts.size == 1) parser.error(INVALID_FUNCTION_NAME, expr.value.expr.area)
+                val name = expr.value.expr.value.parts.first()
+                val (funExpr, next1) = handleExpression(parser.pop(), parser)
+                val actualNext = when (next1?.value) {
+                    is CommaToken, is SemicolonToken -> parser.pop()
+                    else -> next
+                }
+                handleInterpolation(
+                    actualNext, parser, area, statements + (
+                            FunctionAssignment(name, expr.value.params, funExpr, false) on
+                                    expr.area.start..funExpr.area.end)
+                )
+            } else {
+                val pattern = exprToDecPattern(expr, parser, INVALID_DESTRUCTURED_DECLARATION_ERROR)
+                val (valueExpr, next1) = handleExpression(parser.pop(), parser)
+                val actualNext = when (next1?.value) {
+                    is CommaToken, is SemicolonToken -> parser.pop()
+                    else -> next
+                }
+                handleInterpolation(
+                    actualNext, parser, area,
+                    statements + (ConstAssignment(pattern, valueExpr, false) on expr.area.start..valueExpr.area.end)
+                )
+            }
+            else -> {
+                val actualNext = when (next?.value) {
+                    is CommaToken, is SemicolonToken -> parser.pop()
+                    else -> next
+                }
+                handleInterpolation(actualNext, parser, area, statements + expr)
+            }
+        }
     }
 }
 
@@ -317,26 +412,15 @@ tailrec fun handleIdentifiers(
     token: PString,
     parser: Parser,
     path: List<PString> = emptyList()
-): Pair<PExpression, PToken?> {
+): Pair<Positioned<PathExpr>, PToken?> {
     val symbol = parser.pop()
-    return when (symbol?.value) {
-        is DotToken -> {
-            val (name, pos) = parser.pop() ?: parser.error(INVALID_PATH_ERROR, parser.lastPos)
-            handleIdentifiers(
-                (name as? IdentifierToken ?: parser.error(INVALID_PATH_ERROR, parser.lastPos)).name on pos,
-                parser, path + token
-            )
-        }
-        is EqualToToken -> {
-            val (expr, next) = handleExpression(parser.pop(), parser)
-            CallExpr(
-                PathExpr(path + token.map { "set${it.capitalize()}" }) on
-                        (path.firstOrNull() ?: token).area.start..token.area.end,
-                listOf(expr)
-            ) on token.area.start..expr.area.end to next
-        }
-        else -> PathExpr(path + token) on (path.firstOrNull() ?: token).area.start..token.area.end to parser.pop()
-    }
+    return if (symbol?.value is DotToken) {
+        val (name, pos) = parser.pop() ?: parser.error(INVALID_PATH_ERROR, parser.lastPos)
+        handleIdentifiers(
+            (name as? IdentifierToken ?: parser.error(INVALID_PATH_ERROR, parser.lastPos)).name on pos,
+            parser, path + token
+        )
+    } else PathExpr(path + token) on (path.firstOrNull() ?: token).area.start..token.area.end to parser.pop()
 }
 
 tailrec fun handleParenthesizedExpr(
@@ -378,10 +462,8 @@ else {
     when (symbol?.value) {
         is ClosedSquareBracketToken ->
             ListExpr(
-                if (sections.isEmpty()) newExpressions else sections + (ListExpr(
-                    newExpressions,
-                    mutable
-                ) on lastStart..symbol.area.end), mutable
+                if (sections.isEmpty()) newExpressions else sections + (ListExpr(newExpressions, mutable) on
+                        lastStart..symbol.area.end), mutable
             ) on start..symbol.area.end to parser.pop()
         is CommaToken -> handleList(parser.pop(), parser, start, mutable, expressions + expr, sections, lastStart)
         else -> parser.error(UNCLOSED_SQUARE_BRACKET_ERROR, symbol?.area ?: parser.lastArea)
@@ -392,16 +474,13 @@ fun handleArray(
     token: PToken?,
     parser: Parser,
     start: StringPos,
-    obj: Boolean,
     expressions: List<PExpression>,
     sections: List<Positioned<ArrayExpr>>,
     lastStart: StringPos = start
 ): Pair<PExpression, PToken?> = if (token?.value is ClosedArrayBracketToken)
     ArrayExpr(
-        if (sections.isEmpty()) expressions else sections + (ArrayExpr(
-            expressions,
-            obj
-        ) on lastStart..token.area.end), obj
+        if (sections.isEmpty()) expressions else sections + (ArrayExpr(expressions) on
+                lastStart..token.area.end)
     ) on start..token.area.end to parser.pop()
 else {
     val (expr, symbol) = handleExpression(token, parser, true)
@@ -410,12 +489,27 @@ else {
         is ClosedArrayBracketToken ->
             ArrayExpr(
                 if (sections.isEmpty()) newExpressions else sections + (ArrayExpr(
-                    newExpressions,
-                    obj
-                ) on lastStart..symbol.area.end), obj
-            ) on
-                    start..symbol.area.end to parser.pop()
-        is CommaToken -> handleArray(parser.pop(), parser, start, obj, expressions + expr, sections, lastStart)
+                    newExpressions
+                ) on lastStart..symbol.area.end)
+            ) on start..symbol.area.end to parser.pop()
+        is CommaToken -> handleArray(parser.pop(), parser, start, expressions + expr, sections, lastStart)
         else -> parser.error(UNCLOSED_SQUARE_BRACKET_ERROR, symbol?.area ?: parser.lastArea)
     }
+}
+
+tailrec fun handleWhen(
+    token: PToken?,
+    parser: Parser,
+    comparing: PExpression,
+    start: StringPos,
+    branches: List<Pair<PExpression, PExpression>>
+): Pair<PExpression, PToken?> = if (token?.value is ClosedCurlyBracketToken)
+    WhenExpr(comparing, branches) on start..token.area.end to parser.pop()
+else {
+    val (pattern, arrow) = handleExpression(token, parser)
+    if (arrow?.value !is RightArrowToken) parser.error(MISSING_ARROW_ERROR, arrow?.area ?: parser.lastArea)
+    val (result, next) = handleExpression(parser.pop(), parser)
+    if (next?.value is SeparatorToken)
+        handleWhen(parser.pop(), parser, comparing, start, branches + (pattern to result))
+    else handleWhen(next, parser, comparing, start, branches + (pattern to result))
 }

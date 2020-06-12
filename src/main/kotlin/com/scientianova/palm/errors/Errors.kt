@@ -52,7 +52,7 @@ Valid escape characters are:
   \r - carriage return
   \f - form feed
   \v - vertical tab
-  \u<code> - character with with a given unicode code
+  \u{code} - character with with a given unicode code
     """.trimIndent()
 )
 
@@ -90,30 +90,6 @@ val UNCLOSED_MULTILINE_STRING = PalmError(
     "Closed it off using triple double quotes (\"\"\")."
 )
 
-val MISSING_BACKTICK_ERROR = PalmError(
-    "MISSING BACKTICK",
-    "I went to the end of this line and couldn't find the end of a backticked identifier name:",
-    "Add a ` here."
-)
-
-val UNKNOWN_UNARY_OPERATOR_ERROR = PalmError(
-    "UNKNOWN UNARY OPERATOR",
-    "I found a symbol that I don't recognize as a unary operator:",
-    "If it's supposed to be a binary operator, make sure there's equal space between the operator and both operands."
-)
-
-val UNKNOWN_BINARY_OPERATOR_ERROR = PalmError(
-    "UNKNOWN BINARY OPERATOR",
-    "I found a symbol that I don't recognize as a binary operator:",
-    "If it's supposed to be a unary operator, make sure there's no space between it and the operand."
-)
-
-val INVALID_INTERPOLATION_ERROR = PalmError(
-    "INVALID INTERPOLATION",
-    "I was expecting a curly bracket here to end the string interpolation, but instead got:",
-    "Add a } here."
-)
-
 val UNCLOSED_PARENTHESIS_ERROR = PalmError(
     "UNCLOSED PARENTHESIS",
     "I was expecting a closed parenthesis here, but instead got:",
@@ -126,23 +102,6 @@ val UNCLOSED_SQUARE_BRACKET_ERROR = PalmError(
     "Add a ] here."
 )
 
-val MISSING_ELSE_BRANCH = PalmError(
-    "UNCLOSED SQUARE BRACKET",
-    "I was expecting a closed square bracket here, but instead got:",
-    "Add a ] here."
-)
-
-val MISSING_COLON_IN_TERNARY_ERROR = PalmError(
-    "MISSING COLON",
-    "I was going through a ternary expression and was expecting a colon next, but instead got:",
-    "Add a : here."
-)
-
-val MISSING_COLON_IN_MAP_ERROR = PalmError(
-    "MISSING COLON",
-    "I was going through a map and was expecting a colon next, but instead got:",
-    "Add a : here."
-)
 
 val INVALID_EXPRESSION_ERROR = PalmError(
     "INVALID EXPRESSION",
@@ -180,122 +139,10 @@ val INVALID_HEX_LITERAL_ERROR = PalmError(
     "Hexidecimal number literals can only contain the digits 0-9, a-f and A-F."
 )
 
-val MISSING_EXPRESSION_ERROR = PalmError(
-    "MISSING EXPRESSION",
-    "I was expecting an expression, but couldn't find one",
-    ""
-)
-
 val MISSING_CURLY_BRACKET_AFTER_WHEN_ERROR = PalmError(
     "MISSING CURLY BRACKET",
     "I was saw a when and was expecting an open curly bracket next, but instead got:",
     "Add an { here"
-)
-
-val MISSING_CURLY_BRACKET_AFTER_WHERE_ERROR = PalmError(
-    "MISSING CURLY BRACKET",
-    "I was saw a where and was expecting an open curly bracket next, but instead got:",
-    "Add an { here"
-)
-
-val INVALID_PROPERTY_NAME_ERROR = PalmError(
-    "INVALID PROPERTY NAME",
-    "I was expecting the name of a property next, but instead got:",
-    "Property names have to start with a letter and can contain digits and underscores."
-)
-
-val INVALID_VARIABLE_NAME_IN_LIST_COMPREHENSION_ERROR = PalmError(
-    "INVALID VARIABLE NAME",
-    "I was going through list comprehension and was expecting a variable name next, but instead got:",
-    "Variable names have to start with a letter and can contain digits and underscores."
-)
-
-val INVALID_VARIABLE_NAME_IN_MAP_COMPREHENSION_ERROR = PalmError(
-    "INVALID VARIABLE NAME",
-    "I was going through dict comprehension and was expecting a variable name next, but instead got:",
-    "Variable names have to start with a letter and can contain digits and underscores."
-)
-
-val MISSING_IN_IN_LIST_ERROR = PalmError(
-    "MISSING IN",
-    "I was going through list comprehension and was expecting in next, but instead got:",
-    "Add 'in' here."
-)
-
-val MISSING_IN_IN_MAP_ERROR = PalmError(
-    "MISSING IN",
-    "I was going through map comprehension and was expecting in next, but instead got:",
-    "Add 'in' here."
-)
-
-val UNCLOSED_OBJECT_ERROR = PalmError(
-    "UNCLOSED OBJECT",
-    "I was at he end of an object and was expecting a closed curly bracket next, but instead got:",
-    "Add a } here."
-)
-
-val INVALID_KEY_NAME_ERROR = PalmError(
-    "INVALID KEY NAME",
-    "I was expecting the name of an object key, but instead got:",
-    """
-Raw key names have to start with a letter and can contain digits and underscores. 
-
-Note: If you want to use additional characters, you need to surround it with double ticks.
-""".trimIndent()
-)
-
-val MISSING_COLON_OR_EQUALS_IN_OBJECT_ERROR = PalmError(
-    "MISSING COLON OR EQUALS",
-    "I was going through an object and was expecting either and equals sign or a colon next, but instead got:",
-    "Add a = or : here."
-)
-
-val MISSING_COLON_OR_EQUALS_IN_WHERE_ERROR = PalmError(
-    "MISSING COLON OR EQUALS",
-    "I was going through a where expression and was expecting either and equals sign or a colon next, but instead got:",
-    "Add a = or : here."
-)
-
-val INVALID_VARIABLE_NAME_IN_WHERE_ERROR = PalmError(
-    "INVALID VARIABLE NAME",
-    "I was going through a where expression and was expecting a variable name next, but instead got:",
-    "Variable names have to start with a letter and can contain digits and underscores."
-)
-
-val INVALID_VARIABLE_NAME_IN_WALRUS_ERROR = PalmError(
-    "INVALID VARIABLE NAME",
-    "I saw a walrus operator and was expecting a variable name before it, but I instead got:",
-    "Variable names have to start with a letter and can contain digits and underscores."
-)
-
-val INVALID_VARIABLE_NAME_IN_YIELD_ERROR = PalmError(
-    "INVALID VARIABLE NAME",
-    "I saw going through a yield expression and was expecting a variable name next, but instead got:",
-    "Variable names have to start with a letter and can contain digits and underscores."
-)
-
-val MISSING_WALRUS_IN_YIELD_ERROR = PalmError(
-    "MISSING WALRUS OPERATOR",
-    "I was going through a yield expression and was expecting the walrus operator next, but instead got:",
-    "Adding := here"
-)
-
-val MISSING_FOR_IN_YIELD_ERROR = PalmError(
-    "MISSING FOR",
-    "I was going through a yield expression and was expecting for next, but instead got:",
-    "Adding for here"
-)
-
-val MISSING_IN_IN_YIELD_ERROR = PalmError(
-    "MISSING IN",
-    "I was going through a yield expression and was expecting in next, but instead got:",
-    "Adding for here"
-)
-
-val UNCLOSED_WHERE_ERROR = PalmError(
-    "UNCLOSED WHERE",
-    "I was at he end of a where expression and was expecting a closed curly bracket next, but instead got:",
-    "Add a } here."
 )
 
 val MISSING_ARROW_ERROR = PalmError(
@@ -304,28 +151,16 @@ val MISSING_ARROW_ERROR = PalmError(
     "Add an -> here."
 )
 
-val UNCLOSED_WHEN_ERROR = PalmError(
-    "UNCLOSED WHEN",
-    "I was at he end of a when expression and was expecting a closed curly bracket next, but instead got:",
-    "Add a } here."
-)
-
 val INVALID_TYPE_NAME_ERROR = PalmError(
     "INVALID TYPE NAME",
     "I was expecting the name of a type, but instead got:",
     "Type names have to start with a letter and can contain digits and underscores. The path of the type is separated via double colons."
 )
 
-val INVALID_EMPTY_MAP_ERROR = PalmError(
-    "INVALID EMPTY MAP",
-    "I thought I was going through an empty map literal, but instead of a closed square  bracket, I got:",
-    "Add a ] here."
-)
-
 val INVALID_PATH_ERROR = PalmError(
     "INVALID PATH",
-    "I thought I was going through imports and couldn't find anything at this point of the path:",
-    ""
+    "I thought I was going through a path and found:",
+    "Paths can only contain identifiers separated with dots."
 )
 
 val INVALID_ALIAS_ERROR = PalmError(
@@ -334,28 +169,10 @@ val INVALID_ALIAS_ERROR = PalmError(
     "Aliases have to start with a letter and can contain digits and underscores."
 )
 
-val UNCLOSED_SCOPE_ERROR = PalmError(
-    "UNCLOSED SCOPE",
-    "I was expecting a closed curly bracket, but didn't get anything.",
-    "Put a } here."
-)
-
-val MISSING_IDENTIFIER_AFTER_NOT_ERROR = PalmError(
-    "MISSING IDENTIFIER",
-    "I saw a ! and was expecting an identifier next, but instead got:",
-    "You can only put function names, in or is after a !, when using it for negating operators."
-)
-
 val INVALID_PARAMETER_ERROR = PalmError(
     "INVALID PARAMETER",
     "I was going through the parameters of a function and found:",
     "You can only use names, wildcard or tuples holding them as parameters."
-)
-
-val INVALID_DECLARATION_ERROR = PalmError(
-    "INVALID DECLARATION",
-    "I was going through a declaration and found:",
-    "You can only use names, wildcard or tuples when declaring variables."
 )
 
 val INVALID_IMPORT_ERROR = PalmError(
@@ -368,4 +185,100 @@ val UNCLOSED_IMPORT_GROUP_ERROR = PalmError(
     "UNCLOSED IMPORT GROUP",
     "I was going through an import group and instead of a closed curly bracket found:",
     "Put a } here."
+)
+
+val MISSING_EQUALS_ERROR = PalmError(
+    "MISSING EQUALS",
+    "I was going through an assignment and was expecting an equals sign, but instead got:",
+    "Put a = here."
+)
+
+val EMPTY_RECORD_ERROR = PalmError(
+    "EMPTY RECORD",
+    "I was going through a record declaration and saw it was amply:",
+    "Records have to have at least one property."
+)
+
+val INVALID_PROPERTY_NAME_ERROR = PalmError(
+    "INVALID PROPERTY NAME",
+    "I was going through a record declaration and found an invalid property name:",
+    "Properties have to start with a letter and can contain digits and underscores.."
+)
+
+val MISSING_COLON_IN_PROPERTY_ERROR = PalmError(
+    "MISSING COLON",
+    "I was going through a record property and was expecting a colon next, but instead got:",
+    "Add a : here."
+)
+
+val MISSING_PAREN_AFTER_RECORD_ERROR = PalmError(
+    "MISSING PARENTHESES",
+    "I was going through a record declaration and was expecting an open parenthesis, but instead got:",
+    "Add an ( here."
+)
+
+val MISSING_BRACKET_AFTER_ENUM_ERROR = PalmError(
+    "MISSING CURLY BRACKET",
+    "I was going through an enum declaration and was expecting an open curly bracket, but instead got:",
+    "Put an { here."
+)
+
+val INVALID_ENUM_CASE_NAME_ERROR = PalmError(
+    "INVALID ENUM CASE NAME",
+    "I was going through an enum case and found an invalid case name name:",
+    "Enum case names have to start with a letter and can contain digits and underscores."
+)
+
+val UNCLOSED_ENUM_ERROR = PalmError(
+    "UNCLOSED ENUM",
+    "I was going through an enum declaration and was expecting a closed curly bracket, but instead got:",
+    "Add a } here."
+)
+
+val INVALID_GENERIC_VARIABLE_ERROR = PalmError(
+    "INVALID GENERIC VARIABLE",
+    "I was going through a generic pool and found:",
+    "Generic variables have to start with a lowercase letter and can contain digits and underscores."
+)
+
+val INVALID_FIXITY_ERROR = PalmError(
+    "INVALID FIXITY",
+    "I was expecting an operator fixity, but got:",
+    "Operators can only be prefix, postfix or infix."
+)
+
+val INVALID_PRECEDENCE = PalmError(
+    "INVALID PRECEDENCE",
+    "I was going through an infix operator declaration and found a precedence value that was out of bounds:",
+    "An operator's precedence has to be a value between 0 and 15, both inclusive."
+)
+
+val INVALID_DESTRUCTURED_DECLARATION_ERROR = PalmError(
+    "INVALID DESTRUCTURED DECLARATION",
+    "I was going through a destructured declaration and got:",
+    "A destructured declaration can only contain identifiers, wildcards or tuples of them."
+)
+
+val UNKNOWNN_DECLARATION_ERROR = PalmError(
+    "UNKNOWN DECLARATION",
+    "I was expecting a declaration, but what I found didn't match any of the possible ones:",
+    ""
+)
+
+val INVALID_FUNCTION_NAME = PalmError(
+    "INVALID FUNCTION NAME",
+    "I was going through a function declaration and got:",
+    "Function names have to start with a lowercase letter and can contain digits and underscores."
+)
+
+val MISSING_BRACKET_AFTER_CLASS_ERROR = PalmError(
+    "MISSING CURLY BRACKET",
+    "I was going through a type class declaration and was expecting an open curly bracket, but instead got:",
+    "Put an { here."
+)
+
+val MISSING_BRACKET_AFTER_IMPL_ERROR = PalmError(
+    "MISSING CURLY BRACKET",
+    "I was going through a type class implementation and was expecting an open curly bracket, but instead got:",
+    "Put an { here."
 )

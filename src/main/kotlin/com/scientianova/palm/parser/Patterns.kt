@@ -3,36 +3,15 @@ package com.scientianova.palm.parser
 import com.scientianova.palm.errors.PalmError
 import com.scientianova.palm.errors.UNCLOSED_PARENTHESIS_ERROR
 import com.scientianova.palm.tokenizer.*
-import com.scientianova.palm.util.PString
 import com.scientianova.palm.util.Positioned
 import com.scientianova.palm.util.StringPos
 import com.scientianova.palm.util.on
-
-sealed class Pattern
-typealias PPattern = Positioned<Pattern>
-
-object WildcardPattern : Pattern()
-object UnitPattern : Pattern()
-
-data class TuplePattern(
-    val components: List<PPattern>
-) : Pattern()
-
-data class ExpressionPattern(
-    val expr: Expression
-) : Pattern()
-
-data class DeclarationPattern(
-    val name: PString,
-    val type: PType?,
-    val mutable: Boolean
-) : Pattern()
 
 sealed class DecPattern
 typealias PDecPattern = Positioned<DecPattern>
 
 object DecWildcardPattern : DecPattern()
-data class DecNamePattern(val name: String, val mutable: Boolean) : DecPattern()
+data class DecNamePattern(val name: String) : DecPattern()
 data class DecTuplePattern(val values: List<PDecPattern>) : DecPattern()
 
 fun handleDeclarationPattern(
@@ -41,13 +20,7 @@ fun handleDeclarationPattern(
     error: PalmError
 ): Pair<PDecPattern, PToken?> = when (val value = token?.value) {
     is WildcardToken -> DecWildcardPattern on token.area to parser.pop()
-    is MutToken -> {
-        val next = parser.pop()
-        if (next != null && next.value is IdentifierToken)
-            DecNamePattern(next.value.name, true) on next.area to parser.pop()
-        else DecNamePattern("mut", false) on token.area to next
-    }
-    is IdentifierToken -> DecNamePattern(value.name, false) on token.area to parser.pop()
+    is IdentifierToken -> DecNamePattern(value.name) on token.area to parser.pop()
     is OpenParenToken -> handleTupleDecPattern(parser.pop(), parser, error, token.area.start, emptyList())
     else -> parser.error(error, token?.area ?: parser.lastArea)
 }
@@ -74,10 +47,16 @@ tailrec fun handleTupleDecPattern(
 }
 
 fun exprToDecPattern(expr: PExpression, parser: Parser, error: PalmError): PDecPattern = when (val value = expr.value) {
-    is WildcardExpr, is UnitExpr -> DecWildcardPattern on expr.area
+    is WildcardExpr -> DecWildcardPattern on expr.area
     is PathExpr ->
-        if (value.parts.size == 1) DecNamePattern(value.parts.first().value, false) on expr.area
+        if (value.parts.size == 1) DecNamePattern(value.parts.first().value) on expr.area
         else parser.error(error, expr.area)
     is TupleExpr -> DecTuplePattern(value.components.map { exprToDecPattern(it, parser, error) }) on expr.area
     else -> parser.error(error, expr.area)
+}
+
+fun getNamesInPattern(pattern: DecPattern): List<String> = when (pattern) {
+    is DecNamePattern -> listOf(pattern.name)
+    is DecWildcardPattern -> emptyList()
+    is DecTuplePattern -> pattern.values.flatMap { getNamesInPattern(it.value) }
 }

@@ -32,13 +32,6 @@ data class ImplicitFunctionType(
 
 object UnitType : Type()
 
-sealed class TypeReq
-typealias PTypeReq = Positioned<TypeReq>
-
-data class SuperTypeReq(val type: PString, val superType: PType)
-data class SubTypeReq(val type: PString, val subType: PType)
-data class TypeClassReq(val typeClass: PType)
-
 fun handleType(token: PToken?, parser: Parser): Pair<PType, PToken?> = when (val value = token?.value) {
     is IdentifierToken -> {
         val (type, next) = handleRegularType(parser.pop(), parser, listOf(value.name on token.area))

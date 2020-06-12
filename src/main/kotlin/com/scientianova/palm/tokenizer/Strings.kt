@@ -9,10 +9,6 @@ import com.scientianova.palm.util.StringPos
 import com.scientianova.palm.util.on
 import java.util.*
 
-sealed class StringToken : IToken
-data class PureStringToken(val text: String) : StringToken()
-data class StringTemplateToken(val parts: List<PStringTokenPart>) : StringToken()
-
 sealed class StringTokenPart
 typealias PStringTokenPart = Positioned<StringTokenPart>
 
@@ -32,7 +28,7 @@ tailrec fun handleSingleLineString(
     parts: List<PStringTokenPart>,
     builder: StringBuilder,
     lastStart: StringPos = startPos
-): Pair<Positioned<StringToken>, Char?> = when (char) {
+): Pair<PToken, Char?> = when (char) {
     null, '\n' -> traverser.error(MISSING_DOUBLE_QUOTE_ERROR, traverser.lastPos)
     '"' ->
         (if (parts.isEmpty()) PureStringToken(builder.toString())
@@ -42,8 +38,10 @@ tailrec fun handleSingleLineString(
         val next = traverser.pop()
         val interStart = traverser.lastPos
         when {
-            next?.isJavaIdentifierStart() == true && next.isLowerCase() -> {
-                val (identifier, newNext) = handleIdentifier(traverser, next, list, traverser.lastPos, StringBuilder())
+            next?.isJavaIdentifierStart() == true -> {
+                val (identifier, newNext) = handleIdentifier(
+                    traverser, next, next.isUpperCase(), list, traverser.lastPos, StringBuilder()
+                )
                 handleSingleLineString(
                     traverser, newNext, startPos, list,
                     parts + (StringPart(builder) on startPos..interStart) + (TokensPart(identifier) on interStart..traverser.lastPos),
@@ -98,7 +96,9 @@ tailrec fun handleMultiLineString(
         val interStart = traverser.lastPos
         when {
             next?.isJavaIdentifierStart() == true && next.isLowerCase() -> {
-                val (identifier, newNext) = handleIdentifier(traverser, next, list, traverser.lastPos, StringBuilder())
+                val (identifier, newNext) = handleIdentifier(
+                    traverser, next, next.isUpperCase(), list, traverser.lastPos, StringBuilder()
+                )
                 handleMultiLineString(
                     traverser, newNext, startPos, list,
                     parts + (StringPart(builder) on startPos..interStart) + (TokensPart(identifier) on interStart..traverser.lastPos),
@@ -131,7 +131,9 @@ tailrec fun handleInterpolation(
     char == '}' -> Unit
     char.isWhitespace() -> handleInterpolation(traverser, traverser.pop(), list, startPos)
     char.isJavaIdentifierStart() -> {
-        val (identifier, next) = handleIdentifier(traverser, char, list, traverser.lastPos, StringBuilder())
+        val (identifier, next) = handleIdentifier(
+            traverser, char, char.isLowerCase(), list, traverser.lastPos, StringBuilder()
+        )
         list.offer(identifier)
         handleInterpolation(traverser, next, list, startPos)
     }

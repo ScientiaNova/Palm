@@ -26,19 +26,19 @@ fun handleImportStart(
     token: PToken?,
     parser: Parser,
     start: StringPos
-): Pair<List<PImportStmt>, PToken?> = when (val value = token?.value) {
+): Pair<List<PImportStmt>, PToken?> = when (token?.value) {
     is IdentifierToken -> handleImport(token, parser, start, emptyList())
-    is JavaToken -> {
+    JAVA_TOKEN -> {
         val next = parser.pop()
         when (next?.value) {
             is IdentifierToken -> handleJavaImport(next, parser, start, emptyList(), false)
-            is VirtualToken -> handleJavaImport(parser.pop(), parser, start, emptyList(), true)
+            VIRTUAL_TOKEN -> handleJavaImport(parser.pop(), parser, start, emptyList(), true)
             is DotToken -> handleImport(parser.pop(), parser, start, listOf("java" on token.area))
-            is AsToken -> {
+            AS_TOKEN -> {
                 val (alias, area) = parser.pop() ?: parser.error(INVALID_ALIAS_ERROR, parser.lastPos)
                 listOf(
                     RegularImport(
-                        PathExpr(listOf(value.name on token.area)),
+                        PathExpr(listOf("as" on token.area)),
                         (alias as? IdentifierToken ?: parser.error(INVALID_ALIAS_ERROR, area)).name on area
                     ) on start..area.end
                 ) to parser.pop()
@@ -65,7 +65,7 @@ tailrec fun handleImport(
         when (next?.value) {
             is DotToken -> handleImport(parser.pop(), parser, start, path + (value.name on token.area))
             is TripleDotToken -> listOf(ModuleImport(PathExpr(path)) on start..next.area.end) to parser.pop()
-            is AsToken -> {
+            AS_TOKEN -> {
                 val (alias, area) = parser.pop() ?: parser.error(INVALID_ALIAS_ERROR, parser.lastPos)
                 listOf(
                     RegularImport(
@@ -113,7 +113,7 @@ tailrec fun handleJavaImport(
         val next = parser.pop()
         when (next?.value) {
             is DotToken -> handleJavaImport(parser.pop(), parser, start, path + (value.name on token.area), virtual)
-            is AsToken -> {
+            AS_TOKEN -> {
                 val (alias, area) = parser.pop() ?: parser.error(INVALID_ALIAS_ERROR, parser.lastPos)
                 listOf(
                     (if (virtual)
@@ -127,12 +127,8 @@ tailrec fun handleJavaImport(
                 ) to parser.pop()
             }
             is OpenParenToken -> handleJavaImportParams(
-                parser.pop(),
-                parser,
-                start,
-                PathExpr(path + (value.name on token.area)),
-                virtual,
-                emptyList()
+                parser.pop(), parser, start, PathExpr(path + (value.name on token.area)),
+                virtual, emptyList()
             )
             else -> listOf(
                 (if (virtual)
@@ -155,7 +151,7 @@ tailrec fun handleJavaImportParams(
     params: List<PType>
 ): Pair<List<PImportStmt>, PToken?> = if (token?.value is ClosedParenToken) {
     val next = parser.pop()
-    if (next?.value is AsToken) {
+    if (next?.value == AS_TOKEN) {
         val (alias, area) = parser.pop() ?: parser.error(INVALID_ALIAS_ERROR, parser.lastPos)
         listOf(
             (if (virtual) JavaVirtualMethodImport(
@@ -173,7 +169,7 @@ tailrec fun handleJavaImportParams(
     when (symbol?.value) {
         is ClosedParenToken -> {
             val next = parser.pop()
-            if (next?.value is AsToken) {
+            if (next?.value == AS_TOKEN) {
                 val (alias, area) = parser.pop() ?: parser.error(INVALID_ALIAS_ERROR, parser.lastPos)
                 listOf(
                     (if (virtual) JavaVirtualMethodImport(

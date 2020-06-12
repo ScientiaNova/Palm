@@ -7,14 +7,6 @@ import com.scientianova.palm.errors.INVALID_HEX_LITERAL_ERROR
 import com.scientianova.palm.util.StringPos
 import com.scientianova.palm.util.on
 
-sealed class NumberToken : IToken
-data class ByteToken(val value: Byte) : NumberToken()
-data class ShortToken(val value: Short) : NumberToken()
-data class IntToken(val value: Int) : NumberToken()
-data class LongToken(val value: Long) : NumberToken()
-data class FloatToken(val value: Float) : NumberToken()
-data class DoubleToken(val value: Double) : NumberToken()
-
 tailrec fun handleNumber(
     traverser: StringTraverser,
     char: Char?,
@@ -47,7 +39,7 @@ tailrec fun handleNumber(
         convertIntString(builder) on startPos..traverser.lastPos.shift(-1) to char
 }
 
-fun convertIntString(builder: StringBuilder): NumberToken = when {
+fun convertIntString(builder: StringBuilder): Token = when {
     builder.length <= 10 -> IntToken(builder.toString().toInt())
     builder.length <= 19 -> LongToken(builder.toString().toLong())
     else -> DoubleToken(builder.toString().toDouble())

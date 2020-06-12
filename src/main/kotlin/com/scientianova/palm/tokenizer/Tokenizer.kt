@@ -18,7 +18,9 @@ tailrec fun tokenize(traverser: StringTraverser, char: Char?, list: TokenList): 
     char == null -> list
     char.isWhitespace() -> tokenize(traverser, traverser.pop(), list)
     char.isJavaIdentifierStart() -> {
-        val (identifier, next) = handleIdentifier(traverser, char, list, traverser.lastPos, StringBuilder())
+        val (identifier, next) = handleIdentifier(
+            traverser, char, char.isUpperCase(), list, traverser.lastPos, StringBuilder()
+        )
         list.offer(identifier)
         tokenize(traverser, next, list)
     }
@@ -49,10 +51,6 @@ fun handleToken(traverser: StringTraverser, char: Char, list: TokenList): Pair<P
         }
     }
     in '1'..'9' -> handleNumber(traverser, char, traverser.lastPos, StringBuilder())
-    '`' -> {
-        val startPos = traverser.lastPos
-        handleBacktickedIdentifier(traverser, traverser.pop(), startPos, StringBuilder())
-    }
     '.' ->
         if (traverser.peek()?.isDigit() == true) handleNumber(traverser, char, traverser.lastPos, StringBuilder())
         else handleMisc(traverser, char)
