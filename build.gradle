@@ -39,25 +39,3 @@ task srcJar (type: Jar) {
 artifacts {
     archives srcJar
 }
-
-publishing {
-    repositories {
-        maven {
-            url "file://" + System.getenv("local_maven")
-        }
-    }
-    publications {
-        mavenJava(MavenPublication) {
-            groupId project.group
-            artifactId project.archivesBaseName
-            version project.version
-            from components.java
-            artifacts = [jar, srcJar]
-            pom.withXml {
-                def node = asNode()
-                if(node.dependencies.size() > 0)
-                    node.remove(node.dependencies)
-            }
-        }
-    }
-}
