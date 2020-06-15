@@ -5,7 +5,7 @@ import com.scientianova.palm.errors.INVALID_DECIMAL_LITERAL_ERROR
 import com.scientianova.palm.errors.INVALID_EXPONENT_ERROR
 import com.scientianova.palm.errors.INVALID_HEX_LITERAL_ERROR
 import com.scientianova.palm.util.StringPos
-import com.scientianova.palm.util.on
+import com.scientianova.palm.util.at
 
 tailrec fun handleNumber(
     traverser: StringTraverser,
@@ -20,23 +20,23 @@ tailrec fun handleNumber(
     char == '.' ->
         if (traverser.peek()?.isDigit() == true)
             handleDecimalNumber(traverser, traverser.pop(), startPos, builder.append(char))
-        else convertIntString(builder) on startPos..traverser.lastPos.shift(-1) to char
+        else convertIntString(builder) at (startPos until traverser.lastPos) to char
     char == 'b' || char == 'B' ->
-        ByteToken(builder.toString().toByte()) on startPos..traverser.lastPos to traverser.pop()
+        ByteToken(builder.toString().toByte()) at startPos..traverser.lastPos to traverser.pop()
     char == 's' || char == 'S' ->
-        ShortToken(builder.toString().toShort()) on startPos..traverser.lastPos to traverser.pop()
+        ShortToken(builder.toString().toShort()) at startPos..traverser.lastPos to traverser.pop()
     char == 'i' || char == 'I' ->
-        IntToken(builder.toString().toInt()) on startPos..traverser.lastPos to traverser.pop()
+        IntToken(builder.toString().toInt()) at startPos..traverser.lastPos to traverser.pop()
     char == 'l' || char == 'L' ->
-        LongToken(builder.toString().toLong()) on startPos..traverser.lastPos to traverser.pop()
+        LongToken(builder.toString().toLong()) at startPos..traverser.lastPos to traverser.pop()
     char == 'f' || char == 'F' ->
-        FloatToken(builder.toString().toFloat()) on startPos..traverser.lastPos to traverser.pop()
+        FloatToken(builder.toString().toFloat()) at startPos..traverser.lastPos to traverser.pop()
     char == 'd' || char == 'D' ->
-        DoubleToken(builder.toString().toDouble()) on startPos..traverser.lastPos to traverser.pop()
+        DoubleToken(builder.toString().toDouble()) at startPos..traverser.lastPos to traverser.pop()
     char?.isLetter() == true ->
         traverser.error(INVALID_DECIMAL_LITERAL_ERROR, traverser.lastPos)
     else ->
-        convertIntString(builder) on startPos..traverser.lastPos.shift(-1) to char
+        convertIntString(builder) at (startPos until traverser.lastPos) to char
 }
 
 fun convertIntString(builder: StringBuilder): Token = when {
@@ -58,18 +58,18 @@ tailrec fun handleDecimalNumber(
             val symbol = traverser.pop()
             if (traverser.peek()?.isDigit() == true)
                 handleDecimalExponent(traverser, traverser.pop(), startPos, builder.append(symbol))
-            else traverser.error(INVALID_EXPONENT_ERROR, traverser.lastPos.shift(1))
+            else traverser.error(INVALID_EXPONENT_ERROR, traverser.lastPos + 1)
         }
         in '0'..'9' -> handleDecimalExponent(traverser, traverser.pop(), startPos, builder)
-        else -> traverser.error(INVALID_EXPONENT_ERROR, traverser.lastPos.shift(1))
+        else -> traverser.error(INVALID_EXPONENT_ERROR, traverser.lastPos + 1)
     }
     char == 'f' || char == 'F' ->
-        FloatToken(builder.toString().toFloat()) on startPos..traverser.lastPos to traverser.pop()
+        FloatToken(builder.toString().toFloat()) at startPos..traverser.lastPos to traverser.pop()
     char == 'd' || char == 'D' ->
-        DoubleToken(builder.toString().toDouble()) on startPos..traverser.lastPos to traverser.pop()
+        DoubleToken(builder.toString().toDouble()) at startPos..traverser.lastPos to traverser.pop()
     char?.isLetter() == true ->
         traverser.error(INVALID_DECIMAL_LITERAL_ERROR, traverser.lastPos)
-    else -> DoubleToken(builder.toString().toDouble()) on startPos..traverser.lastPos.shift(-1) to char
+    else -> DoubleToken(builder.toString().toDouble()) at (startPos until traverser.lastPos) to char
 }
 
 tailrec fun handleDecimalExponent(
@@ -81,7 +81,7 @@ tailrec fun handleDecimalExponent(
     char in '0'..'9' -> handleDecimalExponent(traverser, traverser.pop(), startPos, builder.append(char))
     char == '_' -> handleDecimalExponent(traverser, traverser.pop(), startPos, builder)
     char?.isLetter() == true -> traverser.error(INVALID_DECIMAL_LITERAL_ERROR, traverser.lastPos)
-    else -> DoubleToken(builder.toString().toDouble()) on startPos..traverser.lastPos.shift(-1) to char
+    else -> DoubleToken(builder.toString().toDouble()) at (startPos until traverser.lastPos) to char
 }
 
 tailrec fun handleBinaryNumber(
@@ -95,18 +95,18 @@ tailrec fun handleBinaryNumber(
     char == '_' ->
         handleBinaryNumber(traverser, traverser.pop(), startPos, builder)
     char == 'b' || char == 'B' ->
-        ByteToken(builder.toString().toByte(radix = 2)) on startPos..traverser.lastPos to traverser.pop()
+        ByteToken(builder.toString().toByte(radix = 2)) at startPos..traverser.lastPos to traverser.pop()
     char == 's' || char == 'S' ->
-        ShortToken(builder.toString().toShort(radix = 2)) on startPos..traverser.lastPos to traverser.pop()
+        ShortToken(builder.toString().toShort(radix = 2)) at startPos..traverser.lastPos to traverser.pop()
     char == 'i' || char == 'I' ->
-        IntToken(builder.toString().toInt(radix = 2)) on startPos..traverser.lastPos to traverser.pop()
+        IntToken(builder.toString().toInt(radix = 2)) at startPos..traverser.lastPos to traverser.pop()
     char == 'l' || char == 'L' ->
-        LongToken(builder.toString().toLong(radix = 2)) on startPos..traverser.lastPos to traverser.pop()
+        LongToken(builder.toString().toLong(radix = 2)) at startPos..traverser.lastPos to traverser.pop()
     char?.isLetter() == true ->
         traverser.error(INVALID_BINARY_LITERAL_ERROR, traverser.lastPos)
     else ->
         (if (builder.length <= 32) IntToken(builder.toString().toInt(radix = 2))
-        else LongToken(builder.toString().toLong(radix = 2))) on startPos..traverser.lastPos.shift(-1) to char
+        else LongToken(builder.toString().toLong(radix = 2))) at (startPos until traverser.lastPos) to char
 }
 
 tailrec fun handleHexNumber(
@@ -123,5 +123,5 @@ tailrec fun handleHexNumber(
         traverser.error(INVALID_HEX_LITERAL_ERROR, traverser.lastPos)
     else ->
         (if (builder.length <= 8) IntToken(builder.toString().toInt(radix = 16))
-        else LongToken(builder.toString().toLong(radix = 16))) on startPos..traverser.lastPos.shift(-1) to char
+        else LongToken(builder.toString().toLong(radix = 16))) at (startPos until traverser.lastPos) to char
 }

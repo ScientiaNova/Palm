@@ -1,7 +1,7 @@
 package com.scientianova.palm.tokenizer
 
 import com.scientianova.palm.util.StringPos
-import com.scientianova.palm.util.on
+import com.scientianova.palm.util.at
 
 tailrec fun handleIdentifier(
     traverser: StringTraverser,
@@ -13,4 +13,4 @@ tailrec fun handleIdentifier(
 ): Pair<PToken, Char?> =
     if (char?.isJavaIdentifierPart() == true)
         handleIdentifier(traverser, traverser.pop(), capitalized, list, startPos, builder.append(char))
-    else checkKeywords(builder.toString(), capitalized) on startPos..traverser.lastPos.shift(-1) to char
+    else checkKeywords(builder.toString(), capitalized) at (startPos until traverser.lastPos) to char

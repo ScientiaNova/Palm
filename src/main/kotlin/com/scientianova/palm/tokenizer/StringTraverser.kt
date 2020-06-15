@@ -6,24 +6,14 @@ import com.scientianova.palm.util.StringArea
 import com.scientianova.palm.util.StringPos
 
 class StringTraverser(private val code: String, private val fileName: String) {
-    private var index = 0
-    fun peek() = code.getOrNull(index)
-    fun pop() = code.getOrNull(index++).also {
-        if (shouldUpdate) {
-            lastRow++
-            lastRowLastIndex = index
-            shouldUpdate = false
-        }
-        if (it == '\n') shouldUpdate = true
-    }
+    private var pos = 0
 
-    val beforePopped get() = code.getOrNull(index - 2)
+    val lastPos get() = pos - 1
 
-    private var shouldUpdate = false
-    private var lastRowLastIndex = 1
-    private var lastRow = 1
-    private val lastColumn get() = index + 1 - lastRowLastIndex
-    val lastPos get() = StringPos(lastRow, lastColumn)
+    fun peek() = code.getOrNull(pos)
+    fun pop() = code.getOrNull(pos++)
+
+    val beforePopped get() = code.getOrNull(pos - 2)
 
     fun error(error: PalmError, area: StringArea): Nothing =
         throw PalmCompilationException(code, fileName, area, error)

@@ -103,7 +103,7 @@ fun handleDeclaration(
                     parser.error(INVALID_PROPERTY_NAME_ERROR, identifierToken.area)
                 PrefixOperatorDec(
                     afterIdent.map { value.name }, identifier.map { value.name }
-                ) on start..identifier.area.end to parser.pop()
+                ) at start..identifier.area.last to parser.pop()
             }
             "infix" -> {
                 val maybeAssoc = parser.pop()
@@ -129,7 +129,7 @@ fun handleDeclaration(
 
                 InfixOperatorDec(
                     afterIdent.map { value.name }, identifier.map { value.name }, associativity, precedence
-                ) on start..identifier.area.end to parser.pop()
+                ) at start..identifier.area.last to parser.pop()
             }
             "postfix" -> {
                 val equals = parser.pop()
@@ -141,7 +141,7 @@ fun handleDeclaration(
                     parser.error(INVALID_PROPERTY_NAME_ERROR, identifierToken.area)
                 PostfixOperatorDec(
                     afterIdent.map { value.name }, identifier.map { value.name }
-                ) on start..identifier.area.end to parser.pop()
+                ) at start..identifier.area.last to parser.pop()
             }
             else -> parser.error(INVALID_FIXITY_ERROR, token.area)
         } else if (value.capitalized) {
@@ -150,13 +150,13 @@ fun handleDeclaration(
                 RECORD_TOKEN -> {
                     val paren = parser.pop()
                     if (paren?.value is OpenParenToken) handleRecord(
-                        parser.pop(), parser, start, value.name on token.area, genericPool, emptyList()
+                        parser.pop(), parser, start, value.name at token.area, genericPool, emptyList()
                     ) else parser.error(MISSING_PAREN_AFTER_RECORD_ERROR, paren?.area?.start ?: parser.lastPos)
                 }
                 ENUM_TOKEN -> {
                     val bracket = parser.pop()
                     if (bracket?.value is OpenCurlyBracketToken)
-                        handleEnum(parser.pop(), parser, start, value.name on token.area, genericPool, emptyList())
+                        handleEnum(parser.pop(), parser, start, value.name at token.area, genericPool, emptyList())
                     else parser.error(MISSING_BRACKET_AFTER_ENUM_ERROR, bracket?.area?.start ?: parser.lastPos)
                 }
                 CLASS_TOKEN -> {
@@ -166,7 +166,7 @@ fun handleDeclaration(
                         (if (type.value is TupleType) type.value.types else listOf(type)) to next
                     } else emptyList<PType>() to maybeWhere
                     if (bracket?.value is OpenCurlyBracketToken) handleClass(
-                        parser.pop(), parser, start, value.name on token.area, genericPool, constraints, emptyList()
+                        parser.pop(), parser, start, value.name at token.area, genericPool, constraints, emptyList()
                     ) else parser.error(MISSING_BRACKET_AFTER_CLASS_ERROR, bracket?.area?.start ?: parser.lastPos)
                 }
                 IMPL_TOKEN -> {
@@ -176,12 +176,12 @@ fun handleDeclaration(
                         (if (type.value is TupleType) type.value.types else listOf(type)) to next
                     } else emptyList<PType>() to maybeWhere
                     if (bracket?.value is OpenCurlyBracketToken) handleInstance(
-                        parser.pop(), parser, start, value.name on token.area, forType, constraints, emptyList()
+                        parser.pop(), parser, start, value.name at token.area, forType, constraints, emptyList()
                     ) else parser.error(MISSING_BRACKET_AFTER_IMPL_ERROR, bracket?.area?.start ?: parser.lastPos)
                 }
                 is EqualsToken -> {
                     val (type, next) = handleType(parser.pop(), parser)
-                    AliasDec(value.name on token.area, genericPool, type) on start..type.area.end to next
+                    AliasDec(value.name at token.area, genericPool, type) at start..type.area.last to next
                 }
                 else -> parser.error(UNKNOWNN_DECLARATION_ERROR, symbol?.area ?: parser.lastArea)
             }
@@ -194,20 +194,20 @@ fun handleDeclaration(
                         if (constantType.value is TupleType) constantType.value.types to next
                         else listOf(constantType) to next
                     } else emptyList<PType>() to maybeWhere
-                    ConstDef(value.name on token.area, type, constants) on start..type.area.end to next
+                    ConstDef(value.name at token.area, type, constants) at start..type.area.last to next
                 }
                 is EqualsToken -> {
                     val (expr, next) = handleExpression(parser.pop(), parser)
-                    ConstAssignment(DecNamePattern(value.name) on token.area, expr, true) on
-                            start..expr.area.end to next
+                    ConstAssignment(DecNamePattern(value.name) at token.area, expr, true) at
+                            start..expr.area.last to next
                 }
                 is OpenParenToken -> {
                     val (params, equals) = handleParams(parser.pop(), parser, start)
                     if (equals?.value !is EqualsToken)
                         parser.error(MISSING_EQUALS_ERROR, equals?.area?.start ?: parser.lastPos)
                     val (expr, next) = handleExpression(parser.pop(), parser)
-                    FunctionAssignment(value.name on token.area, params.value, expr, true) on
-                            start..expr.area.end to next
+                    FunctionAssignment(value.name at token.area, params.value, expr, true) at
+                            start..expr.area.last to next
                 }
                 else -> parser.error(UNKNOWNN_DECLARATION_ERROR, afterIdent?.area ?: parser.lastArea)
             }
@@ -222,16 +222,12 @@ fun handleDeclaration(
     is OpenParenToken -> {
         val (pattern, equals) =
             handleTupleDecPattern(
-                parser.pop(),
-                parser,
-                INVALID_DESTRUCTURED_DECLARATION_ERROR,
-                token.area.start,
-                emptyList()
+                parser.pop(), parser, INVALID_DESTRUCTURED_DECLARATION_ERROR, token.area.first, emptyList()
             )
         if (equals?.value !is EqualsToken)
             parser.error(MISSING_EQUALS_ERROR, equals?.area?.start ?: parser.lastPos)
         val (expr, next) = handleExpression(parser.pop(), parser)
-        ConstAssignment(pattern, expr, true) on start..expr.area.end to next
+        ConstAssignment(pattern, expr, true) at start..expr.area.last to next
     }
     else -> parser.error(UNKNOWNN_DECLARATION_ERROR, token?.area ?: parser.lastArea)
 }
@@ -245,7 +241,7 @@ tailrec fun handleRecord(
     list: List<RecordProperty>
 ): Pair<Positioned<RecordDeclaration>, PToken?> = if (token?.value is ClosedParenToken) {
     if (list.isEmpty()) parser.error(EMPTY_RECORD_ERROR, token.area)
-    RecordDeclaration(name, genericPool, list) on start..token.area.end to parser.pop()
+    RecordDeclaration(name, genericPool, list) at start..token.area.last to parser.pop()
 } else {
     val identifier = token ?: parser.error(INVALID_PROPERTY_NAME_ERROR, token?.area ?: parser.lastArea)
     if (identifier.value !is IdentifierToken) parser.error(INVALID_PROPERTY_NAME_ERROR, token.area)
@@ -256,11 +252,11 @@ tailrec fun handleRecord(
             if (actualColon?.value !is ColonToken)
                 parser.error(MISSING_COLON_IN_PROPERTY_ERROR, actualColon?.area ?: parser.lastArea)
             val (type, next) = handleType(parser.pop(), parser)
-            RecordProperty(identifier.value.name on identifier.area, type, true) to next
+            RecordProperty(identifier.value.name at identifier.area, type, true) to next
         }
         colon?.value is ColonToken -> {
             val (type, next) = handleType(parser.pop(), parser)
-            RecordProperty(identifier.value.name on identifier.area, type, false) to next
+            RecordProperty(identifier.value.name at identifier.area, type, false) to next
         }
         else -> parser.error(MISSING_COLON_IN_PROPERTY_ERROR, colon?.area ?: parser.lastArea)
     }
@@ -268,7 +264,7 @@ tailrec fun handleRecord(
         is CommaToken ->
             handleRecord(parser.pop(), parser, start, name, genericPool, list + property)
         is ClosedParenToken ->
-            RecordDeclaration(name, genericPool, list + property) on start..next.area.end to parser.pop()
+            RecordDeclaration(name, genericPool, list + property) at start..next.area.last to parser.pop()
         else ->
             parser.error(UNCLOSED_PARENTHESIS_ERROR, next?.area?.start ?: parser.lastPos)
     }
@@ -282,7 +278,7 @@ tailrec fun handleEnum(
     genericPool: List<PString>,
     cases: List<EnumCase>
 ): Pair<Positioned<EnumDec>, PToken?> = if (token?.value is ClosedCurlyBracketToken) {
-    EnumDec(name, genericPool, cases) on start..token.area.end to parser.pop()
+    EnumDec(name, genericPool, cases) at start..token.area.last to parser.pop()
 } else {
     val identifier = token ?: parser.error(INVALID_ENUM_CASE_NAME_ERROR, token?.area ?: parser.lastArea)
     if (identifier.value !is IdentifierToken) parser.error(INVALID_ENUM_CASE_NAME_ERROR, token.area)
@@ -294,17 +290,17 @@ tailrec fun handleEnum(
                 is CommaToken ->
                     handleEnum(parser.pop(), parser, start, name, genericPool, cases + case)
                 is ClosedCurlyBracketToken ->
-                    EnumDec(name, genericPool, cases + case) on start..symbol.area.end to parser.pop()
+                    EnumDec(name, genericPool, cases + case) at start..symbol.area.last to parser.pop()
                 else -> parser.error(UNCLOSED_ENUM_ERROR, next?.area?.start ?: parser.lastPos)
             }
         }
         is CommaToken -> handleEnum(
             parser.pop(), parser, start, name, genericPool,
-            cases + EnumCase(identifier.value.name on identifier.area, emptyList())
+            cases + EnumCase(identifier.value.name at identifier.area, emptyList())
         )
         is ClosedCurlyBracketToken -> EnumDec(
-            name, genericPool, cases + EnumCase(identifier.value.name on identifier.area, emptyList())
-        ) on start..symbol.area.end to parser.pop()
+            name, genericPool, cases + EnumCase(identifier.value.name at identifier.area, emptyList())
+        ) at start..symbol.area.last to parser.pop()
         else -> parser.error(UNCLOSED_ENUM_ERROR, symbol?.area?.start ?: parser.lastPos)
     }
 }
@@ -334,37 +330,37 @@ tailrec fun handleClass(
     constants: List<PType>,
     declarations: List<PStatement>
 ): Pair<PStatement, PToken?> = if (token?.value is ClosedCurlyBracketToken) {
-    ClassDec(name, genericPool, constants, declarations) on start..token.area.end to parser.pop()
+    ClassDec(name, genericPool, constants, declarations) at start..token.area.last to parser.pop()
 } else {
     val (statement, next) = when (val value = token?.value) {
-        is LetToken -> handleDeclaration(parser.pop(), parser, token.area.start)
+        is LetToken -> handleDeclaration(parser.pop(), parser, token.area.first)
         is IdentifierToken -> {
             val symbol = parser.pop()
             when (symbol?.value) {
                 is EqualsToken -> {
                     val (expr, next) = handleExpression(parser.pop(), parser)
                     ConstAssignment(
-                        DecNamePattern(value.name) on token.area, expr, false
-                    ) on token.area.start..expr.area.end to next
+                        DecNamePattern(value.name) at token.area, expr, false
+                    ) at token.area.first..expr.area.last to next
                 }
                 is OpenParenToken -> {
-                    val (params, equals) = handleParams(parser.pop(), parser, symbol.area.start, emptyList())
+                    val (params, equals) = handleParams(parser.pop(), parser, symbol.area.first, emptyList())
                     if (equals?.value !is EqualsToken)
                         parser.error(MISSING_EQUALS_ERROR, equals?.area ?: parser.lastArea)
                     val (expr, next) = handleExpression(parser.pop(), parser)
-                    FunctionAssignment(value.name on token.area, params.value, expr, false) on
-                            token.area.start..expr.area.end to next
+                    FunctionAssignment(value.name at token.area, params.value, expr, false) at
+                            token.area.first..expr.area.last to next
                 }
                 else -> parser.error(UNKNOWNN_DECLARATION_ERROR, symbol?.area ?: parser.lastArea)
             }
         }
         is OpenParenToken -> {
             val (pattern, equals) = handleTupleDecPattern(
-                parser.pop(), parser, INVALID_DESTRUCTURED_DECLARATION_ERROR, token.area.start, emptyList()
+                parser.pop(), parser, INVALID_DESTRUCTURED_DECLARATION_ERROR, token.area.first, emptyList()
             )
             if (equals?.value !is EqualsToken) parser.error(MISSING_EQUALS_ERROR, equals?.area ?: parser.lastArea)
             val (expr, next) = handleExpression(parser.pop(), parser)
-            ConstAssignment(pattern, expr, false) on token.area.start..expr.area.end to next
+            ConstAssignment(pattern, expr, false) at token.area.first..expr.area.last to next
         }
         else -> parser.error(UNKNOWNN_DECLARATION_ERROR, token?.area ?: parser.lastArea)
     }
@@ -383,7 +379,7 @@ tailrec fun handleInstance(
     constants: List<PType>,
     declarations: List<PStatement>
 ): Pair<PStatement, PToken?> = if (token?.value is ClosedCurlyBracketToken) {
-    InstanceDec(name, type, constants, declarations) on start..token.area.end to parser.pop()
+    InstanceDec(name, type, constants, declarations) at start..token.area.last to parser.pop()
 } else {
     val (statement, next) = when (val value = token?.value) {
         is IdentifierToken -> {
@@ -392,27 +388,27 @@ tailrec fun handleInstance(
                 is EqualsToken -> {
                     val (expr, next) = handleExpression(parser.pop(), parser)
                     ConstAssignment(
-                        DecNamePattern(value.name) on token.area, expr, false
-                    ) on token.area.start..expr.area.end to next
+                        DecNamePattern(value.name) at token.area, expr, false
+                    ) at token.area.first..expr.area.last to next
                 }
                 is OpenParenToken -> {
-                    val (params, equals) = handleParams(parser.pop(), parser, symbol.area.start, emptyList())
+                    val (params, equals) = handleParams(parser.pop(), parser, symbol.area.first, emptyList())
                     if (equals?.value !is EqualsToken)
                         parser.error(MISSING_EQUALS_ERROR, equals?.area ?: parser.lastArea)
                     val (expr, next) = handleExpression(parser.pop(), parser)
-                    FunctionAssignment(value.name on token.area, params.value, expr, false) on
-                            token.area.start..expr.area.end to next
+                    FunctionAssignment(value.name at token.area, params.value, expr, false) at
+                            token.area.first..expr.area.last to next
                 }
                 else -> parser.error(UNKNOWNN_DECLARATION_ERROR, symbol?.area ?: parser.lastArea)
             }
         }
         is OpenParenToken -> {
             val (pattern, equals) = handleTupleDecPattern(
-                parser.pop(), parser, INVALID_DESTRUCTURED_DECLARATION_ERROR, token.area.start, emptyList()
+                parser.pop(), parser, INVALID_DESTRUCTURED_DECLARATION_ERROR, token.area.first, emptyList()
             )
             if (equals?.value !is EqualsToken) parser.error(MISSING_EQUALS_ERROR, equals?.area ?: parser.lastArea)
             val (expr, next) = handleExpression(parser.pop(), parser)
-            ConstAssignment(pattern, expr, false) on token.area.start..expr.area.end to next
+            ConstAssignment(pattern, expr, false) at token.area.first..expr.area.last to next
         }
         else -> parser.error(UNKNOWNN_DECLARATION_ERROR, token?.area ?: parser.lastArea)
     }
@@ -438,7 +434,7 @@ tailrec fun handleGenericPool(
 ): Pair<List<PString>, PToken?> = if (token?.value is ClosedSquareBracketToken) pool to parser.pop() else {
     val identifier = token ?: parser.error(INVALID_GENERIC_VARIABLE_ERROR, token?.area ?: parser.lastArea)
     if (identifier.value !is IdentifierToken) parser.error(INVALID_ENUM_CASE_NAME_ERROR, token.area)
-    val variable = identifier.value.name on identifier.area
+    val variable = identifier.value.name at identifier.area
     val symbol = parser.pop()
     when (symbol?.value) {
         is CommaToken -> handleGenericPool(parser.pop(), parser, pool + variable)

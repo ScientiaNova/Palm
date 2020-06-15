@@ -7,7 +7,7 @@ import com.scientianova.palm.tokenizer.*
 import com.scientianova.palm.util.PString
 import com.scientianova.palm.util.Positioned
 import com.scientianova.palm.util.StringPos
-import com.scientianova.palm.util.on
+import com.scientianova.palm.util.at
 
 interface IStatement
 typealias PStatement = Positioned<IStatement>
@@ -33,21 +33,21 @@ fun handleImportStart(
         when (next?.value) {
             is IdentifierToken -> handleJavaImport(next, parser, start, emptyList(), false)
             VIRTUAL_TOKEN -> handleJavaImport(parser.pop(), parser, start, emptyList(), true)
-            is DotToken -> handleImport(parser.pop(), parser, start, listOf("java" on token.area))
+            is DotToken -> handleImport(parser.pop(), parser, start, listOf("java" at token.area))
             AS_TOKEN -> {
                 val (alias, area) = parser.pop() ?: parser.error(INVALID_ALIAS_ERROR, parser.lastPos)
                 listOf(
                     RegularImport(
-                        PathExpr(listOf("as" on token.area)),
-                        (alias as? IdentifierToken ?: parser.error(INVALID_ALIAS_ERROR, area)).name on area
-                    ) on start..area.end
+                        PathExpr(listOf("as" at token.area)),
+                        (alias as? IdentifierToken ?: parser.error(INVALID_ALIAS_ERROR, area)).name at area
+                    ) at start..area.last
                 ) to parser.pop()
             }
             else -> listOf(
                 RegularImport(
-                    PathExpr(listOf("java" on token.area)),
-                    "java" on token.area
-                ) on start..token.area.end
+                    PathExpr(listOf("java" at token.area)),
+                    "java" at token.area
+                ) at start..token.area.last
             ) to parser.pop()
         }
     }
@@ -63,25 +63,25 @@ tailrec fun handleImport(
     is IdentifierToken -> {
         val next = parser.pop()
         when (next?.value) {
-            is DotToken -> handleImport(parser.pop(), parser, start, path + (value.name on token.area))
-            is TripleDotToken -> listOf(ModuleImport(PathExpr(path)) on start..next.area.end) to parser.pop()
+            is DotToken -> handleImport(parser.pop(), parser, start, path + (value.name at token.area))
+            is TripleDotToken -> listOf(ModuleImport(PathExpr(path)) at start..next.area.last) to parser.pop()
             AS_TOKEN -> {
                 val (alias, area) = parser.pop() ?: parser.error(INVALID_ALIAS_ERROR, parser.lastPos)
                 listOf(
                     RegularImport(
-                        PathExpr(path + (value.name on token.area)),
-                        (alias as? IdentifierToken ?: parser.error(INVALID_ALIAS_ERROR, area)).name on area
-                    ) on start..area.end
+                        PathExpr(path + (value.name at token.area)),
+                        (alias as? IdentifierToken ?: parser.error(INVALID_ALIAS_ERROR, area)).name at area
+                    ) at start..area.last
                 ) to parser.pop()
             }
             else -> listOf(
-                RegularImport(PathExpr(path + (value.name on token.area)), value.name on token.area) on
-                        start..token.area.end
+                RegularImport(PathExpr(path + (value.name at token.area)), value.name at token.area) at
+                        start..token.area.last
             ) to parser.pop()
         }
     }
     is SymbolToken -> listOf(
-        OperatorImport(PathExpr(path + (value.symbol on token.area))) on start..token.area.end
+        OperatorImport(PathExpr(path + (value.symbol at token.area))) at start..token.area.last
     ) to parser.pop()
     is OpenCurlyBracketToken -> handleImportGroup(parser.pop(), parser, start, path, emptyList())
     else -> parser.error(INVALID_IMPORT_ERROR, token?.area ?: parser.lastArea)
@@ -112,29 +112,29 @@ tailrec fun handleJavaImport(
     is IdentifierToken -> {
         val next = parser.pop()
         when (next?.value) {
-            is DotToken -> handleJavaImport(parser.pop(), parser, start, path + (value.name on token.area), virtual)
+            is DotToken -> handleJavaImport(parser.pop(), parser, start, path + (value.name at token.area), virtual)
             AS_TOKEN -> {
                 val (alias, area) = parser.pop() ?: parser.error(INVALID_ALIAS_ERROR, parser.lastPos)
                 listOf(
                     (if (virtual)
                         JavaVirtualFieldImport(
-                            PathExpr(path + (value.name on token.area)),
-                            (alias as? IdentifierToken ?: parser.error(INVALID_ALIAS_ERROR, area)).name on area
+                            PathExpr(path + (value.name at token.area)),
+                            (alias as? IdentifierToken ?: parser.error(INVALID_ALIAS_ERROR, area)).name at area
                         ) else RegularImport(
-                        PathExpr(path + (value.name on token.area)),
-                        (alias as? IdentifierToken ?: parser.error(INVALID_ALIAS_ERROR, area)).name on area
-                    )) on start..area.end
+                        PathExpr(path + (value.name at token.area)),
+                        (alias as? IdentifierToken ?: parser.error(INVALID_ALIAS_ERROR, area)).name at area
+                    )) at start..area.last
                 ) to parser.pop()
             }
             is OpenParenToken -> handleJavaImportParams(
-                parser.pop(), parser, start, PathExpr(path + (value.name on token.area)),
+                parser.pop(), parser, start, PathExpr(path + (value.name at token.area)),
                 virtual, emptyList()
             )
             else -> listOf(
                 (if (virtual)
-                    JavaVirtualFieldImport(PathExpr(path + (value.name on token.area)), value.name on token.area)
-                else RegularImport(PathExpr(path + (value.name on token.area)), value.name on token.area)
-                        ) on start..token.area.end
+                    JavaVirtualFieldImport(PathExpr(path + (value.name at token.area)), value.name at token.area)
+                else RegularImport(PathExpr(path + (value.name at token.area)), value.name at token.area)
+                        ) at start..token.area.last
             ) to parser.pop()
         }
     }
@@ -155,14 +155,14 @@ tailrec fun handleJavaImportParams(
         val (alias, area) = parser.pop() ?: parser.error(INVALID_ALIAS_ERROR, parser.lastPos)
         listOf(
             (if (virtual) JavaVirtualMethodImport(
-                path, params, (alias as? IdentifierToken ?: parser.error(INVALID_ALIAS_ERROR, area)).name on area
+                path, params, (alias as? IdentifierToken ?: parser.error(INVALID_ALIAS_ERROR, area)).name at area
             ) else JavaMethodImport(
-                path, params, (alias as? IdentifierToken ?: parser.error(INVALID_ALIAS_ERROR, area)).name on area
-            )) on start..area.end
+                path, params, (alias as? IdentifierToken ?: parser.error(INVALID_ALIAS_ERROR, area)).name at area
+            )) at start..area.last
         ) to parser.pop()
     } else listOf(
         (if (virtual) JavaVirtualMethodImport(path, params, path.parts.last())
-        else JavaMethodImport(path, params, path.parts.last())) on start..token.area.end
+        else JavaMethodImport(path, params, path.parts.last())) at start..token.area.last
     ) to next
 } else {
     val (type, symbol) = handleType(token, parser)
@@ -174,15 +174,15 @@ tailrec fun handleJavaImportParams(
                 listOf(
                     (if (virtual) JavaVirtualMethodImport(
                         path, params + type,
-                        (alias as? IdentifierToken ?: parser.error(INVALID_ALIAS_ERROR, area)).name on area
+                        (alias as? IdentifierToken ?: parser.error(INVALID_ALIAS_ERROR, area)).name at area
                     ) else JavaMethodImport(
                         path, params + type,
-                        (alias as? IdentifierToken ?: parser.error(INVALID_ALIAS_ERROR, area)).name on area
-                    )) on start..area.end
+                        (alias as? IdentifierToken ?: parser.error(INVALID_ALIAS_ERROR, area)).name at area
+                    )) at start..area.last
                 ) to parser.pop()
             } else listOf(
                 (if (virtual) JavaVirtualMethodImport(path, params + type, path.parts.last())
-                else JavaMethodImport(path, params + type, path.parts.last())) on start..symbol.area.end
+                else JavaMethodImport(path, params + type, path.parts.last())) at start..symbol.area.last
             ) to next
         }
         is CommaToken -> handleJavaImportParams(parser.pop(), parser, start, path, virtual, params + type)

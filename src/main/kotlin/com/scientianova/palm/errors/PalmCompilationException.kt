@@ -1,6 +1,6 @@
 package com.scientianova.palm.errors
 
-import com.scientianova.palm.util.StringArea
+import com.scientianova.palm.util.*
 
 class PalmCompilationException(
     code: String,
@@ -14,32 +14,35 @@ class PalmCompilationException(
 
 ${error.context.wrap()}
 
-${highlightError(code.lines(), erroredArea)}
+${highlightError(code, erroredArea)}
 ${error.help.lines().map { it.wrap() }.joinToString("\n") { it }}
 
 -------------------------------------------------------------------------------------
 """.trimIndent()
 )
 
-private fun highlightError(codeLines: List<String>, posRange: StringArea) = posRange.run {
-    if (start.row == end.row) {
-        val row = start.row
-        val line = codeLines[row - 1]
+private fun highlightError(code: String, posRange: StringArea): String {
+    val lineEnds = code.lineEnds
+    val firstCoord = lineEnds.coordFor(posRange.first)
+    val secondCoord = lineEnds.coordFor(posRange.last)
+    return if (firstCoord.row == secondCoord.row) {
+        val row = firstCoord.row
+        val line = code.slice((lineEnds.getOrNull(row - 2)?.plus(1) ?: 0) until lineEnds[row - 1])
         """
 $row| $line
-${" ".repeat(row.toString().length)}  ${line.take(start.column - 1).replace("[^ \t]".toRegex(), " ")}${
-        "^".repeat(end.column - start.column + 1)}
+${" ".repeat(row.toString().length)}  ${line.take(firstCoord.column - 1).replace("[^ \t]".toRegex(), " ")}${
+        "^".repeat(posRange.first - posRange.last + 1)}
 """.trimIndent()
     } else {
-        val numberLength = end.row.toString().length
-        (start.row..end.row).map { "$it${" ".repeat(it.toString().length - numberLength)}|>${codeLines[it]}" }
-            .joinToString("\n") { it } + '\n'
+        val codeLines = code.lines()
+        val numberLength = secondCoord.row.toString().length
+        (firstCoord.row..secondCoord.row).map {
+            "$it${" ".repeat(it.toString().length - numberLength)}|>${codeLines[it - 1]}"
+        }.joinToString("\n") { it } + '\n'
     }
 }
 
-fun String.wrap(perLine: Int = 85): String =
-    if (length <= perLine) this
-    else {
-        val splitIndex = lastIndexOf(' ', perLine)
-        take(splitIndex) + '\n' + drop(splitIndex + 1).wrap(perLine)
-    }
+fun String.wrap(perLine: Int = 85): String = if (length <= perLine) this else {
+    val splitIndex = lastIndexOf(' ', perLine)
+    take(splitIndex) + '\n' + drop(splitIndex + 1).wrap(perLine)
+}

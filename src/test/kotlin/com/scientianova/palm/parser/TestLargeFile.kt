@@ -1,8 +1,6 @@
 package com.scientianova.palm.parser
 
 import com.scientianova.palm.tokenizer.tokenize
-import kotlin.system.measureNanoTime
-import kotlin.system.measureTimeMillis
 
 val code = """
     let x = 15 - 2 * 16
@@ -64,6 +62,6 @@ val code = """
     let infix >< 5 = zip
 """.trimIndent()
 
-fun tokenizeLargeFile() = benchmark { tokenize(code) }
+fun tokenizeLargeFile(times: Int = 1000) = benchmark(times) { tokenize(code) }
 
-fun parserLargeFile() = benchmark { parse(code) }
+fun parserLargeFile(times: Int = 1000) = benchmark(times) { parse(code) }

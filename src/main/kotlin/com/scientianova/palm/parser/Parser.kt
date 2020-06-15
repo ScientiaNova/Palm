@@ -4,14 +4,15 @@ import com.scientianova.palm.errors.*
 import com.scientianova.palm.tokenizer.*
 import com.scientianova.palm.util.StringArea
 import com.scientianova.palm.util.StringPos
-import com.scientianova.palm.util.on
+import com.scientianova.palm.util.at
+import com.scientianova.palm.util.lineEnds
 
-class Parser(private val tokens: TokenList, private val code: String, val fileName: String = "REPL") {
+class Parser(private val tokens: TokenList, private val code: String, private val fileName: String = "REPL") {
     fun pop(): PToken? = tokens.poll()
 
-    val lastPos = code.lines().let {
-        StringPos(it.size.coerceAtLeast(1), it.lastOrNull()?.run { length + 1 } ?: 1)
-    }
+    val lineEnds = code.lineEnds
+
+    val lastPos get() = code.length
 
     val lastArea get() = lastPos..lastPos
 
@@ -32,7 +33,7 @@ fun parse(code: String, fileName: String = "REPL"): ParsedModule {
 tailrec fun handleTopLevel(token: PToken?, parser: Parser, module: ParsedModule): ParsedModule = when (token?.value) {
     null -> module
     is ImportToken -> {
-        val (imports, next) = handleImportStart(parser.pop(), parser, token.area.start)
+        val (imports, next) = handleImportStart(parser.pop(), parser, token.area.first)
         val actualNext = when (next?.value) {
             is CommaToken, is SemicolonToken -> parser.pop()
             else -> next
@@ -40,7 +41,7 @@ tailrec fun handleTopLevel(token: PToken?, parser: Parser, module: ParsedModule)
         handleTopLevel(actualNext, parser, module.copy(statements = module.statements + imports))
     }
     is LetToken -> {
-        val (declaration, next) = handleDeclaration(parser.pop(), parser, token.area.start)
+        val (declaration, next) = handleDeclaration(parser.pop(), parser, token.area.first)
         val actualNext = when (next?.value) {
             is CommaToken, is SemicolonToken -> parser.pop()
             else -> next
@@ -61,8 +62,8 @@ tailrec fun handleTopLevel(token: PToken?, parser: Parser, module: ParsedModule)
                 }
                 handleTopLevel(
                     actualNext, parser, module.with(
-                            FunctionAssignment(name, expr.value.params, funExpr, false) on
-                                    expr.area.start..funExpr.area.end)
+                            FunctionAssignment(name, expr.value.params, funExpr, false) at
+                                    expr.area.first..funExpr.area.last)
                 )
             } else {
                 val pattern = exprToDecPattern(expr, parser, INVALID_DESTRUCTURED_DECLARATION_ERROR)
@@ -72,7 +73,7 @@ tailrec fun handleTopLevel(token: PToken?, parser: Parser, module: ParsedModule)
                     else -> next1
                 }
                 handleTopLevel(
-                    actualNext, parser, module.with(ConstAssignment(pattern, valueExpr, false) on expr.area.start..valueExpr.area.end)
+                    actualNext, parser, module.with(ConstAssignment(pattern, valueExpr, false) at expr.area.first..valueExpr.area.last)
                 )
             }
             else -> {

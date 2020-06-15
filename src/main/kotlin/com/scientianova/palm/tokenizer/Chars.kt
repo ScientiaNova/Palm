@@ -3,7 +3,7 @@ package com.scientianova.palm.tokenizer
 import com.scientianova.palm.errors.*
 import com.scientianova.palm.util.Positioned
 import com.scientianova.palm.util.StringPos
-import com.scientianova.palm.util.on
+import com.scientianova.palm.util.at
 
 fun handleChar(
     traverser: StringTraverser,
@@ -17,7 +17,7 @@ fun handleChar(
         else -> char to traverser.pop()
     }
     return when {
-        end == '\'' -> CharToken(value) on startPos..traverser.lastPos to traverser.pop()
+        end == '\'' -> CharToken(value) at startPos..traverser.lastPos to traverser.pop()
         char.isWhitespace() && value.isWhitespace() && isMalformedTab(traverser, traverser.pop()) ->
             traverser.error(MALFORMED_TAB_ERROR, startPos..traverser.lastPos)
         else -> traverser.error(

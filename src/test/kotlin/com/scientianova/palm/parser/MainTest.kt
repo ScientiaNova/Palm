@@ -6,10 +6,10 @@ fun main() {
     parserLargeFile()
 }
 
-inline fun benchmark(block: () -> Unit) {
+inline fun benchmark(times: Int, block: () -> Unit) {
     var sum = 0L
-    for (i in 1..10000) {
+    for (i in 1..times) {
         sum += measureTimeMillis(block)
     }
-    println(sum / 10000.0)
+    println(sum / times.toDouble())
 }

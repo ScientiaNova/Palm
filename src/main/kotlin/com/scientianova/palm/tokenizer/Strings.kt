@@ -6,7 +6,7 @@ import com.scientianova.palm.errors.UNCLOSED_INTERPOLATED_EXPRESSION_ERROR
 import com.scientianova.palm.errors.UNCLOSED_MULTILINE_STRING
 import com.scientianova.palm.util.Positioned
 import com.scientianova.palm.util.StringPos
-import com.scientianova.palm.util.on
+import com.scientianova.palm.util.at
 import java.util.*
 
 sealed class StringTokenPart
@@ -32,7 +32,7 @@ tailrec fun handleSingleLineString(
     null, '\n' -> traverser.error(MISSING_DOUBLE_QUOTE_ERROR, traverser.lastPos)
     '"' ->
         (if (parts.isEmpty()) PureStringToken(builder.toString())
-        else StringTemplateToken(if (builder.isEmpty()) parts else parts + (StringPart(builder) on lastStart..traverser.lastPos))) on
+        else StringTemplateToken(if (builder.isEmpty()) parts else parts + (StringPart(builder) at lastStart..traverser.lastPos))) at
                 startPos..traverser.lastPos to traverser.pop()
     '$' -> {
         val next = traverser.pop()
@@ -44,8 +44,8 @@ tailrec fun handleSingleLineString(
                 )
                 handleSingleLineString(
                     traverser, newNext, startPos, list,
-                    parts + (StringPart(builder) on startPos..interStart) + (TokensPart(identifier) on interStart..traverser.lastPos),
-                    StringBuilder(), traverser.lastPos.shift(rows = 1)
+                    parts + (StringPart(builder) at startPos..interStart) + (TokensPart(identifier) at interStart..traverser.lastPos),
+                    StringBuilder(), traverser.lastPos - 1
                 )
             }
             next == '{' -> {
@@ -54,8 +54,8 @@ tailrec fun handleSingleLineString(
                 handleInterpolation(traverser, traverser.pop(), stack, bracketPos)
                 handleSingleLineString(
                     traverser, traverser.pop(), startPos, list,
-                    parts + (StringPart(builder) on startPos..interStart) + (TokensPart(stack) on interStart..traverser.lastPos),
-                    StringBuilder(), traverser.lastPos.shift(rows = 1)
+                    parts + (StringPart(builder) at startPos..interStart) + (TokensPart(stack) at interStart..traverser.lastPos),
+                    StringBuilder(), traverser.lastPos - 1
                 )
             }
             else -> handleSingleLineString(traverser, next, startPos, list, parts, builder.append(char), lastStart)
@@ -80,13 +80,13 @@ tailrec fun handleMultiLineString(
     builder: StringBuilder,
     lastStart: StringPos = startPos
 ): Pair<Positioned<StringTemplateToken>, Char?> = when (char) {
-    null -> traverser.error(UNCLOSED_MULTILINE_STRING, startPos..startPos.shift(3))
+    null -> traverser.error(UNCLOSED_MULTILINE_STRING, startPos until startPos)
     '"' -> {
         val second = traverser.pop()
         if (second == '"') {
             val third = traverser.pop()
             if (second == '"')
-                StringTemplateToken(if (builder.isEmpty()) parts else parts + (StringPart(builder) on lastStart..traverser.lastPos)) on
+                StringTemplateToken(if (builder.isEmpty()) parts else parts + (StringPart(builder) at lastStart..traverser.lastPos)) at
                         startPos..traverser.lastPos to traverser.pop()
             else handleMultiLineString(traverser, third, startPos, list, parts, builder.append("\"\""), lastStart)
         } else handleMultiLineString(traverser, second, startPos, list, parts, builder.append('"'), lastStart)
@@ -101,8 +101,8 @@ tailrec fun handleMultiLineString(
                 )
                 handleMultiLineString(
                     traverser, newNext, startPos, list,
-                    parts + (StringPart(builder) on startPos..interStart) + (TokensPart(identifier) on interStart..traverser.lastPos),
-                    StringBuilder(), traverser.lastPos.shift(rows = 1)
+                    parts + (StringPart(builder) at startPos..interStart) + (TokensPart(identifier) at interStart..traverser.lastPos),
+                    StringBuilder(), traverser.lastPos + 1
                 )
             }
             next == '{' -> {
@@ -111,8 +111,8 @@ tailrec fun handleMultiLineString(
                 handleInterpolation(traverser, traverser.pop(), stack, bracketPos)
                 handleMultiLineString(
                     traverser, traverser.pop(), startPos, list,
-                    parts + (StringPart(builder) on startPos..interStart) + (TokensPart(stack) on interStart..traverser.lastPos),
-                    StringBuilder(), traverser.lastPos.shift(rows = 1)
+                    parts + (StringPart(builder) at startPos..interStart) + (TokensPart(stack) at interStart..traverser.lastPos),
+                    StringBuilder(), traverser.lastPos + 1
                 )
             }
             else -> handleMultiLineString(traverser, next, startPos, list, parts, builder.append(char), lastStart)

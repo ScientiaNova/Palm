@@ -3,7 +3,7 @@ package com.scientianova.palm.tokenizer
 import com.scientianova.palm.errors.GREEK_QUESTION_MARK_ERROR
 import com.scientianova.palm.util.Positioned
 import com.scientianova.palm.util.StringPos
-import com.scientianova.palm.util.on
+import com.scientianova.palm.util.at
 import java.util.*
 
 typealias TokenList = LinkedList<PToken>
@@ -63,17 +63,17 @@ fun handleToken(traverser: StringTraverser, char: Char, list: TokenList): Pair<P
         } else handleSingleLineString(traverser, next, startPos, list, emptyList(), StringBuilder())
     }
     '\'' -> handleChar(traverser, traverser.pop())
-    '(' -> OpenParenToken on traverser.lastPos to traverser.pop()
-    ')' -> ClosedParenToken on traverser.lastPos to traverser.pop()
-    '[' -> (if (traverser.peek() == '|') OpenArrayBracketToken else OpenSquareBracketToken) on traverser.lastPos to traverser.pop()
-    ']' -> ClosedSquareBracketToken on traverser.lastPos to traverser.pop()
-    '{' -> OpenCurlyBracketToken on traverser.lastPos to traverser.pop()
-    '}' -> ClosedCurlyBracketToken on traverser.lastPos to traverser.pop()
-    ',' -> CommaToken on traverser.lastPos to traverser.pop()
-    ';' -> SemicolonToken on traverser.lastPos to traverser.pop()
+    '(' -> OpenParenToken at traverser.lastPos to traverser.pop()
+    ')' -> ClosedParenToken at traverser.lastPos to traverser.pop()
+    '[' -> (if (traverser.peek() == '|') OpenArrayBracketToken else OpenSquareBracketToken) at traverser.lastPos to traverser.pop()
+    ']' -> ClosedSquareBracketToken at traverser.lastPos to traverser.pop()
+    '{' -> OpenCurlyBracketToken at traverser.lastPos to traverser.pop()
+    '}' -> ClosedCurlyBracketToken at traverser.lastPos to traverser.pop()
+    ',' -> CommaToken at traverser.lastPos to traverser.pop()
+    ';' -> SemicolonToken at traverser.lastPos to traverser.pop()
     ';' -> traverser.error(GREEK_QUESTION_MARK_ERROR, traverser.lastPos)
     '|' ->
-        if (traverser.peek() == ']') ClosedArrayBracketToken on traverser.lastPos to traverser.pop()
+        if (traverser.peek() == ']') ClosedArrayBracketToken at traverser.lastPos to traverser.pop()
         else handleMisc(traverser, char)
     else -> handleMisc(traverser, char)
 }
@@ -86,7 +86,7 @@ fun handleMisc(
     val symbolRes = handleSymbol(traverser, char, traverser.lastPos, StringBuilder())
     val symbolString = symbolRes.first.value
     val next = symbolRes.second
-    SYMBOL_MAP[symbolString]?.let { return it on symbolRes.first.area to next }
+    SYMBOL_MAP[symbolString]?.let { return it at symbolRes.first.area to next }
     return (
             if ((previous == null || previous.isWhitespace() || previous.isSeparator() || previous.isOpenBracket()))
                 if (next?.isWhitespace() == false) PrefixOperatorToken(symbolString)
@@ -94,7 +94,7 @@ fun handleMisc(
             else
                 if (next?.isWhitespace() == false && !next.isClosedBracket()) InfixOperatorToken(symbolString)
                 else PostfixOperatorToken(symbolString)
-            ) on symbolRes.first.area to next
+            ) at symbolRes.first.area to next
 }
 
 tailrec fun handleSymbol(
@@ -104,6 +104,6 @@ tailrec fun handleSymbol(
     builder: StringBuilder
 ): Pair<Positioned<String>, Char?> =
     if (char == null || char.isLetterOrDigit() || char.isWhitespace() || char == '"' || char == '\'' || char.isBracket()) {
-        val area = startPos..traverser.lastPos.shift(-1)
-        builder.toString() on area to char
+        val area = startPos until traverser.lastPos
+        builder.toString() at area to char
     } else handleSymbol(traverser, traverser.pop(), startPos, builder.append(char))
