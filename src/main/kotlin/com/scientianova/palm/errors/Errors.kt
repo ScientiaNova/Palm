@@ -1,6 +1,12 @@
 package com.scientianova.palm.errors
 
-open class PalmError(val name: String, val context: String, val help: String)
+import com.scientianova.palm.util.StringArea
+import com.scientianova.palm.util.StringPos
+
+class PalmError(val name: String, val context: String, val help: String)
+
+infix fun PalmError.throwAt(area: StringArea): Nothing = throw UncaughtParserException(this, area)
+infix fun PalmError.throwAt(pos: StringPos): Nothing = throwAt(pos..pos)
 
 val MISSING_SINGLE_QUOTE_ERROR = PalmError(
     "MISSING SINGLE QUOTE",
@@ -281,4 +287,16 @@ val MISSING_BRACKET_AFTER_IMPL_ERROR = PalmError(
     "MISSING CURLY BRACKET",
     "I was going through a type class implementation and was expecting an open curly bracket, but instead got:",
     "Put an { here."
+)
+
+val MISSING_EXPRESSION_ERROR = PalmError(
+    "MISSING EXPRESSION",
+    "I was expecting an expression, but I seem to have reached the end of the file:",
+    ""
+)
+
+val UNCLOSED_CHAR_LITERAL_ERROR = PalmError(
+    "UNCLOSED CHAR LITERAL",
+    "I was going through a char literal, but have reached the end of the file without finding its end:",
+    "Put a ' here."
 )

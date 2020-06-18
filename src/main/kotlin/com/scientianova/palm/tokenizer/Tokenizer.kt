@@ -9,81 +9,81 @@ import java.util.*
 typealias TokenList = LinkedList<PToken>
 
 fun tokenize(code: String, fileName: String = "REPL"): TokenList {
-    val traverser = StringTraverser(code, fileName)
+    val state = ParseState(code, fileName)
     val queue = LinkedList<PToken>()
-    return tokenize(traverser, traverser.pop(), queue)
+    return tokenize(state, state.pop(), queue)
 }
 
-tailrec fun tokenize(traverser: StringTraverser, char: Char?, list: TokenList): TokenList = when {
+tailrec fun tokenize(state: ParseState, char: Char?, list: TokenList): TokenList = when {
     char == null -> list
-    char.isWhitespace() -> tokenize(traverser, traverser.pop(), list)
+    char.isWhitespace() -> tokenize(state, state.pop(), list)
     char.isJavaIdentifierStart() -> {
         val (identifier, next) = handleIdentifier(
-            traverser, char, char.isUpperCase(), list, traverser.lastPos, StringBuilder()
+            state, char, char.isUpperCase(), list, state.lastPos, StringBuilder()
         )
         list.offer(identifier)
-        tokenize(traverser, next, list)
+        tokenize(state, next, list)
     }
-    char == '#' -> when (traverser.peek()) {
-        '[' -> tokenize(traverser, handleMultiLineComment(traverser, traverser.pop()), list)
-        else -> tokenize(traverser, handleSingleLineComment(traverser, traverser.pop()), list)
+    char == '#' -> when (state.char()) {
+        '[' -> tokenize(state, handleMultiLineComment(state, state.pop()), list)
+        else -> tokenize(state, handleSingleLineComment(state, state.pop()), list)
     }
     else -> {
-        val (token, next) = handleToken(traverser, char, list)
+        val (token, next) = handleToken(state, char, list)
         list.offer(token)
-        tokenize(traverser, next, list)
+        tokenize(state, next, list)
     }
 }
 
-fun handleToken(traverser: StringTraverser, char: Char, list: TokenList): Pair<PToken, Char?> = when (char) {
+fun handleToken(state: ParseState, char: Char, list: TokenList): Pair<PToken, Char?> = when (char) {
     '0' -> {
-        val startPos = traverser.lastPos
-        when (traverser.peek()) {
+        val startPos = state.lastPos
+        when (state.char()) {
             'x', 'X' -> {
-                traverser.pop()
-                handleHexNumber(traverser, traverser.pop(), startPos, StringBuilder())
+                state.pop()
+                handleHexNumber(state, state.pop(), startPos, StringBuilder())
             }
             'b', 'B' -> {
-                traverser.pop()
-                handleBinaryNumber(traverser, traverser.pop(), startPos, StringBuilder())
+                state.pop()
+                handleBinaryNumber(state, state.pop(), startPos, StringBuilder())
             }
-            else -> handleNumber(traverser, char, traverser.lastPos, StringBuilder())
+            else -> handleNumber(state, char, state.lastPos, StringBuilder())
         }
     }
-    in '1'..'9' -> handleNumber(traverser, char, traverser.lastPos, StringBuilder())
+    in '1'..'9' -> handleNumber(state, char, state.lastPos, StringBuilder())
     '.' ->
-        if (traverser.peek()?.isDigit() == true) handleNumber(traverser, char, traverser.lastPos, StringBuilder())
-        else handleMisc(traverser, char)
+        if (state.char()?.isDigit() == true) handleNumber(state, char, state.lastPos, StringBuilder())
+        else handleMisc(state, char)
     '"' -> {
-        val startPos = traverser.lastPos
-        val next = traverser.pop()
-        if (next == '"' && traverser.peek() == '"') {
-            traverser.pop()
-            handleMultiLineString(traverser, traverser.pop(), startPos, list, emptyList(), StringBuilder())
-        } else handleSingleLineString(traverser, next, startPos, list, emptyList(), StringBuilder())
+        val startPos = state.lastPos
+        val next = state.pop()
+        if (next == '"' && state.char() == '"') {
+            state.pop()
+            handleMultiLineString(state, state.pop(), startPos, list, emptyList(), StringBuilder())
+        } else handleSingleLineString(state, next, startPos, list, emptyList(), StringBuilder())
     }
-    '\'' -> handleChar(traverser, traverser.pop())
-    '(' -> OpenParenToken at traverser.lastPos to traverser.pop()
-    ')' -> ClosedParenToken at traverser.lastPos to traverser.pop()
-    '[' -> (if (traverser.peek() == '|') OpenArrayBracketToken else OpenSquareBracketToken) at traverser.lastPos to traverser.pop()
-    ']' -> ClosedSquareBracketToken at traverser.lastPos to traverser.pop()
-    '{' -> OpenCurlyBracketToken at traverser.lastPos to traverser.pop()
-    '}' -> ClosedCurlyBracketToken at traverser.lastPos to traverser.pop()
-    ',' -> CommaToken at traverser.lastPos to traverser.pop()
-    ';' -> SemicolonToken at traverser.lastPos to traverser.pop()
-    ';' -> traverser.error(GREEK_QUESTION_MARK_ERROR, traverser.lastPos)
+    '\'' -> handleChar(state, state.pop())
+    '(' -> OpenParenToken at state.lastPos to state.pop()
+    ')' -> ClosedParenToken at state.lastPos to state.pop()
+    '[' -> (if (state.char() == '|') OpenArrayBracketToken else OpenSquareBracketToken) at state.lastPos to state.pop()
+    ']' -> ClosedSquareBracketToken at state.lastPos to state.pop()
+    '{' -> OpenCurlyBracketToken at state.lastPos to state.pop()
+    '}' -> ClosedCurlyBracketToken at state.lastPos to state.pop()
+    ',' -> CommaToken at state.lastPos to state.pop()
+    ';' -> SemicolonToken at state.lastPos to state.pop()
+    ';' -> state.error(GREEK_QUESTION_MARK_ERROR, state.lastPos)
     '|' ->
-        if (traverser.peek() == ']') ClosedArrayBracketToken at traverser.lastPos to traverser.pop()
-        else handleMisc(traverser, char)
-    else -> handleMisc(traverser, char)
+        if (state.char() == ']') ClosedArrayBracketToken at state.lastPos to state.pop()
+        else handleMisc(state, char)
+    else -> handleMisc(state, char)
 }
 
 fun handleMisc(
-    traverser: StringTraverser,
+    state: ParseState,
     char: Char
 ): Pair<PToken, Char?> {
-    val previous = traverser.beforePopped
-    val symbolRes = handleSymbol(traverser, char, traverser.lastPos, StringBuilder())
+    val previous = state.beforePopped
+    val symbolRes = handleSymbol(state, char, state.lastPos, StringBuilder())
     val symbolString = symbolRes.first.value
     val next = symbolRes.second
     SYMBOL_MAP[symbolString]?.let { return it at symbolRes.first.area to next }
@@ -98,12 +98,12 @@ fun handleMisc(
 }
 
 tailrec fun handleSymbol(
-    traverser: StringTraverser,
+    state: ParseState,
     char: Char?,
     startPos: StringPos,
     builder: StringBuilder
 ): Pair<Positioned<String>, Char?> =
     if (char == null || char.isLetterOrDigit() || char.isWhitespace() || char == '"' || char == '\'' || char.isBracket()) {
-        val area = startPos until traverser.lastPos
+        val area = startPos until state.lastPos
         builder.toString() at area to char
-    } else handleSymbol(traverser, traverser.pop(), startPos, builder.append(char))
+    } else handleSymbol(state, state.pop(), startPos, builder.append(char))

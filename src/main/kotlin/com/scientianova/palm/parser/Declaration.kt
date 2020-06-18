@@ -12,14 +12,14 @@ data class ConstDef(
 
 data class ConstAssignment(
     val pattern: PDecPattern,
-    val expr: PExpression,
+    val expr: PExpr,
     val declaration: Boolean
 ) : IStatement
 
 data class FunctionAssignment(
     val name: PString,
-    val params: List<PExpression>,
-    val expr: PExpression,
+    val params: List<PExpr>,
+    val expr: PExpr,
     val declaration: Boolean
 ) : IStatement
 

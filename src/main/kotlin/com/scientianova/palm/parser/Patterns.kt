@@ -2,6 +2,7 @@ package com.scientianova.palm.parser
 
 import com.scientianova.palm.errors.PalmError
 import com.scientianova.palm.errors.UNCLOSED_PARENTHESIS_ERROR
+import com.scientianova.palm.errors.throwAt
 import com.scientianova.palm.tokenizer.*
 import com.scientianova.palm.util.Positioned
 import com.scientianova.palm.util.StringPos
@@ -46,13 +47,13 @@ tailrec fun handleTupleDecPattern(
     }
 }
 
-fun exprToDecPattern(expr: PExpression, parser: Parser, error: PalmError): PDecPattern = when (val value = expr.value) {
+fun exprToDecPattern(expr: PExpr, error: PalmError): PDecPattern = when (val value = expr.value) {
     is WildcardExpr -> DecWildcardPattern at expr.area
     is PathExpr ->
         if (value.parts.size == 1) DecNamePattern(value.parts.first().value) at expr.area
-        else parser.error(error, expr.area)
-    is TupleExpr -> DecTuplePattern(value.components.map { exprToDecPattern(it, parser, error) }) at expr.area
-    else -> parser.error(error, expr.area)
+        else error throwAt expr.area
+    is TupleExpr -> DecTuplePattern(value.components.map { exprToDecPattern(it, error) }) at expr.area
+    else -> error throwAt expr.area
 }
 
 fun getNamesInPattern(pattern: DecPattern): List<String> = when (pattern) {

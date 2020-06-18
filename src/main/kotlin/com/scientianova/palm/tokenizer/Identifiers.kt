@@ -1,16 +1,19 @@
 package com.scientianova.palm.tokenizer
 
+import com.scientianova.palm.util.PString
 import com.scientianova.palm.util.StringPos
 import com.scientianova.palm.util.at
 
+fun handleIdentifier(state: ParseState) = handleIdentifier(state.code, state.pos, state.pos, StringBuilder())
+
 tailrec fun handleIdentifier(
-    traverser: StringTraverser,
-    char: Char?,
-    capitalized: Boolean,
-    list: TokenList,
+    code: String,
+    pos: StringPos,
     startPos: StringPos,
     builder: StringBuilder
-): Pair<PToken, Char?> =
-    if (char?.isJavaIdentifierPart() == true)
-        handleIdentifier(traverser, traverser.pop(), capitalized, list, startPos, builder.append(char))
-    else checkKeywords(builder.toString(), capitalized) at (startPos until traverser.lastPos) to char
+): Pair<PString, ParseState> {
+    val char = code.getOrNull(pos)
+    return if (char?.isIdentifierPart() == true)
+        handleIdentifier(code, pos + 1, startPos, builder.append(char))
+    else builder.toString() at (startPos until pos) to ParseState(code, pos)
+}

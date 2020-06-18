@@ -1,57 +1,57 @@
 package com.scientianova.palm.tokenizer
 
 import com.scientianova.palm.errors.*
+import com.scientianova.palm.parser.CharExpr
 import com.scientianova.palm.util.Positioned
 import com.scientianova.palm.util.StringPos
 import com.scientianova.palm.util.at
 
 fun handleChar(
-    traverser: StringTraverser,
-    char: Char?,
-    startPos: StringPos = traverser.lastPos
-): Pair<Positioned<CharToken>, Char?> {
-    val (value, end) = when (char) {
-        null, '\n' -> traverser.error(LONE_SINGLE_QUOTE_ERROR, traverser.lastPos)
-        '\\' -> handleEscaped(traverser, traverser.pop())
-            ?: traverser.error(INVALID_ESCAPE_CHARACTER_ERROR, traverser.lastPos)
-        else -> char to traverser.pop()
+    state: ParseState
+): Pair<Positioned<CharExpr>, ParseState> {
+    val (value, endState) = when (val char = state.char) {
+        null, '\n' -> LONE_SINGLE_QUOTE_ERROR throwAt state.pos
+        '\\' -> handleEscaped(state.next)
+            ?: INVALID_ESCAPE_CHARACTER_ERROR throwAt state.nextPos
+        else -> char to state.next
     }
+    val endChar = endState.char
     return when {
-        end == '\'' -> CharToken(value) at startPos..traverser.lastPos to traverser.pop()
-        char.isWhitespace() && value.isWhitespace() && isMalformedTab(traverser, traverser.pop()) ->
-            traverser.error(MALFORMED_TAB_ERROR, startPos..traverser.lastPos)
-        else -> traverser.error(
-            if (value == '\'') MISSING_SINGLE_QUOTE_ON_QUOTE_ERROR else MISSING_SINGLE_QUOTE_ERROR,
-            traverser.lastPos
-        )
+        endChar == '\'' -> CharExpr(value) at state.lastPos..endState.pos to endState.next
+        endChar == null -> UNCLOSED_CHAR_LITERAL_ERROR throwAt endState.pos
+        endChar.isWhitespace() && value.isWhitespace() -> isMalformedTab(endState.next)?.let {
+            MALFORMED_TAB_ERROR throwAt state.lastPos..it.pos
+        } ?: MISSING_SINGLE_QUOTE_ERROR throwAt endState.pos
+        else -> (if (value == '\'') MISSING_SINGLE_QUOTE_ON_QUOTE_ERROR else MISSING_SINGLE_QUOTE_ERROR)
+            .throwAt(endState.pos)
     }
 }
 
-fun handleEscaped(traverser: StringTraverser, char: Char?) = when (char) {
-    '"' -> '\"' to traverser.pop()
-    '$' -> '$' to traverser.pop()
-    '\\' -> '\\' to traverser.pop()
-    't' -> '\t' to traverser.pop()
-    'n' -> '\n' to traverser.pop()
-    'b' -> '\b' to traverser.pop()
-    'r' -> '\r' to traverser.pop()
-    'f' -> 12.toChar() to traverser.pop()
-    'v' -> 11.toChar() to traverser.pop()
+fun handleEscaped(state: ParseState) = when (state.char) {
+    '"' -> '\"' to state + 1
+    '$' -> '$' to state + 1
+    '\\' -> '\\' to state + 1
+    't' -> '\t' to state + 1
+    'n' -> '\n' to state + 1
+    'b' -> '\b' to state + 1
+    'r' -> '\r' to state + 1
+    'f' -> 12.toChar() to state + 1
+    'v' -> 11.toChar() to state + 1
     'u' ->
-        if (traverser.pop() == '{') handleUnicode(traverser, traverser.pop())
-        else traverser.error(MISSING_BRACKET_IN_UNICODE_ERROR, traverser.lastPos)
+        if (state.nextChar == '{') handleUnicode(state.code, state.pos + 2)
+        else MISSING_BRACKET_IN_UNICODE_ERROR throwAt state.nextPos
     else -> null
 }
 
 tailrec fun handleUnicode(
-    traverser: StringTraverser,
-    char: Char?,
+    code: String,
+    pos: StringPos,
     idBuilder: StringBuilder = StringBuilder()
-): Pair<Char, Char?> = when (char) {
+): Pair<Char, ParseState> = when (val char = code.getOrNull(pos)) {
     in '0'..'9', in 'a'..'f', in 'A'..'F' ->
-        handleUnicode(traverser, traverser.pop(), idBuilder.append(char))
-    '}'  -> idBuilder.toString().toInt().toChar() to char
-    else -> traverser.error(INVALID_HEX_LITERAL_ERROR, traverser.lastPos)
+        handleUnicode(code, pos + 1, idBuilder.append(char))
+    '}' -> idBuilder.toString().toInt().toChar() to ParseState(code, pos + 1)
+    else -> INVALID_HEX_LITERAL_ERROR throwAt pos
 }
 
 fun Char.isOpenBracket() = when (this) {
@@ -74,9 +74,22 @@ fun Char.isSeparator() = when (this) {
     else -> false
 }
 
-fun isMalformedTab(traverser: StringTraverser, char: Char?): Boolean = when (char) {
-    null -> false
-    ' ' -> isMalformedTab(traverser, traverser.pop())
-    '\'' -> true
+fun Char.isQuote() = when (this) {
+    '\"', '\'' -> true
+    else -> false
+}
+
+fun isMalformedTab(state: ParseState): ParseState? = when (state.char) {
+    null -> null
+    ' ' -> isMalformedTab(state.next)
+    '\'' -> state
+    else -> null
+}
+
+fun Char.isIdentifierPart() = isLetterOrDigit() || this == '_'
+fun Char.isSymbolPart() = !(isIdentifierPart() || isBracket() || isSeparator() || isQuote())
+
+fun Char.isLineSpace() = when (this) {
+    ' ', '\t' -> true
     else -> false
 }

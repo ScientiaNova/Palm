@@ -1,24 +1,22 @@
 package com.scientianova.palm.tokenizer
 
-tailrec fun handleSingleLineComment(traverser: StringTraverser, char: Char?): Char? = when (char) {
-    null, '\n' -> char
-    else -> handleSingleLineComment(traverser, traverser.pop())
+tailrec fun handleSingleLineComment(state: ParseState): ParseState = when (state.char) {
+    null, '\n' -> state
+    else -> handleSingleLineComment(state.next)
 }
 
 @Suppress("NON_TAIL_RECURSIVE_CALL")
-tailrec fun handleMultiLineComment(traverser: StringTraverser, char: Char?): Char? = when (char) {
-    null -> char
+tailrec fun handleMultiLineComment(state: ParseState): ParseState = when (state.char) {
+    null -> state
     ']' ->  {
-        val next = traverser.pop()
-        if (next == '#') char
-        else handleMultiLineComment(traverser, next)
+        if (state.nextChar == '#') state + 2
+        else handleMultiLineComment(state.next)
     }
     '#' ->  {
-        val next = traverser.pop()
-        if (next == '[') {
-            val newNext = handleMultiLineComment(traverser, next)
-            handleMultiLineComment(traverser, newNext)
-        } else handleMultiLineComment(traverser, next)
+        if (state.nextChar == '[') {
+            val newNext = handleMultiLineComment(state + 2)
+            handleMultiLineComment(newNext)
+        } else handleMultiLineComment(state.next)
     }
-    else -> handleSingleLineComment(traverser, traverser.pop())
+    else -> handleMultiLineComment(state.next)
 }

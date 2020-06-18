@@ -2,6 +2,8 @@ package com.scientianova.palm.errors
 
 import com.scientianova.palm.util.*
 
+class UncaughtParserException(val error: PalmError, val area: StringArea) : Exception()
+
 class PalmCompilationException(
     code: String,
     fileName: String,

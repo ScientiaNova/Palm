@@ -1,127 +1,133 @@
 package com.scientianova.palm.tokenizer
 
-import com.scientianova.palm.errors.INVALID_BINARY_LITERAL_ERROR
-import com.scientianova.palm.errors.INVALID_DECIMAL_LITERAL_ERROR
-import com.scientianova.palm.errors.INVALID_EXPONENT_ERROR
-import com.scientianova.palm.errors.INVALID_HEX_LITERAL_ERROR
+import com.scientianova.palm.errors.*
+import com.scientianova.palm.parser.*
 import com.scientianova.palm.util.StringPos
 import com.scientianova.palm.util.at
 
 tailrec fun handleNumber(
-    traverser: StringTraverser,
-    char: Char?,
+    state: ParseState,
     startPos: StringPos,
     builder: StringBuilder
-): Pair<PToken, Char?> = when {
-    char in '0'..'9' ->
-        handleNumber(traverser, traverser.pop(), startPos, builder.append(char))
-    char == '_' ->
-        handleNumber(traverser, traverser.pop(), startPos, builder)
-    char == '.' ->
-        if (traverser.peek()?.isDigit() == true)
-            handleDecimalNumber(traverser, traverser.pop(), startPos, builder.append(char))
-        else convertIntString(builder) at (startPos until traverser.lastPos) to char
-    char == 'b' || char == 'B' ->
-        ByteToken(builder.toString().toByte()) at startPos..traverser.lastPos to traverser.pop()
-    char == 's' || char == 'S' ->
-        ShortToken(builder.toString().toShort()) at startPos..traverser.lastPos to traverser.pop()
-    char == 'i' || char == 'I' ->
-        IntToken(builder.toString().toInt()) at startPos..traverser.lastPos to traverser.pop()
-    char == 'l' || char == 'L' ->
-        LongToken(builder.toString().toLong()) at startPos..traverser.lastPos to traverser.pop()
-    char == 'f' || char == 'F' ->
-        FloatToken(builder.toString().toFloat()) at startPos..traverser.lastPos to traverser.pop()
-    char == 'd' || char == 'D' ->
-        DoubleToken(builder.toString().toDouble()) at startPos..traverser.lastPos to traverser.pop()
-    char?.isLetter() == true ->
-        traverser.error(INVALID_DECIMAL_LITERAL_ERROR, traverser.lastPos)
-    else ->
-        convertIntString(builder) at (startPos until traverser.lastPos) to char
+): Pair<PExpr, ParseState> {
+    val char = state.char
+    return when {
+        char in '0'..'9' ->
+            handleNumber(state.next, startPos, builder.append(char))
+        char == '_' ->
+            handleNumber(state.next, startPos, builder)
+        char == '.' ->
+            handleDecimalNumber(state.next, startPos, builder.append(char))
+        char == 'b' || char == 'B' ->
+            ByteExpr(builder.toString().toByte()) at startPos..state.pos to state.next
+        char == 's' || char == 'S' ->
+            ShortExpr(builder.toString().toShort()) at startPos..state.pos to state.next
+        char == 'i' || char == 'I' ->
+            IntExpr(builder.toString().toInt()) at startPos..state.pos to state.next
+        char == 'l' || char == 'L' ->
+            LongExpr(builder.toString().toLong()) at startPos..state.pos to state.next
+        char == 'f' || char == 'F' ->
+            FloatExpr(builder.toString().toFloat()) at startPos..state.pos to state.next
+        char == 'd' || char == 'D' ->
+            DoubleExpr(builder.toString().toDouble()) at startPos..state.pos to state.next
+        char?.isLetter() == true ->
+            INVALID_DECIMAL_LITERAL_ERROR throwAt state.pos
+        else ->
+            convertIntString(builder) at (startPos until state.pos) to state
+    }
 }
 
-fun convertIntString(builder: StringBuilder): Token = when {
-    builder.length <= 10 -> IntToken(builder.toString().toInt())
-    builder.length <= 19 -> LongToken(builder.toString().toLong())
-    else -> DoubleToken(builder.toString().toDouble())
+fun convertIntString(builder: StringBuilder): Expression = when {
+    builder.length <= 10 -> IntExpr(builder.toString().toInt())
+    builder.length <= 19 -> LongExpr(builder.toString().toLong())
+    else -> DoubleExpr(builder.toString().toDouble())
 }
 
 tailrec fun handleDecimalNumber(
-    traverser: StringTraverser,
-    char: Char?,
+    state: ParseState,
     startPos: StringPos,
-    builder: StringBuilder = StringBuilder(".")
-): Pair<PToken, Char?> = when {
-    char in '0'..'9' -> handleDecimalNumber(traverser, traverser.pop(), startPos, builder.append(char))
-    char == '_' -> handleDecimalNumber(traverser, traverser.pop(), startPos, builder)
-    char == 'e' -> when (traverser.peek()) {
-        '+', '-' -> {
-            val symbol = traverser.pop()
-            if (traverser.peek()?.isDigit() == true)
-                handleDecimalExponent(traverser, traverser.pop(), startPos, builder.append(symbol))
-            else traverser.error(INVALID_EXPONENT_ERROR, traverser.lastPos + 1)
+    builder: StringBuilder
+): Pair<PExpr, ParseState> {
+    val char = state.char
+    return when {
+        char in '0'..'9' -> handleDecimalNumber(state.next, startPos, builder.append(char))
+        char == '_' -> handleDecimalNumber(state.next, startPos, builder)
+        char == 'e' -> when (val exponentStart = state.nextChar) {
+            '+', '-' -> {
+                val digitState = state + 3
+                if (digitState.char?.isDigit() == true)
+                    handleDecimalExponent(digitState, startPos, builder.append(exponentStart))
+                else INVALID_EXPONENT_ERROR throwAt digitState.pos
+            }
+            in '0'..'9' -> handleDecimalExponent(state + 2, startPos, builder)
+            else -> INVALID_EXPONENT_ERROR throwAt state.nextPos
         }
-        in '0'..'9' -> handleDecimalExponent(traverser, traverser.pop(), startPos, builder)
-        else -> traverser.error(INVALID_EXPONENT_ERROR, traverser.lastPos + 1)
+        char == 'f' || char == 'F' ->
+            FloatExpr(builder.toString().toFloat()) at startPos..state.pos to state.next
+        char == 'd' || char == 'D' ->
+            DoubleExpr(builder.toString().toDouble()) at startPos..state.pos to state.next
+        char?.isLetter() == true ->
+            INVALID_DECIMAL_LITERAL_ERROR throwAt state.pos
+        else -> DoubleExpr(builder.toString().toDouble()) at (startPos until state.pos) to state
     }
-    char == 'f' || char == 'F' ->
-        FloatToken(builder.toString().toFloat()) at startPos..traverser.lastPos to traverser.pop()
-    char == 'd' || char == 'D' ->
-        DoubleToken(builder.toString().toDouble()) at startPos..traverser.lastPos to traverser.pop()
-    char?.isLetter() == true ->
-        traverser.error(INVALID_DECIMAL_LITERAL_ERROR, traverser.lastPos)
-    else -> DoubleToken(builder.toString().toDouble()) at (startPos until traverser.lastPos) to char
 }
 
 tailrec fun handleDecimalExponent(
-    traverser: StringTraverser,
-    char: Char?,
+    state: ParseState,
     startPos: StringPos,
-    builder: StringBuilder = StringBuilder(".")
-): Pair<PToken, Char?> = when {
-    char in '0'..'9' -> handleDecimalExponent(traverser, traverser.pop(), startPos, builder.append(char))
-    char == '_' -> handleDecimalExponent(traverser, traverser.pop(), startPos, builder)
-    char?.isLetter() == true -> traverser.error(INVALID_DECIMAL_LITERAL_ERROR, traverser.lastPos)
-    else -> DoubleToken(builder.toString().toDouble()) at (startPos until traverser.lastPos) to char
+    builder: StringBuilder
+): Pair<PExpr, ParseState> {
+    val char = state.char
+    return when {
+        char in '0'..'9' -> handleDecimalExponent(state.next, startPos, builder.append(char))
+        char == '_' -> handleDecimalExponent(state.next, startPos, builder)
+        char?.isLetter() == true -> INVALID_DECIMAL_LITERAL_ERROR throwAt state.pos
+        else -> DoubleExpr(builder.toString().toDouble()) at (startPos until state.pos) to state
+    }
 }
 
 tailrec fun handleBinaryNumber(
-    traverser: StringTraverser,
-    char: Char?,
+    state: ParseState,
     startPos: StringPos,
     builder: StringBuilder
-): Pair<PToken, Char?> = when {
-    char == '0' || char == '1' ->
-        handleBinaryNumber(traverser, traverser.pop(), startPos, builder.append(char))
-    char == '_' ->
-        handleBinaryNumber(traverser, traverser.pop(), startPos, builder)
-    char == 'b' || char == 'B' ->
-        ByteToken(builder.toString().toByte(radix = 2)) at startPos..traverser.lastPos to traverser.pop()
-    char == 's' || char == 'S' ->
-        ShortToken(builder.toString().toShort(radix = 2)) at startPos..traverser.lastPos to traverser.pop()
-    char == 'i' || char == 'I' ->
-        IntToken(builder.toString().toInt(radix = 2)) at startPos..traverser.lastPos to traverser.pop()
-    char == 'l' || char == 'L' ->
-        LongToken(builder.toString().toLong(radix = 2)) at startPos..traverser.lastPos to traverser.pop()
-    char?.isLetter() == true ->
-        traverser.error(INVALID_BINARY_LITERAL_ERROR, traverser.lastPos)
-    else ->
-        (if (builder.length <= 32) IntToken(builder.toString().toInt(radix = 2))
-        else LongToken(builder.toString().toLong(radix = 2))) at (startPos until traverser.lastPos) to char
+): Pair<PExpr, ParseState> {
+    val char = state.char
+    return when {
+        char == '0' || char == '1' ->
+            handleBinaryNumber(state.next, startPos, builder.append(char))
+        char == '_' ->
+            handleBinaryNumber(state.next, startPos, builder)
+        char == 'b' || char == 'B' ->
+            ByteExpr(builder.toString().toByte(radix = 2)) at startPos..state.pos to state.next
+        char == 's' || char == 'S' ->
+            ShortExpr(builder.toString().toShort(radix = 2)) at startPos..state.pos to state.next
+        char == 'i' || char == 'I' ->
+            IntExpr(builder.toString().toInt(radix = 2)) at startPos..state.pos to state.next
+        char == 'l' || char == 'L' ->
+            LongExpr(builder.toString().toLong(radix = 2)) at startPos..state.lastPos to state.next
+        char?.isLetter() == true ->
+            INVALID_BINARY_LITERAL_ERROR throwAt state.pos
+        else ->
+            (if (builder.length <= 32) IntExpr(builder.toString().toInt(radix = 2))
+            else LongExpr(builder.toString().toLong(radix = 2))) at (startPos until state.pos) to state
+    }
 }
 
 tailrec fun handleHexNumber(
-    traverser: StringTraverser,
-    char: Char?,
+    state: ParseState,
     startPos: StringPos,
     builder: StringBuilder
-): Pair<PToken, Char?> = when {
-    char in '0'..'9' || char in 'a'..'f' || char in 'A'..'F' ->
-        handleHexNumber(traverser, traverser.pop(), startPos, builder.append(char))
-    char == '_' ->
-        handleHexNumber(traverser, traverser.pop(), startPos, builder)
-    char?.isLetter() == true ->
-        traverser.error(INVALID_HEX_LITERAL_ERROR, traverser.lastPos)
-    else ->
-        (if (builder.length <= 8) IntToken(builder.toString().toInt(radix = 16))
-        else LongToken(builder.toString().toLong(radix = 16))) at (startPos until traverser.lastPos) to char
+): Pair<PExpr, ParseState> {
+    val char = state.char
+    return when {
+        char in '0'..'9' || char in 'a'..'f' || char in 'A'..'F' ->
+            handleHexNumber(state.next, startPos, builder.append(char))
+        char == '_' ->
+            handleHexNumber(state.next, startPos, builder)
+        char?.isLetter() == true ->
+            INVALID_HEX_LITERAL_ERROR throwAt state.pos
+        else ->
+            (if (builder.length <= 8) IntExpr(builder.toString().toInt(radix = 16))
+            else LongExpr(builder.toString().toLong(radix = 16))) at (startPos until state.pos) to state
+    }
 }

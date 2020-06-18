@@ -2,148 +2,89 @@ package com.scientianova.palm.tokenizer
 
 import com.scientianova.palm.errors.INVALID_ESCAPE_CHARACTER_ERROR
 import com.scientianova.palm.errors.MISSING_DOUBLE_QUOTE_ERROR
-import com.scientianova.palm.errors.UNCLOSED_INTERPOLATED_EXPRESSION_ERROR
 import com.scientianova.palm.errors.UNCLOSED_MULTILINE_STRING
-import com.scientianova.palm.util.Positioned
+import com.scientianova.palm.errors.throwAt
+import com.scientianova.palm.parser.*
 import com.scientianova.palm.util.StringPos
 import com.scientianova.palm.util.at
-import java.util.*
-
-sealed class StringTokenPart
-typealias PStringTokenPart = Positioned<StringTokenPart>
-
-data class StringPart(val string: String) : StringTokenPart() {
-    constructor(builder: StringBuilder) : this(builder.toString())
-}
-
-data class TokensPart(val tokens: TokenList) : StringTokenPart() {
-    constructor(token: PToken) : this(TokenList().apply { offer(token) })
-}
 
 tailrec fun handleSingleLineString(
-    traverser: StringTraverser,
-    char: Char?,
+    state: ParseState,
     startPos: StringPos,
-    list: TokenList,
-    parts: List<PStringTokenPart>,
+    parts: List<Pair<PExpr, PBinOp>>,
     builder: StringBuilder,
     lastStart: StringPos = startPos
-): Pair<PToken, Char?> = when (char) {
-    null, '\n' -> traverser.error(MISSING_DOUBLE_QUOTE_ERROR, traverser.lastPos)
+): Pair<PExpr, ParseState> = when (val char = state.char) {
+    null, '\n' -> MISSING_DOUBLE_QUOTE_ERROR throwAt state.lastPos
     '"' ->
-        (if (parts.isEmpty()) PureStringToken(builder.toString())
-        else StringTemplateToken(if (builder.isEmpty()) parts else parts + (StringPart(builder) at lastStart..traverser.lastPos))) at
-                startPos..traverser.lastPos to traverser.pop()
+        (if (parts.isEmpty()) StringExpr(builder.toString())
+        else BinaryOpsExpr(parts, StringExpr(builder.toString()) at lastStart..state.lastPos)) at
+                startPos..state.lastPos to state.next
     '$' -> {
-        val next = traverser.pop()
-        val interStart = traverser.lastPos
+        val next = state.nextChar
+        val interStart = state.nextPos
         when {
-            next?.isJavaIdentifierStart() == true -> {
-                val (identifier, newNext) = handleIdentifier(
-                    traverser, next, next.isUpperCase(), list, traverser.lastPos, StringBuilder()
+            next?.isIdentifierPart() == true -> {
+                val (identifier, afterState) = handleIdentifier(
+                    state.code, interStart, interStart, StringBuilder()
                 )
                 handleSingleLineString(
-                    traverser, newNext, startPos, list,
-                    parts + (StringPart(builder) at startPos..interStart) + (TokensPart(identifier) at interStart..traverser.lastPos),
-                    StringBuilder(), traverser.lastPos - 1
+                    afterState, startPos,
+                    parts +
+                            ((StringExpr(builder.toString()) at lastStart..interStart) to (PLUS at interStart)) +
+                            ((PathExpr(listOf(identifier)) at interStart..afterState.pos) to (PLUS at afterState.pos)),
+                    StringBuilder(), afterState.pos
                 )
             }
-            next == '{' -> {
-                val stack = LinkedList<PToken>()
-                val bracketPos = traverser.lastPos
-                handleInterpolation(traverser, traverser.pop(), stack, bracketPos)
-                handleSingleLineString(
-                    traverser, traverser.pop(), startPos, list,
-                    parts + (StringPart(builder) at startPos..interStart) + (TokensPart(stack) at interStart..traverser.lastPos),
-                    StringBuilder(), traverser.lastPos - 1
-                )
-            }
-            else -> handleSingleLineString(traverser, next, startPos, list, parts, builder.append(char), lastStart)
+            next == '{' -> TODO()
+            else -> handleSingleLineString(state.next, startPos, parts, builder.append(char), lastStart)
         }
     }
-    '\\' -> handleSingleLineString(
-        traverser, traverser.pop(), startPos, list, parts,
-        builder.append(
-            handleEscaped(traverser, traverser.pop())
-                ?: traverser.error(INVALID_ESCAPE_CHARACTER_ERROR, traverser.lastPos)
-        ), lastStart
-    )
-    else -> handleSingleLineString(traverser, traverser.pop(), startPos, list, parts, builder.append(char), lastStart)
+    '\\' -> {
+        val (escaped, afterState) =
+            handleEscaped(state.next) ?: INVALID_ESCAPE_CHARACTER_ERROR throwAt state.nextPos
+        handleSingleLineString(afterState, startPos, parts, builder.append(escaped), lastStart)
+    }
+    else -> handleSingleLineString(state.next, startPos, parts, builder.append(char), lastStart)
 }
 
 tailrec fun handleMultiLineString(
-    traverser: StringTraverser,
-    char: Char?,
+    state: ParseState,
     startPos: StringPos,
-    list: TokenList,
-    parts: List<PStringTokenPart>,
+    parts: List<Pair<PExpr, PBinOp>>,
     builder: StringBuilder,
     lastStart: StringPos = startPos
-): Pair<Positioned<StringTemplateToken>, Char?> = when (char) {
-    null -> traverser.error(UNCLOSED_MULTILINE_STRING, startPos until startPos)
+): Pair<PExpr, ParseState> = when (val char = state.char) {
+    null -> UNCLOSED_MULTILINE_STRING throwAt startPos..state.pos
     '"' -> {
-        val second = traverser.pop()
-        if (second == '"') {
-            val third = traverser.pop()
-            if (second == '"')
-                StringTemplateToken(if (builder.isEmpty()) parts else parts + (StringPart(builder) at lastStart..traverser.lastPos)) at
-                        startPos..traverser.lastPos to traverser.pop()
-            else handleMultiLineString(traverser, third, startPos, list, parts, builder.append("\"\""), lastStart)
-        } else handleMultiLineString(traverser, second, startPos, list, parts, builder.append('"'), lastStart)
+        val second = state.next
+        if (second.nextChar == '"') {
+            val third = second + 1
+            if (third.char == '"')
+                BinaryOpsExpr(parts, (StringExpr(builder.toString()) at lastStart..state.lastPos)) at
+                        startPos..state.lastPos to third
+            else handleMultiLineString(third, startPos, parts, builder.append("\"\""), lastStart)
+        } else handleMultiLineString(second, startPos, parts, builder.append('"'), lastStart)
     }
     '$' -> {
-        val next = traverser.pop()
-        val interStart = traverser.lastPos
+        val next = state.nextChar
+        val interStart = state.nextPos
         when {
-            next?.isJavaIdentifierStart() == true && next.isLowerCase() -> {
-                val (identifier, newNext) = handleIdentifier(
-                    traverser, next, next.isUpperCase(), list, traverser.lastPos, StringBuilder()
+            next?.isIdentifierPart() == true -> {
+                val (identifier, afterState) = handleIdentifier(
+                    state.code, interStart, interStart, StringBuilder()
                 )
-                handleMultiLineString(
-                    traverser, newNext, startPos, list,
-                    parts + (StringPart(builder) at startPos..interStart) + (TokensPart(identifier) at interStart..traverser.lastPos),
-                    StringBuilder(), traverser.lastPos + 1
-                )
-            }
-            next == '{' -> {
-                val stack = TokenList()
-                val bracketPos = traverser.lastPos
-                handleInterpolation(traverser, traverser.pop(), stack, bracketPos)
-                handleMultiLineString(
-                    traverser, traverser.pop(), startPos, list,
-                    parts + (StringPart(builder) at startPos..interStart) + (TokensPart(stack) at interStart..traverser.lastPos),
-                    StringBuilder(), traverser.lastPos + 1
+                handleSingleLineString(
+                    afterState, startPos,
+                    parts +
+                            ((StringExpr(builder.toString()) at lastStart..interStart) to (PLUS at interStart)) +
+                            ((PathExpr(listOf(identifier)) at interStart..afterState.pos) to (PLUS at afterState.pos)),
+                    StringBuilder(), afterState.pos
                 )
             }
-            else -> handleMultiLineString(traverser, next, startPos, list, parts, builder.append(char), lastStart)
+            next == '{' -> TODO()
+            else -> handleMultiLineString(state.next, startPos, parts, builder.append(char), lastStart)
         }
     }
-    else -> handleMultiLineString(traverser, traverser.pop(), startPos, list, parts, builder.append(char), lastStart)
-}
-
-tailrec fun handleInterpolation(
-    traverser: StringTraverser,
-    char: Char?,
-    list: TokenList,
-    startPos: StringPos
-): Unit = when {
-    char == null -> traverser.error(UNCLOSED_INTERPOLATED_EXPRESSION_ERROR, startPos)
-    char == '}' -> Unit
-    char.isWhitespace() -> handleInterpolation(traverser, traverser.pop(), list, startPos)
-    char.isJavaIdentifierStart() -> {
-        val (identifier, next) = handleIdentifier(
-            traverser, char, char.isUpperCase(), list, traverser.lastPos, StringBuilder()
-        )
-        list.offer(identifier)
-        handleInterpolation(traverser, next, list, startPos)
-    }
-    char == '#' -> when (traverser.peek()) {
-        '[' -> handleInterpolation(traverser, handleMultiLineComment(traverser, traverser.pop()), list, startPos)
-        else -> handleInterpolation(traverser, handleSingleLineComment(traverser, traverser.pop()), list, startPos)
-    }
-    else -> {
-        val (token, next) = handleToken(traverser, char, list)
-        list.offer(token)
-        handleInterpolation(traverser, next, list, startPos)
-    }
+    else -> handleMultiLineString(state.next, startPos, parts, builder.append(char), lastStart)
 }
