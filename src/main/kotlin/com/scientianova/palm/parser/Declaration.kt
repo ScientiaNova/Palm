@@ -183,7 +183,7 @@ fun handleDeclaration(
                     val (type, next) = handleType(parser.pop(), parser)
                     AliasDec(value.name at token.area, genericPool, type) at start..type.area.last to next
                 }
-                else -> parser.error(UNKNOWNN_DECLARATION_ERROR, symbol?.area ?: parser.lastArea)
+                else -> parser.error(UNKNOWN_DECLARATION_ERROR, symbol?.area ?: parser.lastArea)
             }
         } else {
             when (afterIdent?.value) {
@@ -197,7 +197,7 @@ fun handleDeclaration(
                     ConstDef(value.name at token.area, type, constants) at start..type.area.last to next
                 }
                 is EqualsToken -> {
-                    val (expr, next) = handleExpression(parser.pop(), parser)
+                    val (expr, next) = handleInScopeExpression(parser.pop(), parser)
                     ConstAssignment(DecNamePattern(value.name) at token.area, expr, true) at
                             start..expr.area.last to next
                 }
@@ -205,11 +205,11 @@ fun handleDeclaration(
                     val (params, equals) = handleParams(parser.pop(), parser, start)
                     if (equals?.value !is EqualsToken)
                         parser.error(MISSING_EQUALS_ERROR, equals?.area?.start ?: parser.lastPos)
-                    val (expr, next) = handleExpression(parser.pop(), parser)
+                    val (expr, next) = handleInScopeExpression(parser.pop(), parser)
                     FunctionAssignment(value.name at token.area, params.value, expr, true) at
                             start..expr.area.last to next
                 }
-                else -> parser.error(UNKNOWNN_DECLARATION_ERROR, afterIdent?.area ?: parser.lastArea)
+                else -> parser.error(UNKNOWN_DECLARATION_ERROR, afterIdent?.area ?: parser.lastArea)
             }
         }
     }
@@ -217,7 +217,7 @@ fun handleDeclaration(
         val equals = parser.pop()
         if (equals?.value !is EqualsToken)
             parser.error(MISSING_EQUALS_ERROR, equals?.area?.start ?: parser.lastPos)
-        handleExpression(parser.pop(), parser)
+        handleInScopeExpression(parser.pop(), parser)
     }
     is OpenParenToken -> {
         val (pattern, equals) =
@@ -226,10 +226,10 @@ fun handleDeclaration(
             )
         if (equals?.value !is EqualsToken)
             parser.error(MISSING_EQUALS_ERROR, equals?.area?.start ?: parser.lastPos)
-        val (expr, next) = handleExpression(parser.pop(), parser)
+        val (expr, next) = handleInScopeExpression(parser.pop(), parser)
         ConstAssignment(pattern, expr, true) at start..expr.area.last to next
     }
-    else -> parser.error(UNKNOWNN_DECLARATION_ERROR, token?.area ?: parser.lastArea)
+    else -> parser.error(UNKNOWN_DECLARATION_ERROR, token?.area ?: parser.lastArea)
 }
 
 tailrec fun handleRecord(
@@ -338,7 +338,7 @@ tailrec fun handleClass(
             val symbol = parser.pop()
             when (symbol?.value) {
                 is EqualsToken -> {
-                    val (expr, next) = handleExpression(parser.pop(), parser)
+                    val (expr, next) = handleInScopeExpression(parser.pop(), parser)
                     ConstAssignment(
                         DecNamePattern(value.name) at token.area, expr, false
                     ) at token.area.first..expr.area.last to next
@@ -347,11 +347,11 @@ tailrec fun handleClass(
                     val (params, equals) = handleParams(parser.pop(), parser, symbol.area.first, emptyList())
                     if (equals?.value !is EqualsToken)
                         parser.error(MISSING_EQUALS_ERROR, equals?.area ?: parser.lastArea)
-                    val (expr, next) = handleExpression(parser.pop(), parser)
+                    val (expr, next) = handleInScopeExpression(parser.pop(), parser)
                     FunctionAssignment(value.name at token.area, params.value, expr, false) at
                             token.area.first..expr.area.last to next
                 }
-                else -> parser.error(UNKNOWNN_DECLARATION_ERROR, symbol?.area ?: parser.lastArea)
+                else -> parser.error(UNKNOWN_DECLARATION_ERROR, symbol?.area ?: parser.lastArea)
             }
         }
         is OpenParenToken -> {
@@ -359,10 +359,10 @@ tailrec fun handleClass(
                 parser.pop(), parser, INVALID_DESTRUCTURED_DECLARATION_ERROR, token.area.first, emptyList()
             )
             if (equals?.value !is EqualsToken) parser.error(MISSING_EQUALS_ERROR, equals?.area ?: parser.lastArea)
-            val (expr, next) = handleExpression(parser.pop(), parser)
+            val (expr, next) = handleInScopeExpression(parser.pop(), parser)
             ConstAssignment(pattern, expr, false) at token.area.first..expr.area.last to next
         }
-        else -> parser.error(UNKNOWNN_DECLARATION_ERROR, token?.area ?: parser.lastArea)
+        else -> parser.error(UNKNOWN_DECLARATION_ERROR, token?.area ?: parser.lastArea)
     }
     handleClass(
         if (next?.value is SeparatorToken) parser.pop() else next, parser, start,
@@ -386,7 +386,7 @@ tailrec fun handleInstance(
             val symbol = parser.pop()
             when (symbol?.value) {
                 is EqualsToken -> {
-                    val (expr, next) = handleExpression(parser.pop(), parser)
+                    val (expr, next) = handleInScopeExpression(parser.pop(), parser)
                     ConstAssignment(
                         DecNamePattern(value.name) at token.area, expr, false
                     ) at token.area.first..expr.area.last to next
@@ -395,11 +395,11 @@ tailrec fun handleInstance(
                     val (params, equals) = handleParams(parser.pop(), parser, symbol.area.first, emptyList())
                     if (equals?.value !is EqualsToken)
                         parser.error(MISSING_EQUALS_ERROR, equals?.area ?: parser.lastArea)
-                    val (expr, next) = handleExpression(parser.pop(), parser)
+                    val (expr, next) = handleInScopeExpression(parser.pop(), parser)
                     FunctionAssignment(value.name at token.area, params.value, expr, false) at
                             token.area.first..expr.area.last to next
                 }
-                else -> parser.error(UNKNOWNN_DECLARATION_ERROR, symbol?.area ?: parser.lastArea)
+                else -> parser.error(UNKNOWN_DECLARATION_ERROR, symbol?.area ?: parser.lastArea)
             }
         }
         is OpenParenToken -> {
@@ -407,10 +407,10 @@ tailrec fun handleInstance(
                 parser.pop(), parser, INVALID_DESTRUCTURED_DECLARATION_ERROR, token.area.first, emptyList()
             )
             if (equals?.value !is EqualsToken) parser.error(MISSING_EQUALS_ERROR, equals?.area ?: parser.lastArea)
-            val (expr, next) = handleExpression(parser.pop(), parser)
+            val (expr, next) = handleInScopeExpression(parser.pop(), parser)
             ConstAssignment(pattern, expr, false) at token.area.first..expr.area.last to next
         }
-        else -> parser.error(UNKNOWNN_DECLARATION_ERROR, token?.area ?: parser.lastArea)
+        else -> parser.error(UNKNOWN_DECLARATION_ERROR, token?.area ?: parser.lastArea)
     }
     handleInstance(
         if (next?.value is SeparatorToken) parser.pop() else next, parser, start,

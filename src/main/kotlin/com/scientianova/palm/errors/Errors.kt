@@ -265,7 +265,7 @@ val INVALID_DESTRUCTURED_DECLARATION_ERROR = PalmError(
     "A destructured declaration can only contain identifiers, wildcards or tuples of them."
 )
 
-val UNKNOWNN_DECLARATION_ERROR = PalmError(
+val UNKNOWN_DECLARATION_ERROR = PalmError(
     "UNKNOWN DECLARATION",
     "I was expecting a declaration, but what I found didn't match any of the possible ones:",
     ""
@@ -299,4 +299,28 @@ val UNCLOSED_CHAR_LITERAL_ERROR = PalmError(
     "UNCLOSED CHAR LITERAL",
     "I was going through a char literal, but have reached the end of the file without finding its end:",
     "Put a ' here."
+)
+
+val UNCLOSED_WHEN_ERROR = PalmError(
+    "UNCLOSED WHEN EXPRESSION",
+    "I was going through a when expression and was expecting a closed curly bracket or expression separator, but instead got:",
+    "Put a } here."
+)
+
+val INVALID_PREFIX_OPERATOR_ERROR = PalmError(
+    "INVALID PREFIX OPERATOR",
+    "I wss expecting an infix operator, but instead for a prefix operator:",
+    "Put a space here."
+)
+
+val INVALID_LEFT_ARROW_ERROR = PalmError(
+    "INVALID LEFT ARROW",
+    "I saw a left arrow, but it wasn't the first operator on a line in a scope:",
+    "The left arrow is used for do notation and can only go after the first subexpression on a line "
+)
+
+val MISSING_EXPRESSION_SEPARATOR_ERROR = PalmError(
+    "MISSING EXPRESSION SEPARATOR",
+    "I saw 2 expression on the same line without a separator between them:",
+    "Put a ; here."
 )

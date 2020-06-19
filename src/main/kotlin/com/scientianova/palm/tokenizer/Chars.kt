@@ -93,3 +93,10 @@ fun Char.isLineSpace() = when (this) {
     ' ', '\t' -> true
     else -> false
 }
+
+fun Char?.isExpressionSeparator() = when (this) {
+    null, '\n', ';', ',' -> true
+    else -> false
+}
+
+fun Char?.isAfterPostfix() = this == null || isWhitespace() || isClosedBracket() || isSeparator()

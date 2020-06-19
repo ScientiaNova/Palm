@@ -32,7 +32,7 @@ data class ImplicitFunctionType(
 
 object UnitType : Type()
 
-fun handleType(token: PToken?, parser: Parser): Pair<PType, PToken?> = when (val value = token?.value) {
+fun handleType(state: ParseState): Pair<PType, ParseState> = when (val value = token?.value) {
     is IdentifierToken -> {
         val (type, next) = handleRegularType(parser.pop(), parser, listOf(value.name at token.area))
         if (next?.value == RightArrowToken) {

@@ -36,7 +36,16 @@ tailrec fun handleSingleLineString(
                     StringBuilder(), afterState.pos
                 )
             }
-            next == '{' -> TODO()
+            next == '{' -> {
+                val (scope, afterState) = handleScope(state.nextActual, state.pos, false)
+                handleSingleLineString(
+                    afterState, startPos,
+                    parts +
+                            ((StringExpr(builder.toString()) at lastStart..interStart) to (PLUS at interStart)) +
+                            (scope to (PLUS at afterState.pos)),
+                    StringBuilder(), afterState.pos
+                )
+            }
             else -> handleSingleLineString(state.next, startPos, parts, builder.append(char), lastStart)
         }
     }
@@ -82,7 +91,16 @@ tailrec fun handleMultiLineString(
                     StringBuilder(), afterState.pos
                 )
             }
-            next == '{' -> TODO()
+            next == '{' -> {
+                val (scope, afterState) = handleScope(state.nextActual, state.pos, false)
+                handleMultiLineString(
+                    afterState, startPos,
+                    parts +
+                            ((StringExpr(builder.toString()) at lastStart..interStart) to (PLUS at interStart)) +
+                            (scope to (PLUS at afterState.pos)),
+                    StringBuilder(), afterState.pos
+                )
+            }
             else -> handleMultiLineString(state.next, startPos, parts, builder.append(char), lastStart)
         }
     }
