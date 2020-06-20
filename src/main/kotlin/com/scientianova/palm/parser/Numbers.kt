@@ -1,7 +1,6 @@
-package com.scientianova.palm.tokenizer
+package com.scientianova.palm.parser
 
 import com.scientianova.palm.errors.*
-import com.scientianova.palm.parser.*
 import com.scientianova.palm.util.StringPos
 import com.scientianova.palm.util.at
 
@@ -17,7 +16,11 @@ tailrec fun handleNumber(
         char == '_' ->
             handleNumber(state.next, startPos, builder)
         char == '.' ->
-            handleDecimalNumber(state.next, startPos, builder.append(char))
+            handleDecimalNumber(
+                state.next,
+                startPos,
+                builder.append(char)
+            )
         char == 'b' || char == 'B' ->
             ByteExpr(builder.toString().toByte()) at startPos..state.pos to state.next
         char == 's' || char == 'S' ->
@@ -50,16 +53,32 @@ tailrec fun handleDecimalNumber(
 ): Pair<PExpr, ParseState> {
     val char = state.char
     return when {
-        char in '0'..'9' -> handleDecimalNumber(state.next, startPos, builder.append(char))
-        char == '_' -> handleDecimalNumber(state.next, startPos, builder)
+        char in '0'..'9' -> handleDecimalNumber(
+            state.next,
+            startPos,
+            builder.append(char)
+        )
+        char == '_' -> handleDecimalNumber(
+            state.next,
+            startPos,
+            builder
+        )
         char == 'e' -> when (val exponentStart = state.nextChar) {
             '+', '-' -> {
                 val digitState = state + 3
                 if (digitState.char?.isDigit() == true)
-                    handleDecimalExponent(digitState, startPos, builder.append(exponentStart))
+                    handleDecimalExponent(
+                        digitState,
+                        startPos,
+                        builder.append(exponentStart)
+                    )
                 else INVALID_EXPONENT_ERROR throwAt digitState.pos
             }
-            in '0'..'9' -> handleDecimalExponent(state + 2, startPos, builder)
+            in '0'..'9' -> handleDecimalExponent(
+                state + 2,
+                startPos,
+                builder
+            )
             else -> INVALID_EXPONENT_ERROR throwAt state.nextPos
         }
         char == 'f' || char == 'F' ->
@@ -79,8 +98,16 @@ tailrec fun handleDecimalExponent(
 ): Pair<PExpr, ParseState> {
     val char = state.char
     return when {
-        char in '0'..'9' -> handleDecimalExponent(state.next, startPos, builder.append(char))
-        char == '_' -> handleDecimalExponent(state.next, startPos, builder)
+        char in '0'..'9' -> handleDecimalExponent(
+            state.next,
+            startPos,
+            builder.append(char)
+        )
+        char == '_' -> handleDecimalExponent(
+            state.next,
+            startPos,
+            builder
+        )
         char?.isLetter() == true -> INVALID_DECIMAL_LITERAL_ERROR throwAt state.pos
         else -> DoubleExpr(builder.toString().toDouble()) at (startPos until state.pos) to state
     }
@@ -94,7 +121,11 @@ tailrec fun handleBinaryNumber(
     val char = state.char
     return when {
         char == '0' || char == '1' ->
-            handleBinaryNumber(state.next, startPos, builder.append(char))
+            handleBinaryNumber(
+                state.next,
+                startPos,
+                builder.append(char)
+            )
         char == '_' ->
             handleBinaryNumber(state.next, startPos, builder)
         char == 'b' || char == 'B' ->

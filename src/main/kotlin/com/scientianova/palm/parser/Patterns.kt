@@ -3,7 +3,6 @@ package com.scientianova.palm.parser
 import com.scientianova.palm.errors.PalmError
 import com.scientianova.palm.errors.UNCLOSED_PARENTHESIS_ERROR
 import com.scientianova.palm.errors.throwAt
-import com.scientianova.palm.tokenizer.*
 import com.scientianova.palm.util.Positioned
 import com.scientianova.palm.util.StringPos
 import com.scientianova.palm.util.at
@@ -16,10 +15,9 @@ data class DecNamePattern(val name: String) : DecPattern()
 data class DecTuplePattern(val values: List<PDecPattern>) : DecPattern()
 
 fun handleDeclarationPattern(
-    token: PToken?,
-    parser: Parser,
+    state: ParseState,
     error: PalmError
-): Pair<PDecPattern, PToken?> = when (val value = token?.value) {
+): Pair<PDecPattern, ParseState> = when (val value = token?.value) {
     is WildcardToken -> DecWildcardPattern at token.area to parser.pop()
     is IdentifierToken -> DecNamePattern(value.name) at token.area to parser.pop()
     is OpenParenToken -> handleTupleDecPattern(parser.pop(), parser, error, token.area.first, emptyList())
@@ -27,12 +25,11 @@ fun handleDeclarationPattern(
 }
 
 tailrec fun handleTupleDecPattern(
-    token: PToken?,
-    parser: Parser,
+    state: ParseState,
     error: PalmError,
     startPos: StringPos,
     patterns: List<PDecPattern>
-): Pair<PDecPattern, PToken?> = if (token?.value is ClosedParenToken) when (patterns.size) {
+): Pair<PDecPattern, ParseState> = if (token?.value is ClosedParenToken) when (patterns.size) {
     0 -> DecWildcardPattern at startPos..token.area.last
     1 -> patterns.first()
     else -> DecTuplePattern(patterns) at startPos..token.area.last

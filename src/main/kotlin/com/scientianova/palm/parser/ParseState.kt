@@ -1,4 +1,4 @@
-package com.scientianova.palm.tokenizer
+package com.scientianova.palm.parser
 
 import com.scientianova.palm.util.StringPos
 

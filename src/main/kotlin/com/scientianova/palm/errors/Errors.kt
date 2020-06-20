@@ -118,7 +118,7 @@ val INVALID_EXPRESSION_ERROR = PalmError(
 val MISSING_BRACKET_IN_UNICODE_ERROR = PalmError(
     "MISSING CURLY BRACKET",
     "I saw a \\u and was expecting an open curly bracket next, but instead got:",
-    "Put an { here."
+    "Add an { here."
 )
 
 val INVALID_EXPONENT_ERROR = PalmError(
@@ -190,13 +190,13 @@ val INVALID_IMPORT_ERROR = PalmError(
 val UNCLOSED_IMPORT_GROUP_ERROR = PalmError(
     "UNCLOSED IMPORT GROUP",
     "I was going through an import group and instead of a closed curly bracket found:",
-    "Put a } here."
+    "Add a } here."
 )
 
 val MISSING_EQUALS_ERROR = PalmError(
     "MISSING EQUALS",
     "I was going through an assignment and was expecting an equals sign, but instead got:",
-    "Put a = here."
+    "Add a = here."
 )
 
 val EMPTY_RECORD_ERROR = PalmError(
@@ -226,7 +226,7 @@ val MISSING_PAREN_AFTER_RECORD_ERROR = PalmError(
 val MISSING_BRACKET_AFTER_ENUM_ERROR = PalmError(
     "MISSING CURLY BRACKET",
     "I was going through an enum declaration and was expecting an open curly bracket, but instead got:",
-    "Put an { here."
+    "Add an { here."
 )
 
 val INVALID_ENUM_CASE_NAME_ERROR = PalmError(
@@ -280,13 +280,13 @@ val INVALID_FUNCTION_NAME = PalmError(
 val MISSING_BRACKET_AFTER_CLASS_ERROR = PalmError(
     "MISSING CURLY BRACKET",
     "I was going through a type class declaration and was expecting an open curly bracket, but instead got:",
-    "Put an { here."
+    "Add an { here."
 )
 
 val MISSING_BRACKET_AFTER_IMPL_ERROR = PalmError(
     "MISSING CURLY BRACKET",
     "I was going through a type class implementation and was expecting an open curly bracket, but instead got:",
-    "Put an { here."
+    "Add an { here."
 )
 
 val MISSING_EXPRESSION_ERROR = PalmError(
@@ -298,19 +298,19 @@ val MISSING_EXPRESSION_ERROR = PalmError(
 val UNCLOSED_CHAR_LITERAL_ERROR = PalmError(
     "UNCLOSED CHAR LITERAL",
     "I was going through a char literal, but have reached the end of the file without finding its end:",
-    "Put a ' here."
+    "Add a ' here."
 )
 
 val UNCLOSED_WHEN_ERROR = PalmError(
     "UNCLOSED WHEN EXPRESSION",
     "I was going through a when expression and was expecting a closed curly bracket or expression separator, but instead got:",
-    "Put a } here."
+    "Add a } here."
 )
 
 val INVALID_PREFIX_OPERATOR_ERROR = PalmError(
     "INVALID PREFIX OPERATOR",
     "I wss expecting an infix operator, but instead for a prefix operator:",
-    "Put a space here."
+    "Add a space here."
 )
 
 val INVALID_LEFT_ARROW_ERROR = PalmError(
@@ -322,5 +322,17 @@ val INVALID_LEFT_ARROW_ERROR = PalmError(
 val MISSING_EXPRESSION_SEPARATOR_ERROR = PalmError(
     "MISSING EXPRESSION SEPARATOR",
     "I saw 2 expression on the same line without a separator between them:",
-    "Put a ; here."
+    "Add a ; here."
+)
+
+val INVALID_ASSIGNMENT_ERROR = PalmError(
+    "INVALID ASSIGNMENT",
+    "I saw an equals sign, but it wasn't the first operator on a line in a scope:",
+    "Assignment can only go in a scope and the equals sign must be the first operator in the expression "
+)
+
+val UNCLOSED_SCOPE_ERROR = PalmError(
+    "UNCLOSED SCOPE",
+    "I was going through a scope, but have reached the end of the file:",
+    "Add a } here."
 )

@@ -2,7 +2,6 @@ package com.scientianova.palm.parser
 
 import com.scientianova.palm.errors.INVALID_TYPE_NAME_ERROR
 import com.scientianova.palm.errors.UNCLOSED_SQUARE_BRACKET_ERROR
-import com.scientianova.palm.tokenizer.*
 import com.scientianova.palm.util.PString
 import com.scientianova.palm.util.Positioned
 import com.scientianova.palm.util.StringPos
@@ -44,7 +43,7 @@ fun handleType(state: ParseState): Pair<PType, ParseState> = when (val value = t
     else -> parser.error(UNCLOSED_SQUARE_BRACKET_ERROR, token?.area ?: parser.lastArea)
 }
 
-tailrec fun handleRegularType(token: PToken?, parser: Parser, path: List<PString>): Pair<PType, PToken?> =
+tailrec fun handleRegularType(state: ParseState, path: List<PString>): Pair<PType, ParseState> =
     when (token?.value) {
         is DotToken -> {
             val (name, pos) = parser.pop() ?: parser.error(INVALID_TYPE_NAME_ERROR, parser.lastArea)
@@ -61,11 +60,10 @@ tailrec fun handleRegularType(token: PToken?, parser: Parser, path: List<PString
     }
 
 tailrec fun handleGenerics(
-    token: PToken?,
-    parser: Parser,
+    state: ParseState,
     path: PathExpr,
     types: List<PType> = emptyList()
-): Pair<PType, PToken?> = if (token?.value is ClosedSquareBracketToken) {
+): Pair<PType, ParseState> = if (token?.value is ClosedSquareBracketToken) {
     val next = parser.pop()
     if (next?.value == OpenSquareBracketToken) handleGenerics(parser.pop(), parser, path, types)
     else NamedType(path, types) at path.parts.first().area.first..token.area.last to next
@@ -83,11 +81,10 @@ tailrec fun handleGenerics(
 }
 
 tailrec fun handleParenthesizedType(
-    token: PToken?,
-    parser: Parser,
+    state: ParseState
     start: StringPos,
     types: List<PType> = emptyList()
-): Pair<PType, PToken?> = if (token?.value is ClosedParenToken) {
+): Pair<PType, ParseState> = if (token?.value is ClosedParenToken) {
     val next = parser.pop()
     when (next?.value) {
         is RightArrowToken -> {

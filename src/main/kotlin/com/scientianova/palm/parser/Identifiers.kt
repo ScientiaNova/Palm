@@ -1,10 +1,11 @@
-package com.scientianova.palm.tokenizer
+package com.scientianova.palm.parser
 
 import com.scientianova.palm.util.PString
 import com.scientianova.palm.util.StringPos
 import com.scientianova.palm.util.at
 
-fun handleIdentifier(state: ParseState) = handleIdentifier(state.code, state.pos, state.pos, StringBuilder())
+fun handleIdentifier(state: ParseState) =
+    handleIdentifier(state.code, state.pos, state.pos, StringBuilder())
 
 tailrec fun handleIdentifier(
     code: String,
@@ -15,10 +16,14 @@ tailrec fun handleIdentifier(
     val char = code.getOrNull(pos)
     return if (char?.isIdentifierPart() == true)
         handleIdentifier(code, pos + 1, startPos, builder.append(char))
-    else builder.toString() at (startPos until pos) to ParseState(code, pos)
+    else builder.toString() at (startPos until pos) to ParseState(
+        code,
+        pos
+    )
 }
 
-fun handleSymbol(state: ParseState) = handleSymbol(state.code, state.pos, state.pos, StringBuilder())
+fun handleSymbol(state: ParseState) =
+    handleSymbol(state.code, state.pos, state.pos, StringBuilder())
 
 tailrec fun handleSymbol(
     code: String,
@@ -29,5 +34,8 @@ tailrec fun handleSymbol(
     val char = code.getOrNull(pos)
     return if (char?.isSymbolPart() == true)
         handleSymbol(code, pos + 1, startPos, builder.append(char))
-    else builder.toString() at (startPos until pos) to ParseState(code, pos)
+    else builder.toString() at (startPos until pos) to ParseState(
+        code,
+        pos
+    )
 }

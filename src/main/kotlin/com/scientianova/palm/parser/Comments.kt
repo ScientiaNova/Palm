@@ -1,4 +1,4 @@
-package com.scientianova.palm.tokenizer
+package com.scientianova.palm.parser
 
 tailrec fun handleSingleLineComment(state: ParseState): ParseState = when (state.char) {
     null, '\n' -> state

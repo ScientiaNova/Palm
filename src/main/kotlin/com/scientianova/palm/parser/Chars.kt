@@ -1,7 +1,6 @@
-package com.scientianova.palm.tokenizer
+package com.scientianova.palm.parser
 
 import com.scientianova.palm.errors.*
-import com.scientianova.palm.parser.CharExpr
 import com.scientianova.palm.util.Positioned
 import com.scientianova.palm.util.StringPos
 import com.scientianova.palm.util.at
@@ -19,7 +18,9 @@ fun handleChar(
     return when {
         endChar == '\'' -> CharExpr(value) at state.lastPos..endState.pos to endState.next
         endChar == null -> UNCLOSED_CHAR_LITERAL_ERROR throwAt endState.pos
-        endChar.isWhitespace() && value.isWhitespace() -> isMalformedTab(endState.next)?.let {
+        endChar.isWhitespace() && value.isWhitespace() -> isMalformedTab(
+            endState.next
+        )?.let {
             MALFORMED_TAB_ERROR throwAt state.lastPos..it.pos
         } ?: MISSING_SINGLE_QUOTE_ERROR throwAt endState.pos
         else -> (if (value == '\'') MISSING_SINGLE_QUOTE_ON_QUOTE_ERROR else MISSING_SINGLE_QUOTE_ERROR)
@@ -38,7 +39,10 @@ fun handleEscaped(state: ParseState) = when (state.char) {
     'f' -> 12.toChar() to state + 1
     'v' -> 11.toChar() to state + 1
     'u' ->
-        if (state.nextChar == '{') handleUnicode(state.code, state.pos + 2)
+        if (state.nextChar == '{') handleUnicode(
+            state.code,
+            state.pos + 2
+        )
         else MISSING_BRACKET_IN_UNICODE_ERROR throwAt state.nextPos
     else -> null
 }
@@ -50,7 +54,10 @@ tailrec fun handleUnicode(
 ): Pair<Char, ParseState> = when (val char = code.getOrNull(pos)) {
     in '0'..'9', in 'a'..'f', in 'A'..'F' ->
         handleUnicode(code, pos + 1, idBuilder.append(char))
-    '}' -> idBuilder.toString().toInt().toChar() to ParseState(code, pos + 1)
+    '}' -> idBuilder.toString().toInt().toChar() to ParseState(
+        code,
+        pos + 1
+    )
     else -> INVALID_HEX_LITERAL_ERROR throwAt pos
 }
 
