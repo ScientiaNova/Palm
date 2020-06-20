@@ -3,6 +3,7 @@ package com.scientianova.palm.parser
 import com.scientianova.palm.errors.INVALID_ALIAS_ERROR
 import com.scientianova.palm.errors.INVALID_IMPORT_ERROR
 import com.scientianova.palm.errors.UNCLOSED_IMPORT_GROUP_ERROR
+import com.scientianova.palm.errors.throwAt
 import com.scientianova.palm.util.PString
 import com.scientianova.palm.util.Positioned
 import com.scientianova.palm.util.StringPos
@@ -11,74 +12,57 @@ import com.scientianova.palm.util.at
 sealed class Import
 typealias PImport = Positioned<Import>
 
-data class RegularImport(val path: PathExpr, val alias: PString) : Import()
-data class OperatorImport(val path: PathExpr) : Import()
-data class ModuleImport(val path: PathExpr) : Import()
-data class JavaMethodImport(val path: PathExpr, val types: List<PType>, val alias: PString) : Import()
-data class JavaVirtualMethodImport(val path: PathExpr, val types: List<PType>, val alias: PString) : Import()
-data class JavaVirtualFieldImport(val path: PathExpr, val alias: PString) : Import()
+data class RegularImport(val path: List<PString>, val alias: PString) : Import()
+data class OperatorImport(val path: List<PString>) : Import()
+data class ModuleImport(val path: List<PString>) : Import()
+data class JavaMethodImport(val path: List<PString>, val types: List<PType>, val alias: PString) : Import()
+data class JavaVirtualMethodImport(val path: List<PString>, val types: List<PType>, val alias: PString) : Import()
+data class JavaVirtualFieldImport(val path: List<PString>, val alias: PString) : Import()
 
 fun handleImportStart(
     state: ParseState,
     start: StringPos
-): Pair<List<PImport>, ParseState> = when (token?.value) {
-    is IdentifierToken -> handleImport(token, parser, start, emptyList())
-    JAVA_TOKEN -> {
-        val next = parser.pop()
-        when (next?.value) {
-            is IdentifierToken -> handleJavaImport(next, parser, start, emptyList(), false)
-            VIRTUAL_TOKEN -> handleJavaImport(parser.pop(), parser, start, emptyList(), true)
-            is DotToken -> handleImport(parser.pop(), parser, start, listOf("java" at token.area))
-            AS_TOKEN -> {
-                val (alias, area) = parser.pop() ?: parser.error(INVALID_ALIAS_ERROR, parser.lastPos)
-                listOf(
-                    RegularImport(
-                        PathExpr(listOf("as" at token.area)),
-                        (alias as? IdentifierToken ?: parser.error(INVALID_ALIAS_ERROR, area)).name at area
-                    ) at start..area.last
-                ) to parser.pop()
-            }
-            else -> listOf(
-                RegularImport(
-                    PathExpr(listOf("java" at token.area)),
-                    "java" at token.area
-                ) at start..token.area.last
-            ) to parser.pop()
-        }
-    }
-    else -> parser.error(INVALID_IMPORT_ERROR, token?.area ?: parser.lastArea)
-}
+): Pair<List<PImport>, ParseState> = if (state.char?.isLetter() == true) {
+    val (ident, afterIdent) = handleIdentifier(state)
+    if (ident.value == "java" && afterIdent.char?.isLineSpace() == true) {
+        val (actualFirst, afterFirst) = handleIdentifier(afterIdent.actualOrBreak)
+        if (actualFirst.value.isEmpty())
+            INVALID_IMPORT_ERROR throwAt afterFirst.pos
+        if (actualFirst.value == "virtual" && afterFirst.char?.isLineSpace() == true) {
+            val (actualFirst1, afterFirst1) = handleIdentifier(afterFirst.actualOrBreak)
+            if (actualFirst1.value.isEmpty())
+                INVALID_IMPORT_ERROR throwAt afterFirst1.pos
+            handleJavaImport(afterFirst, start, listOf(actualFirst1), true)
+        } else handleJavaImport(afterFirst, start, listOf(actualFirst), false)
+    } else handleImport(afterIdent, start, listOf(ident))
+} else INVALID_IMPORT_ERROR throwAt state.pos
 
 tailrec fun handleImport(
     state: ParseState,
     start: StringPos,
     path: List<PString>
-): Pair<List<PImport>, ParseState> = when (val value = token?.value) {
-    is IdentifierToken -> {
-        val next = parser.pop()
-        when (next?.value) {
-            is DotToken -> handleImport(parser.pop(), parser, start, path + (value.name at token.area))
-            is TripleDotToken -> listOf(ModuleImport(PathExpr(path)) at start..next.area.last) to parser.pop()
-            AS_TOKEN -> {
-                val (alias, area) = parser.pop() ?: parser.error(INVALID_ALIAS_ERROR, parser.lastPos)
-                listOf(
-                    RegularImport(
-                        PathExpr(path + (value.name at token.area)),
-                        (alias as? IdentifierToken ?: parser.error(INVALID_ALIAS_ERROR, area)).name at area
-                    ) at start..area.last
-                ) to parser.pop()
-            }
-            else -> listOf(
-                RegularImport(PathExpr(path + (value.name at token.area)), value.name at token.area) at
-                        start..token.area.last
-            ) to parser.pop()
+): Pair<List<PImport>, ParseState> = if (state.char == '.') {
+    val char = state.nextChar
+    when {
+        char?.isLetter() == true -> {
+            val (ident, afterIdent) = handleIdentifier(state.next)
+            if (ident.value == "_") listOf(ModuleImport(path) at start..state.nextPos) to afterIdent
+            else handleImport(afterIdent, start, path + ident)
         }
+        char?.isSymbolPart() == true -> {
+            val (symbol, next) = handleSymbol(state.next)
+            listOf(OperatorImport(path + symbol) at start..symbol.area.last) to next
+        }
+        char == '{' -> handleImportGroup(state + 2, start, path, emptyList())
+        else -> INVALID_IMPORT_ERROR throwAt state.pos
     }
-    is SymbolToken -> listOf(
-        OperatorImport(PathExpr(path + (value.symbol at token.area))) at start..token.area.last
-    ) to parser.pop()
-    is OpenCurlyBracketToken -> handleImportGroup(parser.pop(), parser, start, path, emptyList())
-    else -> parser.error(INVALID_IMPORT_ERROR, token?.area ?: parser.lastArea)
+} else {
+    val maybeAsState = state.actual
+    val (maybeAs, afterAs) = handleIdentifier(maybeAsState)
+    if (maybeAs.value == "as") {
+        val (alias, next) = handleIdentifier(afterAs.actual)
+        listOf(RegularImport(path, alias) at start..alias.area.last) to next
+    } else listOf(RegularImport(path, path.last()) at start..path.last().area.last) to state
 }
 
 tailrec fun handleImportGroup(
@@ -86,12 +70,13 @@ tailrec fun handleImportGroup(
     start: StringPos,
     path: List<PString>,
     parts: List<PImport>
-): Pair<List<PImport>, ParseState> = if (token?.value is ClosedCurlyBracketToken) parts to parser.pop() else {
-    val (part, symbol) = handleImport(token, parser, start, path)
-    when (symbol?.value) {
-        is ClosedCurlyBracketToken -> parts + part to parser.pop()
-        is CommaToken -> handleImportGroup(parser.pop(), parser, start, path, parts + part)
-        else -> parser.error(UNCLOSED_IMPORT_GROUP_ERROR, token?.area ?: parser.lastArea)
+): Pair<List<PImport>, ParseState> = if (state.char == '}') parts to state.next else {
+    val (part, afterState) = handleImport(state, start, path)
+    val symboState = afterState.actual
+    when (symboState.char) {
+        '}' -> parts + part to symboState.next
+        ',' -> handleImportGroup(symboState.nextActual, start, path, parts + part)
+        else -> UNCLOSED_IMPORT_GROUP_ERROR throwAt state.pos
     }
 }
 
@@ -100,44 +85,39 @@ tailrec fun handleJavaImport(
     start: StringPos,
     path: List<PString>,
     virtual: Boolean
-): Pair<List<PImport>, ParseState> = when (val value = token?.value) {
-    is IdentifierToken -> {
-        val next = parser.pop()
-        when (next?.value) {
-            is DotToken -> handleJavaImport(parser.pop(), parser, start, path + (value.name at token.area), virtual)
-            AS_TOKEN -> {
-                val (alias, area) = parser.pop() ?: parser.error(INVALID_ALIAS_ERROR, parser.lastPos)
-                listOf(
-                    (if (virtual)
-                        JavaVirtualFieldImport(
-                            PathExpr(path + (value.name at token.area)),
-                            (alias as? IdentifierToken ?: parser.error(INVALID_ALIAS_ERROR, area)).name at area
-                        ) else RegularImport(
-                        PathExpr(path + (value.name at token.area)),
-                        (alias as? IdentifierToken ?: parser.error(INVALID_ALIAS_ERROR, area)).name at area
-                    )) at start..area.last
-                ) to parser.pop()
-            }
-            is OpenParenToken -> handleJavaImportParams(
-                parser.pop(), parser, start, PathExpr(path + (value.name at token.area)),
-                virtual, emptyList()
-            )
-            else -> listOf(
-                (if (virtual)
-                    JavaVirtualFieldImport(PathExpr(path + (value.name at token.area)), value.name at token.area)
-                else RegularImport(PathExpr(path + (value.name at token.area)), value.name at token.area)
-                        ) at start..token.area.last
-            ) to parser.pop()
+): Pair<List<PImport>, ParseState> = if (state.char == '.') {
+    val char = state.nextChar
+    when {
+        char?.isLetter() == true -> {
+            val (ident, afterIdent) = handleIdentifier(state.next)
+            handleJavaImport(afterIdent, start, path + ident, virtual)
         }
+        char == '{' -> handleJavaImportGroup(state + 2, start, path, emptyList())
+        else -> INVALID_IMPORT_ERROR throwAt state.pos
     }
-    is OpenCurlyBracketToken -> handleJavaImportGroup(parser.pop(), parser, start, path, emptyList(), virtual)
-    else -> parser.error(INVALID_IMPORT_ERROR, token?.area ?: parser.lastArea)
+} else {
+    val maybeAsState = state.actual
+    if (maybeAsState.char == '(') {
+        handleJavaImportParams(maybeAsState.nextActual, maybeAsState.pos, path, virtual, emptyList())
+    } else {
+        val (maybeAs, afterAs) = handleIdentifier(maybeAsState)
+        if (maybeAs.value == "as") {
+            val (alias, next) = handleIdentifier(afterAs.actual)
+            listOf(
+                (if (virtual) JavaVirtualFieldImport(path, alias) else RegularImport(path, alias))
+                        at start..alias.area.last
+            ) to next
+        } else listOf(
+            (if (virtual) JavaVirtualFieldImport(path, path.last()) else RegularImport(path, path.last()))
+                    at start..path.last().area.last
+        ) to state
+    }
 }
 
 tailrec fun handleJavaImportParams(
     state: ParseState,
     start: StringPos,
-    path: PathExpr,
+    path: List<PString>,
     virtual: Boolean,
     params: List<PType>
 ): Pair<List<PImport>, ParseState> = if (token?.value is ClosedParenToken) {
@@ -177,7 +157,7 @@ tailrec fun handleJavaImportParams(
             ) to next
         }
         is CommaToken -> handleJavaImportParams(parser.pop(), parser, start, path, virtual, params + type)
-        else -> parser.error(INVALID_IMPORT_ERROR, token?.area ?: parser.lastArea)
+        else -> INVALID_IMPORT_ERROR throwAt state.pos
     }
 }
 
@@ -187,11 +167,12 @@ tailrec fun handleJavaImportGroup(
     path: List<PString>,
     parts: List<PImport>,
     virtual: Boolean
-): Pair<List<PImport>, ParseState> = if (token?.value is ClosedCurlyBracketToken) parts to parser.pop() else {
-    val (part, symbol) = handleJavaImport(token, parser, start, path, virtual)
-    when (symbol?.value) {
-        is ClosedCurlyBracketToken -> parts + part to parser.pop()
-        is CommaToken -> handleJavaImportGroup(parser.pop(), parser, start, path, parts + part, virtual)
-        else -> parser.error(UNCLOSED_IMPORT_GROUP_ERROR, token?.area ?: parser.lastArea)
+): Pair<List<PImport>, ParseState> = if (state.char == '}') parts to state.next else {
+    val (part, afterState) = handleJavaImport(state, start, path, virtual)
+    val symbolState = afterState.actual
+    when (symbolState.char) {
+        '}' -> parts + part to symbolState.next
+        ',' -> handleJavaImportGroup(symbolState.nextActual, start, path, parts + part, virtual)
+        else -> UNCLOSED_IMPORT_GROUP_ERROR throwAt state.pos
     }
 }

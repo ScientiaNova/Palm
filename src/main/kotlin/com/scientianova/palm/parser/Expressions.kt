@@ -394,7 +394,7 @@ fun handleSubexpression(state: ParseState): Pair<PExpr, ParseState> {
                     val afterMut = next.nextActual
                     if (afterMut.char == '[')
                         handleList(afterMut.nextActual, afterMut.pos, true, emptyList(), emptyList())
-                    else handleIdentifiers(next, ident, emptyList())
+                    else handlePath(next, ident, emptyList())
                 }
                 "when" -> {
                     val afterWhenState = next.actual
@@ -421,7 +421,7 @@ fun handleSubexpression(state: ParseState): Pair<PExpr, ParseState> {
                         DecExpr(pattern, expr) at state.pos..expr.area.last to returnState
                     } else DecExpr(pattern, null) at state.pos..pattern.area.last to afterState
                 }
-                else -> handleIdentifiers(next, ident, emptyList())
+                else -> handlePath(next, ident, emptyList())
             }
         }
         '0'.eq() -> when (state.nextChar) {
@@ -487,7 +487,7 @@ else {
     }
 }
 
-tailrec fun handleIdentifiers(
+tailrec fun handlePath(
     state: ParseState,
     last: PString,
     path: List<PString>
@@ -495,7 +495,7 @@ tailrec fun handleIdentifiers(
     val identState = state.next
     if (identState.char?.isLetter() != true) INVALID_PATH_ERROR throwAt state.pos
     val (ident, next) = handleIdentifier(identState)
-    handleIdentifiers(next, ident, path + last)
+    handlePath(next, ident, path + last)
 } else PathExpr(path + last) at (path.firstOrNull() ?: last).area.first..last.area.last to state
 
 tailrec fun handleParenthesizedExpr(

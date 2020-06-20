@@ -6,6 +6,7 @@ import com.scientianova.palm.errors.throwAt
 import com.scientianova.palm.util.Positioned
 import com.scientianova.palm.util.StringPos
 import com.scientianova.palm.util.at
+import com.scientianova.palm.util.map
 
 sealed class DecPattern
 typealias PDecPattern = Positioned<DecPattern>
@@ -17,11 +18,17 @@ data class DecTuplePattern(val values: List<PDecPattern>) : DecPattern()
 fun handleDeclarationPattern(
     state: ParseState,
     error: PalmError
-): Pair<PDecPattern, ParseState> = when (val value = token?.value) {
-    is WildcardToken -> DecWildcardPattern at token.area to parser.pop()
-    is IdentifierToken -> DecNamePattern(value.name) at token.area to parser.pop()
-    is OpenParenToken -> handleTupleDecPattern(parser.pop(), parser, error, token.area.first, emptyList())
-    else -> parser.error(error, token?.area ?: parser.lastArea)
+): Pair<PDecPattern, ParseState> {
+    val char = state.char
+    return when {
+        char == '(' -> handleTupleDecPattern(state.nextActual, error, state.pos, emptyList())
+        char?.isLetter() == true -> {
+            val (ident, afterIdent) = handleIdentifier(state)
+            (if (ident.value == "_") DecWildcardPattern at state.pos
+            else ident.map(::DecNamePattern)) to afterIdent
+        }
+        else -> error throwAt state.pos
+    }
 }
 
 tailrec fun handleTupleDecPattern(
@@ -29,18 +36,19 @@ tailrec fun handleTupleDecPattern(
     error: PalmError,
     startPos: StringPos,
     patterns: List<PDecPattern>
-): Pair<PDecPattern, ParseState> = if (token?.value is ClosedParenToken) when (patterns.size) {
-    0 -> DecWildcardPattern at startPos..token.area.last
+): Pair<PDecPattern, ParseState> = if (state.char == ')') when (patterns.size) {
+    0 -> DecWildcardPattern at startPos..state.pos
     1 -> patterns.first()
-    else -> DecTuplePattern(patterns) at startPos..token.area.last
-} to parser.pop() else {
-    val (pattern, symbol) = handleDeclarationPattern(token, parser, error)
-    when (symbol?.value) {
-        is ClosedParenToken ->
+    else -> DecTuplePattern(patterns) at startPos..state.pos
+} to state.next else {
+    val (pattern, afterState) = handleDeclarationPattern(state, error)
+    val symbolState = afterState.actual
+    when (symbolState.char) {
+        ')' ->
             (if (patterns.isEmpty()) patterns.first()
-            else DecTuplePattern(patterns + pattern) at startPos..symbol.area.last) to parser.pop()
-        is CommaToken -> handleTupleDecPattern(parser.pop(), parser, error, startPos, patterns + pattern)
-        else -> parser.error(UNCLOSED_PARENTHESIS_ERROR, startPos)
+            else DecTuplePattern(patterns + pattern) at startPos..symbolState.pos) to symbolState.next
+        ',' -> handleTupleDecPattern(symbolState.nextActual, error, startPos, patterns + pattern)
+        else -> UNCLOSED_PARENTHESIS_ERROR throwAt symbolState.pos
     }
 }
 
