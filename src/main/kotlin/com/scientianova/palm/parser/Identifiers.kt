@@ -1,5 +1,7 @@
 package com.scientianova.palm.parser
 
+import com.scientianova.palm.errors.INVALID_BACKTICKED_IDENTIFIER_ERROR
+import com.scientianova.palm.errors.throwAt
 import com.scientianova.palm.util.PString
 import com.scientianova.palm.util.StringPos
 import com.scientianova.palm.util.at
@@ -16,10 +18,22 @@ tailrec fun handleIdentifier(
     val char = code.getOrNull(pos)
     return if (char?.isIdentifierPart() == true)
         handleIdentifier(code, pos + 1, startPos, builder.append(char))
-    else builder.toString() at (startPos until pos) to ParseState(
-        code,
-        pos
-    )
+    else builder.toString() at (startPos until pos) to ParseState(code, pos)
+}
+
+fun handleBacktickedIdentifier(state: ParseState) =
+    handleBacktickedIdentifier(state.code, state.pos, state.pos, StringBuilder())
+
+tailrec fun handleBacktickedIdentifier(
+    code: String,
+    pos: StringPos,
+    startPos: StringPos,
+    builder: StringBuilder
+): Pair<PString, ParseState> = when (val char = code.getOrNull(pos)) {
+    '/', '\\', '.', ';', ':', '<', '>', '[', ']', null ->
+        INVALID_BACKTICKED_IDENTIFIER_ERROR throwAt pos
+    '`' -> builder.toString() at (startPos until pos) to ParseState(code, pos)
+    else -> handleBacktickedIdentifier(code, pos + 1, startPos, builder.append(char))
 }
 
 fun handleSymbol(state: ParseState) =
@@ -34,8 +48,7 @@ tailrec fun handleSymbol(
     val char = code.getOrNull(pos)
     return if (char?.isSymbolPart() == true)
         handleSymbol(code, pos + 1, startPos, builder.append(char))
-    else builder.toString() at (startPos until pos) to ParseState(
-        code,
-        pos
-    )
+    else builder.toString() at (startPos until pos) to ParseState(code, pos)
 }
+
+val keywords = listOf("val", "var", "if", "else", "continue", "break", "for", "return")

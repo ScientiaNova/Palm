@@ -8,12 +8,12 @@ tailrec fun handleSingleLineComment(state: ParseState): ParseState = when (state
 @Suppress("NON_TAIL_RECURSIVE_CALL")
 tailrec fun handleMultiLineComment(state: ParseState): ParseState = when (state.char) {
     null -> state
-    ']' ->  {
-        if (state.nextChar == '#') state + 2
+    '*' ->  {
+        if (state.nextChar == '/') state + 2
         else handleMultiLineComment(state.next)
     }
-    '#' ->  {
-        if (state.nextChar == '[') {
+    '/' ->  {
+        if (state.nextChar == '*') {
             val newNext = handleMultiLineComment(state + 2)
             handleMultiLineComment(newNext)
         } else handleMultiLineComment(state.next)

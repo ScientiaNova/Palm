@@ -1,5 +1,6 @@
 package com.scientianova.palm.errors
 
+import com.scientianova.palm.parser.ParseState
 import com.scientianova.palm.util.StringArea
 import com.scientianova.palm.util.StringPos
 
@@ -7,6 +8,7 @@ class PalmError(val name: String, val context: String, val help: String)
 
 infix fun PalmError.throwAt(area: StringArea): Nothing = throw UncaughtParserException(this, area)
 infix fun PalmError.throwAt(pos: StringPos): Nothing = throwAt(pos..pos)
+infix fun PalmError.throwAt(state: ParseState): Nothing = throwAt(state.pos)
 
 val MISSING_SINGLE_QUOTE_ERROR = PalmError(
     "MISSING SINGLE QUOTE",
@@ -325,14 +327,20 @@ val MISSING_EXPRESSION_SEPARATOR_ERROR = PalmError(
     "Add a ; here."
 )
 
-val INVALID_ASSIGNMENT_ERROR = PalmError(
-    "INVALID ASSIGNMENT",
-    "I saw an equals sign, but it wasn't the first operator on a line in a scope:",
-    "Assignment can only go in a scope and the equals sign must be the first operator in the expression "
-)
-
 val UNCLOSED_SCOPE_ERROR = PalmError(
     "UNCLOSED SCOPE",
     "I was going through a scope, but have reached the end of the file:",
     "Add a } here."
+)
+
+val INVALID_BACKTICKED_IDENTIFIER_ERROR = PalmError(
+    "INVALID BACKTICKED IDENTIFER",
+    "I was going through a backticked identifier and got:",
+    "Backticked identifier can use any symbol but /, \\, ., ;, :, <, >, [, ], and line separators."
+)
+
+val INVALID_DOUBLE_DECLARATION_PATTERN_ERROR = PalmError(
+    "DOUBLE DECLARATION PATTERN",
+    "I was going through a backticked pattern and found another one inside it:",
+    "You cannot put a var or val pattern inside another one."
 )

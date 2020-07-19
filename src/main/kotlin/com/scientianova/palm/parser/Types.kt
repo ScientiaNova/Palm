@@ -9,8 +9,10 @@ import com.scientianova.palm.util.at
 sealed class Type
 typealias PType = Positioned<Type>
 
+typealias Path = List<String>
+
 data class NamedType(
-    val path: PathExpr,
+    val path: Path,
     val generics: List<PType> = emptyList()
 ) : Type()
 
@@ -65,7 +67,7 @@ fun handleType(state: ParseState): Pair<PType, ParseState> {
 
 tailrec fun handleWholeGenerics(
     state: ParseState,
-    path: Positioned<PathExpr>,
+    path: Positioned<Path>,
     generics: List<PType>
 ): Pair<PType, ParseState> {
     val actual = state.actual

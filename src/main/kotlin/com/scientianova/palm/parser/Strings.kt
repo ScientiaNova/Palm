@@ -6,6 +6,7 @@ import com.scientianova.palm.errors.UNCLOSED_MULTILINE_STRING
 import com.scientianova.palm.errors.throwAt
 import com.scientianova.palm.util.StringPos
 import com.scientianova.palm.util.at
+import com.scientianova.palm.util.map
 
 tailrec fun handleSingleLineString(
     state: ParseState,
@@ -31,47 +32,29 @@ tailrec fun handleSingleLineString(
                     afterState, startPos,
                     parts +
                             ((StringExpr(builder.toString()) at lastStart..interStart) to (PLUS at interStart)) +
-                            ((PathExpr(listOf(identifier)) at interStart..afterState.pos) to (PLUS at afterState.pos)),
+                            (identifier.map(::IdentExpr) to (PLUS at afterState.pos)),
                     StringBuilder(), afterState.pos
                 )
             }
             next == '{' -> {
-                val (scope, afterState) = handleScope(state.nextActual, state.pos, false)
+                val (scope, afterState) = handleExprScope(state.nextActual, state.pos)
                 handleSingleLineString(
                     afterState, startPos,
                     parts +
                             ((StringExpr(builder.toString()) at lastStart..interStart) to (PLUS at interStart)) +
-                            (scope to (PLUS at afterState.pos)),
+                            (scope.map(::ScopeExpr) to (PLUS at afterState.pos)),
                     StringBuilder(), afterState.pos
                 )
             }
-            else -> handleSingleLineString(
-                state.next,
-                startPos,
-                parts,
-                builder.append(char),
-                lastStart
-            )
+            else -> handleSingleLineString(state.next, startPos, parts, builder.append(char), lastStart)
         }
     }
     '\\' -> {
         val (escaped, afterState) =
             handleEscaped(state.next) ?: INVALID_ESCAPE_CHARACTER_ERROR throwAt state.nextPos
-        handleSingleLineString(
-            afterState,
-            startPos,
-            parts,
-            builder.append(escaped),
-            lastStart
-        )
+        handleSingleLineString(afterState, startPos, parts, builder.append(escaped), lastStart)
     }
-    else -> handleSingleLineString(
-        state.next,
-        startPos,
-        parts,
-        builder.append(char),
-        lastStart
-    )
+    else -> handleSingleLineString(state.next, startPos, parts, builder.append(char), lastStart)
 }
 
 tailrec fun handleMultiLineString(
@@ -116,17 +99,17 @@ tailrec fun handleMultiLineString(
                     afterState, startPos,
                     parts +
                             ((StringExpr(builder.toString()) at lastStart..interStart) to (PLUS at interStart)) +
-                            ((PathExpr(listOf(identifier)) at interStart..afterState.pos) to (PLUS at afterState.pos)),
+                            (identifier.map(::IdentExpr) to (PLUS at afterState.pos)),
                     StringBuilder(), afterState.pos
                 )
             }
             next == '{' -> {
-                val (scope, afterState) = handleScope(state.nextActual, state.pos, false)
+                val (scope, afterState) = handleExprScope(state.nextActual, state.pos)
                 handleMultiLineString(
                     afterState, startPos,
                     parts +
                             ((StringExpr(builder.toString()) at lastStart..interStart) to (PLUS at interStart)) +
-                            (scope to (PLUS at afterState.pos)),
+                            (scope.map(::ScopeExpr) to (PLUS at afterState.pos)),
                     StringBuilder(), afterState.pos
                 )
             }

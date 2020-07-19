@@ -29,10 +29,11 @@ tailrec fun actual(state: ParseState): ParseState {
     return when {
         char == null -> state
         char.isWhitespace() -> actual(state)
-        char == '#' -> actual(
-            if (state.nextChar == '[') handleMultiLineComment(state + 2)
-            else handleSingleLineComment(state.next)
-        )
+        char == '/' -> when (state.nextChar) {
+            '/' -> actual(handleSingleLineComment(state + 2))
+            '*' -> actual(handleMultiLineComment(state + 2))
+            else -> state
+        }
         else -> state
     }
 }
@@ -43,10 +44,11 @@ tailrec fun actualOrBreak(state: ParseState): ParseState {
         char == null -> state
         char == '\n' -> state
         char.isWhitespace() -> actualOrBreak(state)
-        char == '#' -> actualOrBreak(
-            if (state.nextChar == '[') handleMultiLineComment(state + 2)
-            else handleSingleLineComment(state.next)
-        )
+        char == '/' -> when (state.nextChar) {
+            '/' -> actualOrBreak(handleSingleLineComment(state + 2))
+            '*' -> actualOrBreak(handleMultiLineComment(state + 2))
+            else -> state
+        }
         else -> state
     }
 }
