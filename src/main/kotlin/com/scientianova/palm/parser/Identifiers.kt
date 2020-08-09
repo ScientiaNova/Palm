@@ -1,6 +1,6 @@
 package com.scientianova.palm.parser
 
-import com.scientianova.palm.errors.INVALID_BACKTICKED_IDENTIFIER_ERROR
+import com.scientianova.palm.errors.invalidBacktickedIdentifier
 import com.scientianova.palm.errors.throwAt
 import com.scientianova.palm.util.PString
 import com.scientianova.palm.util.StringPos
@@ -31,7 +31,7 @@ tailrec fun handleBacktickedIdentifier(
     builder: StringBuilder
 ): Pair<PString, ParseState> = when (val char = code.getOrNull(pos)) {
     '/', '\\', '.', ';', ':', '<', '>', '[', ']', null ->
-        INVALID_BACKTICKED_IDENTIFIER_ERROR throwAt pos
+        invalidBacktickedIdentifier throwAt pos
     '`' -> builder.toString() at (startPos until pos) to ParseState(code, pos)
     else -> handleBacktickedIdentifier(code, pos + 1, startPos, builder.append(char))
 }
@@ -51,4 +51,4 @@ tailrec fun handleSymbol(
     else builder.toString() at (startPos until pos) to ParseState(code, pos)
 }
 
-val keywords = listOf("val", "var", "if", "else", "continue", "break", "for", "return")
+val keywords = listOf("val", "var", "if", "else", "continue", "break", "for", "return", "true", "false", "null", "this", "super")

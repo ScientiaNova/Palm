@@ -1,7 +1,7 @@
 package com.scientianova.palm.parser
 
-import com.scientianova.palm.errors.INVALID_DOUBLE_DECLARATION_PATTERN_ERROR
-import com.scientianova.palm.errors.UNCLOSED_PARENTHESIS_ERROR
+import com.scientianova.palm.errors.invalidDoubleDeclarationError
+import com.scientianova.palm.errors.unclosedParenthesisError
 import com.scientianova.palm.errors.throwAt
 import com.scientianova.palm.util.*
 
@@ -36,12 +36,12 @@ fun handlePattern(state: ParseState, decType: DeclarationType): Pair<PPattern, P
             }
             "val" ->
                 if (decType == DeclarationType.NONE) handlePattern(afterIdent.actual, DeclarationType.VAL)
-                else INVALID_DOUBLE_DECLARATION_PATTERN_ERROR throwAt ident.area
+                else invalidDoubleDeclarationError throwAt ident.area
             "var" ->
                 if (decType == DeclarationType.NONE) handlePattern(afterIdent.actual, DeclarationType.VAR)
-                else INVALID_DOUBLE_DECLARATION_PATTERN_ERROR throwAt ident.area
+                else invalidDoubleDeclarationError throwAt ident.area
             else -> {
-                val (expr, afterExpr) = handleInlinedBinOps(afterIdent.actual, ident.map(::IdentExpr), true)
+                val (expr, afterExpr) = handleInlinedBinOps(afterIdent.actual, ident.map(::IdentExpr), false)
                 if (expr.value is IdentExpr) when (decType) {
                     DeclarationType.NONE -> expr.map(::ExprPattern) to afterExpr
                     DeclarationType.VAL -> DecPattern(expr.value.name, false) at expr.area to afterExpr
@@ -51,7 +51,7 @@ fun handlePattern(state: ParseState, decType: DeclarationType): Pair<PPattern, P
         }
     }
     else -> {
-        val (expr, afterExpr) = handleInlinedExpression(state, true)
+        val (expr, afterExpr) = handleInlinedExpression(state, false)
         if (expr.value is IdentExpr) when (decType) {
             DeclarationType.NONE -> expr.map(::ExprPattern) to afterExpr
             DeclarationType.VAL -> DecPattern(expr.value.name, false) at expr.area to afterExpr
@@ -71,6 +71,6 @@ tailrec fun handlePatternTuple(
     when (symbol.char) {
         ',' -> handlePatternTuple(symbol.nextActual, decType, startPos, patterns + pattern)
         ')' -> (patterns + pattern) to symbol.next
-        else -> UNCLOSED_PARENTHESIS_ERROR throwAt symbol.pos
+        else -> unclosedParenthesisError throwAt symbol.pos
     }
 }

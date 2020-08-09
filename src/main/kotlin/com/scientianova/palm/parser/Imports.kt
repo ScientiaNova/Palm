@@ -1,7 +1,7 @@
 package com.scientianova.palm.parser
 
-import com.scientianova.palm.errors.INVALID_IMPORT_ERROR
-import com.scientianova.palm.errors.UNCLOSED_IMPORT_GROUP_ERROR
+import com.scientianova.palm.errors.invalidImportError
+import com.scientianova.palm.errors.unclosedImportGroupError
 import com.scientianova.palm.errors.throwAt
 import com.scientianova.palm.util.PString
 import com.scientianova.palm.util.Positioned
@@ -21,7 +21,7 @@ fun handleImportStart(
 ): Pair<List<PImport>, ParseState> = if (state.char?.isLetter() == true) {
     val (ident, afterIdent) = handleIdentifier(state)
     handleImport(afterIdent, start, listOf(ident))
-} else INVALID_IMPORT_ERROR throwAt state.pos
+} else invalidImportError throwAt state.pos
 
 tailrec fun handleImport(
     state: ParseState,
@@ -40,7 +40,7 @@ tailrec fun handleImport(
             listOf(OperatorImport(path + symbol) at start..symbol.area.last) to next
         }
         char == '{' -> handleImportGroup(state + 2, start, path, emptyList())
-        else -> INVALID_IMPORT_ERROR throwAt state.pos
+        else -> invalidImportError throwAt state.pos
     }
 } else {
     val maybeAsState = state.actual
@@ -62,6 +62,6 @@ tailrec fun handleImportGroup(
     when (symboState.char) {
         '}' -> parts + part to symboState.next
         ',' -> handleImportGroup(symboState.nextActual, start, path, parts + part)
-        else -> UNCLOSED_IMPORT_GROUP_ERROR throwAt state.pos
+        else -> unclosedImportGroupError throwAt state.pos
     }
 }

@@ -1,6 +1,6 @@
 package com.scientianova.palm.parser
 
-import com.scientianova.palm.errors.UNCLOSED_SQUARE_BRACKET_ERROR
+import com.scientianova.palm.errors.unclosedSquareBacketError
 import com.scientianova.palm.errors.throwAt
 import com.scientianova.palm.util.Positioned
 import com.scientianova.palm.util.StringPos
@@ -16,10 +16,6 @@ data class NamedType(
     val generics: List<PType> = emptyList()
 ) : Type()
 
-data class TupleType(
-    val types: List<PType> = emptyList()
-) : Type()
-
 data class FunctionType(
     val params: List<PType>,
     val returnType: PType
@@ -29,8 +25,6 @@ data class ImplicitFunctionType(
     val params: List<PType>,
     val returnType: PType
 ) : Type()
-
-object UnitType : Type()
 
 fun handleType(state: ParseState): Pair<PType, ParseState> {
     val char = state.char
@@ -60,7 +54,7 @@ fun handleType(state: ParseState): Pair<PType, ParseState> {
             } else type to afterState
         }
         char == '(' -> handleParenthesizedType(state.nextActual, state.pos)
-        else -> UNCLOSED_SQUARE_BRACKET_ERROR throwAt state.pos
+        else -> unclosedSquareBacketError throwAt state.pos
     }
 }
 
@@ -86,7 +80,7 @@ tailrec fun handleGenerics(
     when (symbolState.char) {
         ']' -> types + type to state.next
         ',' -> handleGenerics(symbolState.nextActual, types + type)
-        else -> UNCLOSED_SQUARE_BRACKET_ERROR throwAt symbolState.pos
+        else -> unclosedSquareBacketError throwAt symbolState.pos
     }
 }
 
@@ -107,6 +101,6 @@ tailrec fun handleParenthesizedType(
         ',' -> handleParenthesizedType(symbolState.nextActual, start, types + type)
         ')' -> (if (types.isEmpty()) type
         else TupleType(types + type) at start..symbolState.pos) to symbolState.next
-        else -> UNCLOSED_SQUARE_BRACKET_ERROR throwAt symbolState.pos
+        else -> unclosedSquareBacketError throwAt symbolState.pos
     }
 }

@@ -1,8 +1,8 @@
 package com.scientianova.palm.parser
 
-import com.scientianova.palm.errors.INVALID_ESCAPE_CHARACTER_ERROR
-import com.scientianova.palm.errors.MISSING_DOUBLE_QUOTE_ERROR
-import com.scientianova.palm.errors.UNCLOSED_MULTILINE_STRING
+import com.scientianova.palm.errors.unclosedEscapeCharacterError
+import com.scientianova.palm.errors.missingDoubleQuoteError
+import com.scientianova.palm.errors.unclosedMultilineStringError
 import com.scientianova.palm.errors.throwAt
 import com.scientianova.palm.util.StringPos
 import com.scientianova.palm.util.at
@@ -15,7 +15,7 @@ tailrec fun handleSingleLineString(
     builder: StringBuilder,
     lastStart: StringPos = startPos
 ): Pair<PExpr, ParseState> = when (val char = state.char) {
-    null, '\n' -> MISSING_DOUBLE_QUOTE_ERROR throwAt state.lastPos
+    null, '\n' -> missingDoubleQuoteError throwAt state.lastPos
     '"' ->
         (if (parts.isEmpty()) StringExpr(builder.toString())
         else BinaryOpsExpr(parts, StringExpr(builder.toString()) at lastStart..state.lastPos)) at
@@ -31,8 +31,8 @@ tailrec fun handleSingleLineString(
                 handleSingleLineString(
                     afterState, startPos,
                     parts +
-                            ((StringExpr(builder.toString()) at lastStart..interStart) to (PLUS at interStart)) +
-                            (identifier.map(::IdentExpr) to (PLUS at afterState.pos)),
+                            ((StringExpr(builder.toString()) at lastStart..interStart) to (plus at interStart)) +
+                            (identifier.map(::IdentExpr) to (plus at afterState.pos)),
                     StringBuilder(), afterState.pos
                 )
             }
@@ -41,8 +41,8 @@ tailrec fun handleSingleLineString(
                 handleSingleLineString(
                     afterState, startPos,
                     parts +
-                            ((StringExpr(builder.toString()) at lastStart..interStart) to (PLUS at interStart)) +
-                            (scope.map(::ScopeExpr) to (PLUS at afterState.pos)),
+                            ((StringExpr(builder.toString()) at lastStart..interStart) to (plus at interStart)) +
+                            (scope.map(::ScopeExpr) to (plus at afterState.pos)),
                     StringBuilder(), afterState.pos
                 )
             }
@@ -51,7 +51,7 @@ tailrec fun handleSingleLineString(
     }
     '\\' -> {
         val (escaped, afterState) =
-            handleEscaped(state.next) ?: INVALID_ESCAPE_CHARACTER_ERROR throwAt state.nextPos
+            handleEscaped(state.next) ?: unclosedEscapeCharacterError throwAt state.nextPos
         handleSingleLineString(afterState, startPos, parts, builder.append(escaped), lastStart)
     }
     else -> handleSingleLineString(state.next, startPos, parts, builder.append(char), lastStart)
@@ -64,7 +64,7 @@ tailrec fun handleMultiLineString(
     builder: StringBuilder,
     lastStart: StringPos = startPos
 ): Pair<PExpr, ParseState> = when (val char = state.char) {
-    null -> UNCLOSED_MULTILINE_STRING throwAt startPos..state.pos
+    null -> unclosedMultilineStringError throwAt startPos..state.pos
     '"' -> {
         val second = state.next
         if (second.nextChar == '"') {
@@ -98,8 +98,8 @@ tailrec fun handleMultiLineString(
                 handleSingleLineString(
                     afterState, startPos,
                     parts +
-                            ((StringExpr(builder.toString()) at lastStart..interStart) to (PLUS at interStart)) +
-                            (identifier.map(::IdentExpr) to (PLUS at afterState.pos)),
+                            ((StringExpr(builder.toString()) at lastStart..interStart) to (plus at interStart)) +
+                            (identifier.map(::IdentExpr) to (plus at afterState.pos)),
                     StringBuilder(), afterState.pos
                 )
             }
@@ -108,8 +108,8 @@ tailrec fun handleMultiLineString(
                 handleMultiLineString(
                     afterState, startPos,
                     parts +
-                            ((StringExpr(builder.toString()) at lastStart..interStart) to (PLUS at interStart)) +
-                            (scope.map(::ScopeExpr) to (PLUS at afterState.pos)),
+                            ((StringExpr(builder.toString()) at lastStart..interStart) to (plus at interStart)) +
+                            (scope.map(::ScopeExpr) to (plus at afterState.pos)),
                     StringBuilder(), afterState.pos
                 )
             }

@@ -9,21 +9,21 @@ fun handleChar(
     state: ParseState
 ): Pair<Positioned<CharExpr>, ParseState> {
     val (value, endState) = when (val char = state.char) {
-        null, '\n' -> LONE_SINGLE_QUOTE_ERROR throwAt state.pos
+        null, '\n' -> loneSingleQuoteError throwAt state.pos
         '\\' -> handleEscaped(state.next)
-            ?: INVALID_ESCAPE_CHARACTER_ERROR throwAt state.nextPos
+            ?: unclosedEscapeCharacterError throwAt state.nextPos
         else -> char to state.next
     }
     val endChar = endState.char
     return when {
         endChar == '\'' -> CharExpr(value) at state.lastPos..endState.pos to endState.next
-        endChar == null -> UNCLOSED_CHAR_LITERAL_ERROR throwAt endState.pos
+        endChar == null -> unclosedCharLiteralError throwAt endState.pos
         endChar.isWhitespace() && value.isWhitespace() -> isMalformedTab(
             endState.next
         )?.let {
-            MALFORMED_TAB_ERROR throwAt state.lastPos..it.pos
-        } ?: MISSING_SINGLE_QUOTE_ERROR throwAt endState.pos
-        else -> (if (value == '\'') MISSING_SINGLE_QUOTE_ON_QUOTE_ERROR else MISSING_SINGLE_QUOTE_ERROR)
+            malformedTabError throwAt state.lastPos..it.pos
+        } ?: missingSingleQuoteError throwAt endState.pos
+        else -> (if (value == '\'') missingSingleQuoteOnQuoteError else missingSingleQuoteError)
             .throwAt(endState.pos)
     }
 }
@@ -43,7 +43,7 @@ fun handleEscaped(state: ParseState) = when (state.char) {
             state.code,
             state.pos + 2
         )
-        else MISSING_BRACKET_IN_UNICODE_ERROR throwAt state.nextPos
+        else missingBacketInUnicodeError throwAt state.nextPos
     else -> null
 }
 
@@ -58,7 +58,7 @@ tailrec fun handleUnicode(
         code,
         pos + 1
     )
-    else -> INVALID_HEX_LITERAL_ERROR throwAt pos
+    else -> invalidHexLiteralError throwAt pos
 }
 
 fun Char.isOpenBracket() = when (this) {
