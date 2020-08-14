@@ -19,9 +19,9 @@ data class ParseState(val code: String, val pos: StringPos) {
     val nextActual get() = next.actual
     val nextActualOrBreak get() = next.actualOrBreak
 
-    operator fun plus(places: Int) = copy(pos = pos + places)
+    fun startWith(string: String) = code.startsWith(string, startIndex = pos)
 
-    val beforePopped get() = code.getOrNull(pos - 2)
+    operator fun plus(places: Int) = copy(pos = pos + places)
 }
 
 tailrec fun actual(state: ParseState): ParseState {

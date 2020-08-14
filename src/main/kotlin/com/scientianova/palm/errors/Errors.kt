@@ -1,14 +1,6 @@
 package com.scientianova.palm.errors
 
-import com.scientianova.palm.parser.ParseState
-import com.scientianova.palm.util.StringArea
-import com.scientianova.palm.util.StringPos
-
 class PalmError(val name: String, val context: String, val help: String)
-
-infix fun PalmError.throwAt(area: StringArea): Nothing = throw UncaughtParserException(this, area)
-infix fun PalmError.throwAt(pos: StringPos): Nothing = throwAt(pos..pos)
-infix fun PalmError.throwAt(state: ParseState): Nothing = throwAt(state.pos)
 
 val missingSingleQuoteError = PalmError(
     "MISSING SINGLE QUOTE",
@@ -128,11 +120,15 @@ val invalidHexLiteralError = PalmError(
     "Hexidecimal number literals can only contain the digits 0-9, a-f and A-F."
 )
 
-val missingCurlyBracketAfterWhenError = PalmError(
+fun missingCurlyError(after: String) = PalmError(
     "MISSING CURLY BRACKET",
-    "I was saw a when and was expecting an open curly bracket next, but instead got:",
+    "I was saw $after and was expecting an open curly bracket next, but instead got:",
     "Add an { here"
 )
+
+val missingCurlyAfterWhenError = missingCurlyError("a when")
+val missingCurlyAfterIfError = missingCurlyError("an if")
+val missingCurlyAfterElseError = missingCurlyError("an else")
 
 val invalidImportError = PalmError(
     "INVALID IMPORT",
@@ -195,9 +191,27 @@ val invalidDoubleDeclarationError = PalmError(
     "You cannot put a var or val pattern inside another one."
 )
 
+val invalidPatternError = PalmError(
+    "INVALID PATTERN",
+    "I was expecting a pattern, but instead got:",
+    ""
+)
+
+
+val emptyParenthesesOnExprError = PalmError(
+    "EMPTY PARENTHESES",
+    "I saw some parentheses and ws expecting an expression, but didn't find one:",
+    "Add an expression here."
+)
+
 fun unexpectedSymbolError(symbol: String) = PalmError(
     "UNEXPECTED SYMBOL",
     "I was expecting a $symbol, but instead got:",
     ""
 )
 
+val missingTypeReturnTypeError = PalmError(
+    "MISSING RETURN TYPE",
+    "I was going through a function type, but couldn't find a return type:",
+    "Add an error and then the return type here."
+)

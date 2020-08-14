@@ -1,8 +1,8 @@
 package com.scientianova.palm.parser
 
 import com.scientianova.palm.errors.invalidDoubleDeclarationError
+import com.scientianova.palm.errors.invalidPatternError
 import com.scientianova.palm.errors.unclosedParenthesisError
-import com.scientianova.palm.errors.throwAt
 import com.scientianova.palm.util.*
 
 sealed class Pattern
@@ -17,46 +17,50 @@ object WildcardPattern : Pattern()
 
 enum class DeclarationType { VAR, VAL, NONE }
 
-fun handlePattern(state: ParseState, decType: DeclarationType): Pair<PPattern, ParseState> = when {
+fun handlePattern(
+    state: ParseState,
+    decType: DeclarationType,
+    excludeExpression: Boolean
+): ParseResult<PPattern> = when {
     state.char == '.' && state.nextChar?.isLetter() == true -> {
-        val (ident, afterIdent) = handleIdentifier(state.next)
+        val (ident, afterIdent) = handleIdent(state.next)
         val maybeParen = afterIdent.actual
-        if (maybeParen.char == '(') {
-            val (components, next) = handlePatternTuple(maybeParen.nextActual, decType, maybeParen.pos, emptyList())
-            EnumPattern(ident, components) at state.pos..next.lastPos to next
-        } else EnumPattern(ident, emptyList()) at state.pos..ident.area.last to afterIdent
+        if (maybeParen.char == '(') handlePatternTuple(maybeParen.nextActual, decType, maybeParen.pos, emptyList())
+            .flatMap { components, next ->
+                EnumPattern(ident, components) at state.pos..next.lastPos succTo next
+            }
+        else EnumPattern(ident, emptyList()) at state.pos..ident.area.last succTo afterIdent
     }
     state.char?.isLetter() == true -> {
-        val (ident, afterIdent) = handleIdentifier(state)
+        val (ident, afterIdent) = handleIdent(state)
         when (ident.value) {
-            "_" -> WildcardPattern at ident.area to afterIdent
-            "is" -> {
-                val (type, afterType) = handleType(afterIdent.actual)
-                TypePattern(type) at state.pos..type.area.last to afterType
+            "_" -> WildcardPattern at ident.area succTo afterIdent
+            "is" -> handleType(afterIdent.actual).flatMap { type, afterType ->
+                TypePattern(type) at state.pos..type.area.last succTo afterType
             }
             "val" ->
-                if (decType == DeclarationType.NONE) handlePattern(afterIdent.actual, DeclarationType.VAL)
-                else invalidDoubleDeclarationError throwAt ident.area
+                if (decType == DeclarationType.NONE) handlePattern(afterIdent.actual, DeclarationType.VAL, false)
+                else invalidDoubleDeclarationError errAt ident.area
             "var" ->
-                if (decType == DeclarationType.NONE) handlePattern(afterIdent.actual, DeclarationType.VAR)
-                else invalidDoubleDeclarationError throwAt ident.area
-            else -> {
-                val (expr, afterExpr) = handleInlinedBinOps(afterIdent.actual, ident.map(::IdentExpr), false)
+                if (decType == DeclarationType.NONE) handlePattern(afterIdent.actual, DeclarationType.VAR, false)
+                else invalidDoubleDeclarationError errAt ident.area
+            else -> if (excludeExpression) {
+                invalidPatternError errAt state.pos
+            } else ident.startExpr(afterIdent, false).flatMap { expr, afterExpr ->
                 if (expr.value is IdentExpr) when (decType) {
-                    DeclarationType.NONE -> expr.map(::ExprPattern) to afterExpr
-                    DeclarationType.VAL -> DecPattern(expr.value.name, false) at expr.area to afterExpr
-                    DeclarationType.VAR -> DecPattern(expr.value.name, true) at expr.area to afterExpr
-                } else expr.map(::ExprPattern) to afterExpr
+                    DeclarationType.NONE -> expr.map(::ExprPattern) succTo afterExpr
+                    DeclarationType.VAL -> DecPattern(expr.value.name, false) at expr.area succTo afterExpr
+                    DeclarationType.VAR -> DecPattern(expr.value.name, true) at expr.area succTo afterExpr
+                } else expr.map(::ExprPattern) succTo afterExpr
             }
         }
     }
-    else -> {
-        val (expr, afterExpr) = handleInlinedExpression(state, false)
+    else -> handleInlinedExpr(state, false).flatMap { expr, afterExpr ->
         if (expr.value is IdentExpr) when (decType) {
-            DeclarationType.NONE -> expr.map(::ExprPattern) to afterExpr
-            DeclarationType.VAL -> DecPattern(expr.value.name, false) at expr.area to afterExpr
-            DeclarationType.VAR -> DecPattern(expr.value.name, true) at expr.area to afterExpr
-        } else expr.map(::ExprPattern) to afterExpr
+            DeclarationType.NONE -> expr.map(::ExprPattern) succTo afterExpr
+            DeclarationType.VAL -> DecPattern(expr.value.name, false) at expr.area succTo afterExpr
+            DeclarationType.VAR -> DecPattern(expr.value.name, true) at expr.area succTo afterExpr
+        } else expr.map(::ExprPattern) succTo afterExpr
     }
 }
 
@@ -65,12 +69,12 @@ tailrec fun handlePatternTuple(
     decType: DeclarationType,
     startPos: StringPos,
     patterns: List<PPattern>
-): Pair<List<PPattern>, ParseState> = if (state.char == ')') patterns to state.next else {
-    val (pattern, afterPattern) = handlePattern(state, decType)
-    val symbol = afterPattern.actual
-    when (symbol.char) {
-        ',' -> handlePatternTuple(symbol.nextActual, decType, startPos, patterns + pattern)
-        ')' -> (patterns + pattern) to symbol.next
-        else -> unclosedParenthesisError throwAt symbol.pos
+): ParseResult<List<PPattern>> = if (state.char == ')') patterns succTo state.next
+else handlePattern(state, decType, false).flatMap { pattern, afterPattern ->
+    val symbolState = afterPattern.actual
+    return when (symbolState.char) {
+        ',' -> handlePatternTuple(symbolState.nextActual, decType, startPos, patterns + pattern)
+        ')' -> (patterns + pattern) succTo symbolState.next
+        else -> unclosedParenthesisError errAt symbolState.pos
     }
 }

@@ -7,58 +7,55 @@ import com.scientianova.palm.util.at
 
 fun handleChar(
     state: ParseState
-): Pair<Positioned<CharExpr>, ParseState> {
-    val (value, endState) = when (val char = state.char) {
-        null, '\n' -> loneSingleQuoteError throwAt state.pos
-        '\\' -> handleEscaped(state.next)
-            ?: unclosedEscapeCharacterError throwAt state.nextPos
-        else -> char to state.next
-    }
+): ParseResult<Positioned<CharExpr>> = when (val char = state.char) {
+    null, '\n' -> loneSingleQuoteError errAt state.pos
+    '\\' -> handleEscaped(state.next)
+    else -> char succTo state.next
+}.flatMap { value, endState ->
     val endChar = endState.char
-    return when {
-        endChar == '\'' -> CharExpr(value) at state.lastPos..endState.pos to endState.next
-        endChar == null -> unclosedCharLiteralError throwAt endState.pos
-        endChar.isWhitespace() && value.isWhitespace() -> isMalformedTab(
-            endState.next
-        )?.let {
-            malformedTabError throwAt state.lastPos..it.pos
-        } ?: missingSingleQuoteError throwAt endState.pos
+    when {
+        endChar == '\'' -> CharExpr(value) at state.lastPos..endState.pos succTo endState.next
+        endChar == null -> unclosedCharLiteralError errAt endState.pos
+        endChar.isWhitespace() && value.isWhitespace() -> isMalformedTab(endState.next)?.let {
+            malformedTabError errAt state.lastPos..it.pos
+        } ?: missingSingleQuoteError errAt endState.pos
         else -> (if (value == '\'') missingSingleQuoteOnQuoteError else missingSingleQuoteError)
-            .throwAt(endState.pos)
+            .errAt(endState.pos)
     }
 }
 
+
 fun handleEscaped(state: ParseState) = when (state.char) {
-    '"' -> '\"' to state + 1
-    '$' -> '$' to state + 1
-    '\\' -> '\\' to state + 1
-    't' -> '\t' to state + 1
-    'n' -> '\n' to state + 1
-    'b' -> '\b' to state + 1
-    'r' -> '\r' to state + 1
-    'f' -> 12.toChar() to state + 1
-    'v' -> 11.toChar() to state + 1
+    '"' -> '\"' succTo state + 1
+    '$' -> '$' succTo state + 1
+    '\\' -> '\\' succTo state + 1
+    't' -> '\t' succTo state + 1
+    'n' -> '\n' succTo state + 1
+    'b' -> '\b' succTo state + 1
+    'r' -> '\r' succTo state + 1
+    'f' -> 12.toChar() succTo state + 1
+    'v' -> 11.toChar() succTo state + 1
     'u' ->
         if (state.nextChar == '{') handleUnicode(
             state.code,
             state.pos + 2
         )
-        else missingBacketInUnicodeError throwAt state.nextPos
-    else -> null
+        else missingBacketInUnicodeError errAt state.nextPos
+    else -> unclosedEscapeCharacterError errAt state.pos
 }
 
 tailrec fun handleUnicode(
     code: String,
     pos: StringPos,
     idBuilder: StringBuilder = StringBuilder()
-): Pair<Char, ParseState> = when (val char = code.getOrNull(pos)) {
+): ParseResult<Char> = when (val char = code.getOrNull(pos)) {
     in '0'..'9', in 'a'..'f', in 'A'..'F' ->
         handleUnicode(code, pos + 1, idBuilder.append(char))
-    '}' -> idBuilder.toString().toInt().toChar() to ParseState(
+    '}' -> idBuilder.toString().toInt().toChar() succTo ParseState(
         code,
         pos + 1
     )
-    else -> invalidHexLiteralError throwAt pos
+    else -> invalidHexLiteralError errAt pos
 }
 
 fun Char.isOpenBracket() = when (this) {

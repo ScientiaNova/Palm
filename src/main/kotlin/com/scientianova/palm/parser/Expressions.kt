@@ -16,7 +16,7 @@ data class CallExpr(
 
 data class LambdaExpr(
     val params: List<Pair<PString, PType?>>,
-    val scope: ExpressionScope
+    val scope: ExprScope
 ) : Expression()
 
 sealed class Condition
@@ -25,22 +25,24 @@ data class DecCondition(val pattern: PPattern, val expr: PExpr) : Condition()
 
 data class IfExpr(
     val cond: List<Condition>,
-    val ifTrue: ExpressionScope,
-    val ifFalse: ExpressionScope
+    val ifTrue: ExprScope,
+    val ifFalse: ExprScope
 ) : Expression()
+
+typealias WhenBranch = List<Pair<PPattern, PExpr>>
 
 data class WhenExpr(
     val comparing: PExpr,
-    val branches: List<Pair<PPattern, PExpr>>
+    val branches: WhenBranch
 ) : Expression()
 
 data class ForExpr(
     val name: PString,
     val iterable: PExpr,
-    val body: ExpressionScope
+    val body: ExprScope
 ) : Expression()
 
-data class ScopeExpr(val scope: ExpressionScope) : Expression()
+data class ScopeExpr(val scope: ExprScope) : Expression()
 
 data class ByteExpr(val value: Byte) : Expression()
 data class ShortExpr(val value: Short) : Expression()
@@ -52,11 +54,12 @@ data class CharExpr(val value: Char) : Expression()
 data class StringExpr(val string: String) : Expression()
 data class BoolExpr(val value: Boolean) : Expression()
 
-object UnitExpr : Expression()
+val trueExpr = BoolExpr(true)
+val falseExpr = BoolExpr(false)
+
 object NullExpr : Expression()
 
 data class ListExpr(val components: List<PExpr>) : Expression()
-data class ArrayExpr(val components: List<PExpr>) : Expression()
 
 sealed class BinOp
 typealias PBinOp = Positioned<BinOp>
@@ -66,17 +69,37 @@ data class InfixCall(val name: String) : BinOp()
 
 val plus = SymbolOp("+")
 
+typealias OpenOpsList = List<Pair<PExpr, PBinOp>>
+
 data class PrefixOpExpr(val symbol: PString, val expr: PExpr) : Expression()
 data class PostfixOpExpr(val symbol: PString, val expr: PExpr) : Expression()
-data class BinaryOpsExpr(val body: List<Pair<PExpr, PBinOp>>, val end: PExpr) : Expression()
+data class BinaryOpsExpr(val body: OpenOpsList, val end: PExpr) : Expression()
 
 object ContinueExpr : Expression()
-data class BreakExpr(val expr: PExpr) : Expression()
-data class ReturnExpr(val expr: PExpr) : Expression()
+data class BreakExpr(val expr: PExpr?) : Expression()
+data class ReturnExpr(val expr: PExpr?) : Expression()
 
-fun requireSymbol(state: ParseState, symbol: String): ParseState {
-    val (pSymbol, next) = handleSymbol(state)
-    return if (symbol == pSymbol.value) next else unexpectedSymbolError(symbol) throwAt pSymbol.area
+inline fun ParseState.requireSymbol(symbol: String, error: (String) -> PalmError = ::unexpectedSymbolError): ParseBool {
+    val (pSymbol, next) = handleSymbol(this)
+    return if (symbol == pSymbol.value) parseTrue(next) else error(symbol) errAt pSymbol.area
+}
+
+inline fun <T> ParseState.requireChar(symbol: Char, error: PalmError, then: (ParseState) -> ParseResult<T>) =
+    if (char == symbol) then(next) else error errAt pos
+
+inline fun <T> ParseState.requireChar(
+    predicate: (Char?) -> Boolean,
+    error: PalmError,
+    then: (ParseState) -> ParseResult<T>
+) = if (predicate(char)) then(next) else error errAt pos
+
+fun PString.startExpr(
+    afterIdent: ParseState,
+    scoped: Boolean,
+    excludeCurly: Boolean = scoped
+) = handleIdentSubexpr(this, afterIdent, scoped).flatMap { firstExpr, afterFirst ->
+    if (scoped) handleScopedBinOps(afterFirst, firstExpr, emptyList())
+    else handleInlinedBinOps(afterFirst, firstExpr, excludeCurly, emptyList())
 }
 
 @Suppress("NON_TAIL_RECURSIVE_CALL")
@@ -84,368 +107,331 @@ tailrec fun handleExprScope(
     state: ParseState,
     start: StringPos,
     statements: List<PSStatement> = emptyList()
-): Pair<Positioned<ExpressionScope>, ParseState> {
-    val char = state.char
-    return when {
-        char == null -> unclosedScopeError throwAt state.pos
-        char == '}' -> ExpressionScope(statements) at start..state.pos to state.next
-        char.isSeparator() -> handleExprScope(state.nextActual, start, statements)
-        char.isLetter() -> {
-            val (ident, afterIdent) = handleIdentifier(state)
-            val (statement, afterState) = when (ident.value) {
-                "val" -> handleDeclaration(afterIdent.actual, state.pos, true)
-                "var" -> handleDeclaration(afterIdent.actual, state.pos, false)
-                else -> {
-                    val (sub, next) = handleSubexpression(state)
-                    handleScopedBinOps(next.actualOrBreak, sub).mapFirst { it.map(::ExprStatement) }
-                }
-            }
+): ParseResult<Positioned<ExprScope>> = when (state.char) {
+    null -> unclosedScopeError errAt state.pos
+    '}' -> ExprScope(statements) at start..state.pos succTo state.next
+    in separatorChars -> handleExprScope(state.nextActual, start, statements)
+    in identStartChars -> {
+        val (ident, afterIdent) = handleIdent(state)
+        when (ident.value) {
+            "val" -> handleDeclaration(afterIdent.actual, state.pos, true)
+            "var" -> handleDeclaration(afterIdent.actual, state.pos, false)
+            else -> ident.startExpr(afterIdent, true).map { it.map(::ExprStatement) }
+        }.flatMap { statement, afterState ->
             val sepState = afterState.actualOrBreak
             if (sepState.char.isExpressionSeparator())
                 handleExprScope(sepState.nextActual, start, statements + statement)
-            else missingExpressionSeparatorError throwAt sepState.pos
+            else missingExpressionSeparatorError errAt sepState.pos
         }
-        else -> {
-            val (expr, afterState) = handleInScopeExpression(state)
-            val sepState = afterState.actualOrBreak
-            if (sepState.char.isExpressionSeparator())
-                handleExprScope(sepState.nextActual, start, statements + expr.map(::ExprStatement))
-            else missingExpressionSeparatorError throwAt sepState.pos
+    }
+    else -> handleScopedExpr(state).flatMap { expr, afterState ->
+        afterState.actualOrBreak.requireChar(
+            Char?::isExpressionSeparator, missingExpressionSeparatorError
+        ) { afterSep ->
+            handleExprScope(afterSep.actual, start, statements + expr.map(::ExprStatement))
         }
     }
 }
 
-fun handleInlinedExpression(
+fun handleInlinedExpr(
     state: ParseState,
     excludeCurly: Boolean = false
-): ParseResult<PExpr> {
-    val (firstPart, next) = handleSubexpression(state)
-    return handleInlinedBinOps(next, firstPart, excludeCurly)
+): ParseResult<PExpr> = handleSubexpr(state, false).flatMap { firstPart, next ->
+    handleInlinedBinOps(next, firstPart, excludeCurly)
 }
 
-fun handleInScopeExpression(state: ParseState): Pair<PExpr, ParseState> {
-    val (firstPart, next) = handleSubexpression(state)
-    return handleScopedBinOps(next, firstPart)
+fun handleScopedExpr(state: ParseState): ParseResult<PExpr> = handleSubexpr(state, true).flatMap { firstPart, next ->
+    handleScopedBinOps(next, firstPart)
 }
 
 tailrec fun handleInlinedBinOps(
     state: ParseState,
     last: PExpr,
     excludeCurly: Boolean,
-    body: List<Pair<PExpr, PBinOp>> = emptyList()
+    body: OpenOpsList = emptyList()
 ): ParseResult<PExpr> = if (state.char?.isSymbolPart() == true) {
     val (op, afterOp) = handleSymbol(state)
-    val symbol = op.value
-    if (!(symbol.endsWith('.') && symbol.length <= 2) && afterOp.char.isAfterPostfix()) {
+    if (op.value.isPostfixOp(afterOp)) {
         handleInlinedBinOps(afterOp, PostfixOpExpr(op, last) at last.area.first..op.area.last, excludeCurly, body)
-    } else {
-        val (sub, next) = handleSubexpression(afterOp.actual)
-        handleInlinedBinOps(next, sub, excludeCurly, body + (last to op.map(::SymbolOp)))
+    } else handleSubexpr(afterOp.actual, false).flatMap { sub, next ->
+        return handleInlinedBinOps(next, sub, excludeCurly, body + (last to op.map(::SymbolOp)))
     }
 } else {
     val actual = state.actual
-    val actualChar = actual.char
-    when {
-        actualChar == null ->
-            (if (body.isEmpty()) last
-            else BinaryOpsExpr(body, last) at body.first().first.area.first..last.area.last) succTo state
-        actualChar.isLetter() -> {
-            val (infix, afterInfix) = handleIdentifier(actual)
-            if (infix.value in keywords) {
-                (if (body.isEmpty()) last
-                else BinaryOpsExpr(body, last) at body.first().first.area.first..last.area.last) succTo state
-            } else {
-                val (part, next) = handleSubexpression(afterInfix.nextActual)
-                handleInlinedBinOps(next, part, excludeCurly, body + (last to infix.map(::InfixCall)))
+    when (actual.char) {
+        null -> finishBinOps(body, last, state)
+        in identStartChars -> {
+            val (infix, afterInfix) = handleIdent(actual)
+            if (infix.value in keywords) finishBinOps(body, last, state)
+            else handleSubexpr(afterInfix.nextActual, false).flatMap { part, next ->
+                return handleInlinedBinOps(next, part, excludeCurly, body + (last to infix.map(::InfixCall)))
             }
         }
-        actualChar == '`' -> {
-            val (infix, afterInfix) = handleBacktickedIdentifier(actual.next)
-            val (part, next) = handleSubexpression(afterInfix.nextActual)
-            handleInlinedBinOps(next, part, excludeCurly, body + (last to infix.map(::InfixCall)))
+        '`' -> handleBacktickedIdent(actual.next).flatMap { infix, afterInfix ->
+            handleSubexpr(afterInfix.nextActual, false).flatMap<PExpr, PExpr> { part, next ->
+                return handleInlinedBinOps(next, part, excludeCurly, body + (last to infix.map(::InfixCall)))
+            }
         }
-        actualChar.isSymbolPart() -> {
+        in symbolChars -> {
             val (op, afterOp) = handleSymbol(state)
             val symbol = op.value
             if (!(symbol.endsWith('.') && symbol.length <= 2) || afterOp.char?.isWhitespace() == false)
-                invalidPrefixOperatorError throwAt afterOp.pos
+                invalidPrefixOperatorError errAt afterOp.pos
             when (symbol) {
-                "->" ->
-                    (if (body.isEmpty()) last
-                    else BinaryOpsExpr(body, last) at body.first().first.area.first..last.area.last) succTo state
-                else -> {
-                    val (part, next) = handleSubexpression(afterOp.actual)
-                    handleInlinedBinOps(next.actual, part, excludeCurly, body + (last to op.map(::SymbolOp)))
+                "->" -> finishBinOps(body, last, state)
+                else -> handleSubexpr(afterOp.actual, false).flatMap { part, next ->
+                    return handleInlinedBinOps(next.actual, part, excludeCurly, body + (last to op.map(::SymbolOp)))
                 }
             }
         }
-        actualChar == '(' -> {
-            val (params, next) = handleParams(actual.nextActual, actual.pos)
-            handleInlinedBinOps(
+        '(' -> handleParams(actual.nextActual, actual.pos).flatMap { params, next ->
+            return handleInlinedBinOps(
                 next, CallExpr(last, params.value) at last.area.first..params.area.last,
                 excludeCurly, body
             )
         }
-        !excludeCurly && actualChar == '{' -> TODO()
-        else ->
-            (if (body.isEmpty()) last
-            else BinaryOpsExpr(body, last) at body.first().first.area.first..last.area.last) succTo state
+        '{' -> if (excludeCurly) finishBinOps(body, last, state) else TODO()
+        else -> finishBinOps(body, last, state)
     }
 }
 
 tailrec fun handleScopedBinOps(
     state: ParseState,
     last: PExpr,
-    body: List<Pair<PExpr, PBinOp>> = emptyList()
-): Pair<PExpr, ParseState> = if (state.char?.isSymbolPart() == true) {
+    body: OpenOpsList = emptyList()
+): ParseResult<PExpr> = if (state.char?.isSymbolPart() == true) {
     val (op, afterOp) = handleSymbol(state)
-    val symbol = op.value
-    if (!(symbol.endsWith('.') && symbol.length <= 2) && afterOp.char.isAfterPostfix()) {
+    if (op.value.isPostfixOp(afterOp)) {
         handleScopedBinOps(afterOp, PostfixOpExpr(op, last) at last.area.first..op.area.last, body)
-    } else {
-        val (sub, next) = handleSubexpression(afterOp.actual)
-        handleScopedBinOps(next, sub, body + (last to op.map(::SymbolOp)))
+    } else handleSubexpr(afterOp.actual, true).flatMap { sub, next ->
+        return handleScopedBinOps(next, sub, body + (last to op.map(::SymbolOp)))
     }
 } else {
     val actualOnLine = state.actualOrBreak
-    val actualChar = actualOnLine.char
-    when {
-        actualChar == null ->
-            (if (body.isEmpty()) last
-            else BinaryOpsExpr(body, last) at body.first().first.area.first..last.area.last) to state
-        actualChar.isLetter() -> {
-            val (infix, afterInfix) = handleIdentifier(actualOnLine)
-            if (infix.value in keywords) {
-                (if (body.isEmpty()) last
-                else BinaryOpsExpr(body, last) at body.first().first.area.first..last.area.last) to state
-            } else {
-                val (part, next) = handleSubexpression(afterInfix.nextActual)
-                handleScopedBinOps(next, part, body + (last to infix.map(::InfixCall)))
+    when (actualOnLine.char) {
+        null -> finishBinOps(body, last, state)
+        in identStartChars -> {
+            val (infix, afterInfix) = handleIdent(actualOnLine)
+            if (infix.value in keywords) finishBinOps(body, last, state)
+            else handleSubexpr(afterInfix.nextActual, true).flatMap { part, next ->
+                return handleScopedBinOps(next, part, body + (last to infix.map(::InfixCall)))
             }
         }
-        actualChar == '`' -> {
-            val (infix, afterInfix) = handleBacktickedIdentifier(actualOnLine.next)
-            val (part, next) = handleSubexpression(afterInfix.nextActual)
-            handleScopedBinOps(next, part, body + (last to infix.map(::InfixCall)))
+        '`' -> handleBacktickedIdent(actualOnLine.next).flatMap { infix, afterInfix ->
+            handleSubexpr(afterInfix.nextActual, true).flatMap<PExpr, PExpr> { part, next ->
+                return handleScopedBinOps(next, part, body + (last to infix.map(::InfixCall)))
+            }
         }
-        actualChar.isSymbolPart() -> {
+        in symbolChars -> {
             val (op, afterOp) = handleSymbol(state)
             val symbol = op.value
             if (!(symbol.endsWith('.') && symbol.length <= 2) || afterOp.char?.isWhitespace() == false)
-                invalidPrefixOperatorError throwAt afterOp.pos
-            when (symbol) {
-                "->" ->
-                    (if (body.isEmpty()) last
-                    else BinaryOpsExpr(body, last) at body.first().first.area.first..last.area.last) to state
-                else -> {
-                    val (part, next) = handleSubexpression(afterOp.actual)
-                    handleScopedBinOps(next.actual, part, body + (last to op.map(::SymbolOp)))
+                invalidPrefixOperatorError errAt afterOp.pos
+            else when (symbol) {
+                "->" -> finishBinOps(body, last, state)
+                else -> handleSubexpr(afterOp.actual, true).flatMap { part, next ->
+                    return handleScopedBinOps(next.actual, part, body + (last to op.map(::SymbolOp)))
                 }
             }
         }
-        actualChar == '{' -> TODO()
         else -> {
             val maybeCurly = actualOnLine.actual
-            if (maybeCurly.char == '{') TODO() else (if (body.isEmpty()) last
-            else BinaryOpsExpr(body, last) at body.first().first.area.first..last.area.last) to state
+            if (maybeCurly.char == '{') TODO() else finishBinOps(body, last, state)
         }
     }
 }
 
-fun handleSubexpression(state: ParseState): Pair<PExpr, ParseState> {
-    val char = state.char
-    fun Char.eq() = this == char
-    return when {
-        char == null -> missingExpressionError throwAt state.lastPos
-        char.isLetter() -> {
-            val (ident, next) = handleIdentifier(state)
-            when (ident.value) {
-                "_" -> WildcardExpr at state.lastPos to next
-                "when" -> {
-                    val afterWhenState = next.actual
-                    if (afterWhenState.char == '{') handleWhen(
-                        afterWhenState.nextActual, IdentExpr("True") at next.pos,
-                        afterWhenState.pos, emptyList()
-                    ) else {
-                        val (comparing, afterExpr) = handleInlinedExpression(afterWhenState, true)
-                        val bracketState = afterExpr.actual
-                        if (bracketState.char == '{') handleWhen(
-                            bracketState.nextActual, comparing, bracketState.pos, emptyList()
-                        ) else missingCurlyBracketAfterWhenError throwAt bracketState.pos
-                    }
-                }
-                else -> ident.map(::IdentExpr) to next
-            }
-        }
-        '`'.eq() -> handleBacktickedIdentifier(state.next).mapFirst { it.map(::IdentExpr) }
-        '0'.eq() -> when (state.nextChar) {
-            'x', 'X' -> handleHexNumber(state + 2, state.pos, StringBuilder())
-            'b', 'B' -> handleBinaryNumber(state + 2, state.pos, StringBuilder())
-            else -> handleNumber(state, state.pos, StringBuilder())
-        }
-        char in '1'..'9' -> handleNumber(state, state.pos, StringBuilder())
-        '"'.eq() -> if (state.nextChar == '"' && (state + 2).char == '"') {
-            handleMultiLineString(state + 3, state.pos, emptyList(), StringBuilder())
-        } else handleSingleLineString(state.next, state.pos, emptyList(), StringBuilder())
-        '\''.eq() -> handleChar(state.next)
-        '('.eq() -> handleParenthesizedExpr(state.nextActual, state.pos)
-        '['.eq() -> if (state.nextChar == '|') {
-            handleArray(state.nextActual, state.pos, emptyList(), emptyList())
-        } else handleList(state.nextActual, state.pos, emptyList(), emptyList())
-        '{'.eq() -> TODO()
-        char.isSymbolPart() -> {
-            val (symbol, exprState) = handleSymbol(state)
-            if (exprState.char.isAfterPostfix()) symbol.map(::OpRefExpr) to exprState else {
-                val (expr, next) = handleSubexpression(exprState)
-                PrefixOpExpr(symbol, expr) at state.pos..expr.area.last to next
-            }
-        }
-        else -> invalidExpressionError throwAt state.pos
+private fun String.isPostfixOp(afterOp: ParseState) =
+    !(endsWith('.') && length <= 2) && afterOp.char.isAfterPostfix()
+
+private fun finishBinOps(
+    body: OpenOpsList,
+    last: PExpr,
+    state: ParseState
+) = (if (body.isEmpty()) last else BinaryOpsExpr(body, last) at
+        body.first().first.area.first..last.area.last) succTo state
+
+fun handleSubexpr(state: ParseState, scoped: Boolean): ParseResult<PExpr> = when (state.char) {
+    null -> missingExpressionError errAt state.pos
+    in identStartChars -> {
+        val (ident, next) = handleIdent(state)
+        handleIdentSubexpr(ident, next, scoped)
     }
+    '`' -> handleBacktickedIdent(state.next).map { it.map(::IdentExpr) }
+    '0' -> when (state.nextChar) {
+        'x', 'X' -> handleHexNumber(state + 2, state.pos, StringBuilder())
+        'b', 'B' -> handleBinaryNumber(state + 2, state.pos, StringBuilder())
+        else -> handleNumber(state, state.pos, StringBuilder())
+    }
+    in '1'..'9' -> handleNumber(state, state.pos, StringBuilder())
+    '"' -> if (state.next.startWith("\"\"")) {
+        handleMultiLineString(state + 3, state.pos, emptyList(), StringBuilder())
+    } else handleSingleLineString(state.next, state.pos, emptyList(), StringBuilder())
+    '\'' -> handleChar(state.next)
+    '(' -> handleParenthesizedExpr(state.nextActual)
+    '[' -> handleList(state.nextActual, state.pos, emptyList(), emptyList())
+    '{' -> TODO()
+    in symbolChars -> {
+        val (symbol, exprState) = handleSymbol(state)
+        if (exprState.char.isAfterPostfix()) symbol.map(::OpRefExpr) succTo exprState
+        else handleSubexpr(exprState, scoped).flatMap { expr, next ->
+            PrefixOpExpr(symbol, expr) at state.pos..expr.area.last succTo next
+        }
+    }
+    else -> invalidExpressionError errAt state.pos
 }
+
+
+fun handleIdentSubexpr(
+    ident: PString,
+    next: ParseState,
+    scoped: Boolean
+): ParseResult<Positioned<Expression>> = when (ident.value) {
+    "when" -> {
+        val afterWhenState = next.actual
+        if (afterWhenState.char == '{') handleWhen(
+            afterWhenState.nextActual, trueExpr at next.pos,
+            afterWhenState.pos, emptyList()
+        ) else handleInlinedExpr(afterWhenState, true).flatMap { comparing, afterExpr ->
+            afterExpr.actual.requireChar('{', missingCurlyAfterWhenError) { afterCurly ->
+                handleWhen(afterCurly.actual, comparing, ident.area.first, emptyList())
+            }
+        }
+    }
+    "true" -> trueExpr at ident.area succTo next
+    "false" -> falseExpr at ident.area succTo next
+    "null" -> NullExpr at ident.area succTo next
+    "continue" -> ContinueExpr at ident.area succTo next
+    "return" -> handleContainerExpr(scoped, next, ident.area, ::ReturnExpr)
+    "break" -> handleContainerExpr(scoped, next, ident.area, ::BreakExpr)
+    else -> ident.map(::IdentExpr) succTo next
+}
+
+private inline fun handleContainerExpr(
+    scoped: Boolean,
+    next: ParseState,
+    normalArea: StringArea,
+    fn: (PExpr?) -> Expression
+): ParseResult<Positioned<BreakExpr>> =
+    (if (scoped) handleScopedExpr(next.actual) else handleInlinedExpr(next.actual, false))
+        .biFlatMap({ expr, afterState -> fn(expr) at normalArea..expr.area.last succTo afterState })
+        { fn(null) at normalArea succTo next }
+
 
 tailrec fun handleParams(
     state: ParseState,
     start: StringPos,
     expressions: List<PExpr> = emptyList()
-): Pair<Positioned<List<PExpr>>, ParseState> = if (state.char == ')')
-    (if (expressions.isEmpty()) listOf(UnitExpr at start..state.pos) else expressions) at
-            start..state.pos to state.next
-else {
-    val (expr, afterState) = handleInlinedExpression(state, true)
+): ParseResult<Positioned<List<PExpr>>> = if (state.char == ')') {
+    expressions at start..state.pos succTo state.next
+} else handleInlinedExpr(state, true).flatMap { expr, afterState ->
     val symbolState = afterState.actual
-    when (symbolState.char) {
-        ')' -> expressions + expr at start..symbolState.pos to symbolState.next
+    return when (symbolState.char) {
+        ')' -> expressions + expr at start..symbolState.pos succTo symbolState.next
         ',' -> handleParams(symbolState.nextActual, start, expressions + expr)
-        else -> unclosedParenthesisError throwAt symbolState.pos
+        else -> unclosedParenthesisError errAt symbolState.pos
     }
 }
 
 fun handleParenthesizedExpr(
-    state: ParseState,
-    startPos: StringPos
-): Pair<PExpr, ParseState> = if (state.char == ')') UnitExpr at startPos..state.pos to state.next else {
-    val (expr, after) = handleInlinedExpression(state)
-    val paren = after.actual
-    if (paren.char == ')') unclosedParenthesisError throwAt paren.pos
-    expr to paren.next
+    state: ParseState
+): ParseResult<PExpr> = if (state.char == ')') {
+    emptyParenthesesOnExprError errAt state.pos
+} else handleInlinedExpr(state).flatMap { expr, after ->
+    after.actual.requireChar(')', unclosedParenthesisError) { next -> expr succTo next }
 }
+
 
 tailrec fun handleList(
     state: ParseState,
     start: StringPos,
-    expressions: List<PExpr>,
+    exprList: List<PExpr>,
     sections: List<Positioned<ListExpr>>,
     lastStart: StringPos = start
-): Pair<PExpr, ParseState> = if (state.char == ']') {
-    ListExpr(
-        if (sections.isEmpty()) expressions
-        else sections + (ListExpr(expressions) at lastStart..state.pos)
-    ) at start..state.pos to state.next
-} else {
-    val (expr, afterState) = handleInlinedExpression(state, true)
+): ParseResult<PExpr> = if (state.char == ']') {
+    finishList(sections, exprList, lastStart, state, start)
+} else handleInlinedExpr(state, true).flatMap { expr, afterState ->
     val symbolState = afterState.actual
-    val newExpressions = expressions + expr
-    when (symbolState.char) {
-        ']' ->
-            ListExpr(
-                if (sections.isEmpty()) newExpressions else sections + (ListExpr(newExpressions) at
-                        lastStart..symbolState.pos)
-            ) at start..symbolState.pos to symbolState.next
-        ',' -> handleList(symbolState.nextActual, start, newExpressions, sections, lastStart)
+    val newExprList = exprList + expr
+    return when (symbolState.char) {
+        ']' -> finishList(sections, newExprList, lastStart, symbolState, start)
+        ',' -> handleList(symbolState.nextActual, start, newExprList, sections, lastStart)
         ';' -> handleList(
             symbolState.nextActual, start, emptyList(),
-            sections + (ListExpr(expressions + expr) at lastStart..symbolState.pos),
+            sections + (ListExpr(exprList + expr) at lastStart..symbolState.pos),
             symbolState.pos
         )
-        else -> unclosedSquareBacketError throwAt symbolState.pos
+        else -> unclosedSquareBacketError errAt symbolState
     }
 }
 
-fun handleArray(
-    state: ParseState,
-    start: StringPos,
+private fun finishList(
+    sections: List<Positioned<ListExpr>>,
     expressions: List<PExpr>,
-    sections: List<Positioned<ArrayExpr>>,
-    lastStart: StringPos = start
-): Pair<PExpr, ParseState> = if (state.char == '|' && state.nextChar == ']') {
-    ArrayExpr(
-        if (sections.isEmpty()) expressions else sections + (ArrayExpr(expressions) at
-                lastStart..state.nextPos)
-    ) at start..state.nextPos to state + 2
-} else {
-    val (expr, afterState) = handleInlinedExpression(state, true)
-    val symbolState = afterState.actual
-    val symbol = symbolState.char
-    val newExpressions = expressions + expr
-    when {
-        symbol == '|' && symbolState.nextChar == ']' ->
-            ArrayExpr(
-                if (sections.isEmpty()) newExpressions else sections + (ArrayExpr(
-                    newExpressions
-                ) at lastStart..symbolState.nextPos)
-            ) at start..symbolState.nextPos to symbolState + 2
-        symbol == ',' -> handleArray(symbolState.nextActual, start, newExpressions, sections, lastStart)
-        symbol == ';' -> handleArray(
-            symbolState.nextActual, start, emptyList(),
-            sections + (ArrayExpr(expressions + expr) at lastStart..symbolState.pos), symbolState.pos
-        )
-        else -> unclosedSquareBacketError throwAt symbolState.pos
-    }
-}
+    lastStart: StringPos,
+    endState: ParseState,
+    start: StringPos
+): ParseResult<PExpr> = ListExpr(
+    if (sections.isEmpty()) expressions
+    else sections + (ListExpr(expressions) at lastStart..endState.pos)
+) at start..endState.pos succTo endState.next
 
 fun handleIf(state: ParseState, start: StringPos)
 
 tailrec fun handleConditions(
     state: ParseState,
     previous: List<Condition>
-): Pair<List<Condition>, ParseState> {
-    val (cond, afterCond) = if (state.char?.isLetter() == true) {
-        val (ident, afterIdent) = handleIdentifier(state)
-        when (ident.value) {
-            "val" -> {
-                val (pattern, afterPattern) = handlePattern(afterIdent.actual, DeclarationType.VAL)
-                val exprStart = requireSymbol(afterPattern.actual, "=").actual
-                val (expr, afterExpr) = handleInlinedExpression(exprStart, true)
-                DecCondition(pattern, expr) to afterExpr
-            }
-            "var" -> {
-                val (pattern, afterPattern) = handlePattern(afterIdent.actual, DeclarationType.VAR)
-                val exprStart = requireSymbol(afterPattern.actual, "=").actual
-                val (expr, afterExpr) = handleInlinedExpression(exprStart, true)
-                DecCondition(pattern, expr) to afterExpr
-            }
-            else -> {
-                val (expr, afterExpr) = handleInlinedBinOps(afterIdent, ident.map(::IdentExpr), true)
-                ExprCondition(expr) to afterExpr
+): ParseResult<List<Condition>> = if (state.char?.isLetter() == true) {
+    val (ident, afterIdent) = handleIdent(state)
+    when (ident.value) {
+        "val" -> handlePatternCond(afterIdent, DeclarationType.VAL)
+        "var" -> handlePatternCond(afterIdent, DeclarationType.VAR)
+        else -> handleIdentSubexpr(ident, afterIdent, false).flatMap { firstExpr, binOpsState ->
+            handleInlinedBinOps(binOpsState, firstExpr, true).flatMap { expr, afterExpr ->
+                ExprCondition(expr) succTo afterExpr
             }
         }
-    } else {
-        val (expr, afterExpr) = handleInlinedExpression(state, true)
-        ExprCondition(expr) to afterExpr
     }
+} else {
+    handleInlinedExpr(state, true).flatMap { expr, afterExpr ->
+        ExprCondition(expr) succTo afterExpr
+    }
+}.flatMap { cond, afterCond ->
     val maybeComma = afterCond.actual
-    if (maybeComma.char == ',') handleConditions(maybeComma.nextActual, previous + cond)
-    else (previous + cond) to maybeComma
+    return if (maybeComma.char == ',') handleConditions(maybeComma.nextActual, previous + cond)
+    else previous + cond succTo maybeComma
+}
+
+private fun handlePatternCond(
+    afterIdent: ParseState,
+    decType: DeclarationType
+): ParseResult<DecCondition> = handlePattern(afterIdent.actual, decType, true).flatMap { pattern, afterPattern ->
+    afterPattern.actual.requireSymbol("=").flatMap { afterEqState ->
+        handleInlinedExpr(afterEqState.actual, true).flatMap { expr, afterExpr ->
+            DecCondition(pattern, expr) succTo afterExpr
+        }
+    }
 }
 
 tailrec fun handleWhen(
     state: ParseState,
     comparing: PExpr,
     start: StringPos,
-    branches: List<Pair<PPattern, PExpr>>
-): Pair<PExpr, ParseState> = when (state.char) {
-    ')' -> WhenExpr(comparing, branches) at start..state.pos to state.next
+    branches: WhenBranch
+): ParseResult<PExpr> = when (state.char) {
+    ')' -> WhenExpr(comparing, branches) at start..state.pos succTo state.next
     ';' -> handleWhen(state.nextActual, comparing, start, branches)
-    else -> {
-        val (pattern, arrowState) = handlePattern(state, DeclarationType.NONE)
-        val maybeCurly = requireSymbol(arrowState.actual, "->").actual
-        val (result, afterState) = if (maybeCurly.char == '{') {
-            handleExprScope(maybeCurly.nextActual, maybeCurly.pos).mapFirst { it.map(::ScopeExpr) }
-        } else handleInScopeExpression((arrowState + 2).nextActual)
-        val sepState = afterState.actualOrBreak
-        if (sepState.char.isExpressionSeparator())
-            handleWhen(sepState.nextActual, comparing, start, branches + (pattern to result))
-        else unclosedWhenError throwAt sepState.pos
+    else -> handlePattern(state, DeclarationType.NONE, false).flatMap { pattern, arrowState ->
+        arrowState.actual.requireSymbol("->").flatMapActual { maybeCurly ->
+            if (maybeCurly.char == '{') {
+                handleExprScope(maybeCurly.nextActual, maybeCurly.pos).map(PExprScope::toExpr)
+            } else handleScopedExpr((arrowState + 2).nextActual).flatMap { result, afterState ->
+                afterState.actualOrBreak.requireChar<PExpr>(
+                    Char?::isExpressionSeparator, unclosedWhenError
+                ) { afterStep ->
+                    return handleWhen(afterStep.actual, comparing, start, branches + (pattern to result))
+                }
+            }
+        }
     }
 }
