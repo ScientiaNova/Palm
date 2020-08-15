@@ -20,6 +20,10 @@ data class ParseState(val code: String, val pos: StringPos) {
     val nextActualOrBreak get() = next.actualOrBreak
 
     fun startWith(string: String) = code.startsWith(string, startIndex = pos)
+    fun startWithIdent(string: String) = startWith(string)
+            && code.getOrNull(pos + string.length)?.isLetterOrDigit() != false
+    fun startWithSymbol(string: String) = startWith(string)
+            && code.getOrNull(pos + string.length)?.isSymbolPart() != false
 
     operator fun plus(places: Int) = copy(pos = pos + places)
 }

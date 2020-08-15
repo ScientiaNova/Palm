@@ -15,3 +15,4 @@ data class ExprScope(val statements: List<PSStatement>)
 typealias PExprScope = Positioned<ExprScope>
 
 fun PExprScope.toExpr() = ScopeExpr(value) at area
+fun ParseResult<PExprScope>.toExpr() = map(PExprScope::toExpr)

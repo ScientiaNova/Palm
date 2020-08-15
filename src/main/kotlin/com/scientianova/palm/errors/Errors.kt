@@ -120,15 +120,16 @@ val invalidHexLiteralError = PalmError(
     "Hexidecimal number literals can only contain the digits 0-9, a-f and A-F."
 )
 
-fun missingCurlyError(after: String) = PalmError(
-    "MISSING CURLY BRACKET",
-    "I was saw $after and was expecting an open curly bracket next, but instead got:",
-    "Add an { here"
+fun missingScopeError(after: String) = PalmError(
+    "MISSING SCOPE",
+    "I was saw $after and was expecting a scope next, but instead got:",
+    "Start a scope here with an {."
 )
 
-val missingCurlyAfterWhenError = missingCurlyError("a when")
-val missingCurlyAfterIfError = missingCurlyError("an if")
-val missingCurlyAfterElseError = missingCurlyError("an else")
+val missingScopeAfterWhenError = missingScopeError("a when")
+val missingScopeAfterIfError = missingScopeError("an if")
+val missingScopeAfterElseError = missingScopeError("an else")
+val missingScopeAfterForError = missingScopeError("a for")
 
 val invalidImportError = PalmError(
     "INVALID IMPORT",
@@ -214,4 +215,22 @@ val missingTypeReturnTypeError = PalmError(
     "MISSING RETURN TYPE",
     "I was going through a function type, but couldn't find a return type:",
     "Add an error and then the return type here."
+)
+
+fun keywordDecNameError(keyword: String) = PalmError(
+    "INVALID VARIABLE NAME",
+    "I was expecting a variable name, but instead got the $keyword keyword:",
+    "Variable names must not be keyword."
+)
+
+val missingDeclarationNameError = PalmError(
+    "MISSING VARIABLE NAME",
+    "I was expecting a variable name, but couldn't find one:",
+    ""
+)
+
+val missingInInForError = PalmError(
+    "MISSING IN",
+    "I was going through a for loop and was expecting in next, but instead got:",
+    "Add in here."
 )
