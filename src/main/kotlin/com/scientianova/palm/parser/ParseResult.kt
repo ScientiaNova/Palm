@@ -1,7 +1,6 @@
 package com.scientianova.palm.parser
 
 import com.scientianova.palm.errors.PalmError
-import com.scientianova.palm.errors.UncaughtParserException
 import com.scientianova.palm.errors.unexpectedSymbolError
 import com.scientianova.palm.util.StringArea
 import com.scientianova.palm.util.StringPos
@@ -19,6 +18,11 @@ inline fun <T, S> ParseResult<T>.map(fn: (T) -> S): ParseResult<S> = when (this)
 inline fun <T, S> ParseResult<T>.flatMap(fn: (T, ParseState) -> ParseResult<S>): ParseResult<S> = when (this) {
     is ParseResult.Success -> fn(value, next)
     is ParseResult.Failure -> this
+}
+
+fun <T, S : T> ParseResult<S>.orDefault(state: ParseState, value: T) = when (this) {
+    is ParseResult.Success -> this.value to next
+    is ParseResult.Failure -> value to state
 }
 
 inline fun <T, S> ParseResult<T>.baseFlatMapIf(
@@ -96,9 +100,13 @@ inline fun <T, S> ParseResult<T>.biFlatMap(
     is ParseResult.Failure -> onFail()
 }
 
-fun <T> ParseResult<T>.pairOrThrow() = when (this) {
-    is ParseResult.Success -> value to next
-    is ParseResult.Failure -> throw UncaughtParserException(error, area)
+fun <T> ParseResult<T>.expectActual(char: Char, error: PalmError) = when (this) {
+    is ParseResult.Success -> {
+        val actual = next.actual
+        if (actual.char == char) value succTo actual.next
+        else error errAt actual
+    }
+    is ParseResult.Failure -> this
 }
 
 infix fun <T> T.succTo(next: ParseState) = ParseResult.Success(this, next)

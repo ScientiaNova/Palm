@@ -6,6 +6,4 @@ class CharGroup(private val predicate: Char.() -> Boolean) {
 }
 
 val symbolChars = CharGroup(Char::isSymbolPart)
-val identStartChars = CharGroup { isLetter() || equals('_') }
-val identChars = CharGroup { isLetterOrDigit() || equals('_') }
-val separatorChars = CharGroup(Char::isSeparator)
+val identStartChars = CharGroup(Char::isIdentifierStart)

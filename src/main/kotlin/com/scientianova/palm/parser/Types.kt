@@ -1,9 +1,10 @@
 package com.scientianova.palm.parser
 
-import com.scientianova.palm.errors.emptyParenthesesOnPatternError
+import com.scientianova.palm.errors.invalidTypePathError
 import com.scientianova.palm.errors.missingTypeReturnTypeError
 import com.scientianova.palm.errors.unclosedParenthesisError
 import com.scientianova.palm.errors.unclosedSquareBacketError
+import com.scientianova.palm.util.PString
 import com.scientianova.palm.util.Positioned
 import com.scientianova.palm.util.StringPos
 import com.scientianova.palm.util.at
@@ -11,7 +12,7 @@ import com.scientianova.palm.util.at
 sealed class Type
 typealias PType = Positioned<Type>
 
-typealias Path = List<String>
+typealias Path = List<PString>
 
 data class NamedType(
     val path: Path,
@@ -28,67 +29,73 @@ data class ImplicitFunctionType(
     val returnType: PType
 ) : Type()
 
-fun handleType(state: ParseState): ParseResult<PType> {
-    val char = state.char
-    return when {
-        char?.isLetter() == true -> {
-            val (ident, afterIdent) = handleIdent(state)
-            val (path, afterPath) = handlePath(afterIdent, ident, emptyList())
-            handleWholeGenerics(afterPath, path, emptyList()).flatMap { type, afterState ->
-                type succTo afterState
-            }
+fun handleType(state: ParseState, scoped: Boolean): ParseResult<PType> = when (state.char) {
+    in identStartChars -> {
+        val (ident, afterIdent) = handleIdent(state)
+        handlePath(afterIdent, listOf(ident)).flatMap { path, afterPath ->
+            handleWholeGenerics(afterPath, path at state.pos..afterPath.lastPos, scoped)
         }
-        char == '(' -> handleParenthesizedType(state.nextActual, state.pos, emptyList())
-        else -> unclosedSquareBacketError errAt state.pos
     }
+    '(' -> handleParenthesizedType(state.nextActual, state.pos, emptyList(), scoped)
+    else -> unclosedSquareBacketError errAt state.pos
+}
+
+tailrec fun handlePath(state: ParseState, path: List<PString>): ParseResult<Path> {
+    val actual = state.actual
+    return if (actual.startWithSymbol(".")) {
+        val (ident, afterIdent) = handleIdent(actual.nextActual)
+        if (ident.value.isEmpty()) invalidTypePathError errAt actual
+        else handlePath(afterIdent, path + ident)
+    } else path succTo state
 }
 
 
-tailrec fun handleWholeGenerics(
+fun handleWholeGenerics(
     state: ParseState,
     path: Positioned<Path>,
-    generics: List<PType>
+    scoped: Boolean
 ): ParseResult<PType> {
-    val actual = state.actual
-    return if (actual.char == '[') handleGenerics(state.nextActual, emptyList()).flatMap { newGenerics, next ->
-        return handleWholeGenerics(next, path, generics + newGenerics)
-    } else NamedType(path.value, generics) at path.area.first..state.lastPos succTo state
+    val actual = if (scoped) state.actualOrBreak else state.actual
+    return if (actual.char == '[') handleGenerics(state.nextActual, emptyList()).flatMap { generics, afterGenerics ->
+        NamedType(path.value, generics) at path.area.first..afterGenerics.lastPos succTo afterGenerics
+    } else NamedType(path.value, emptyList()) at path.area.first..state.lastPos succTo state
 }
 
-tailrec fun handleGenerics(
+private fun handleGenerics(
     state: ParseState,
     types: List<PType> = emptyList()
 ): ParseResult<List<PType>> = if (state.char == ']') types succTo state.next
-else handleType(state).flatMap { type, afterState ->
+else handleType(state, false).flatMap { type, afterState ->
     val symbolState = afterState.actual
     when (symbolState.char) {
-        ']' -> types + type succTo state.next
-        ',' -> return handleGenerics(symbolState.nextActual, types + type)
+        ']' -> types + type succTo symbolState.next
+        ',' -> handleGenerics(symbolState.nextActual, types + type)
         else -> unclosedSquareBacketError errAt symbolState.pos
     }
 }
 
-tailrec fun handleParenthesizedType(
+fun handleParenthesizedType(
     state: ParseState,
     start: StringPos,
-    types: List<PType>
-): ParseResult<PType> = if (state.char == ')') handleFunction(state.next, start, types)
-else handleType(state).flatMap { type, afterState ->
+    types: List<PType>,
+    scoped: Boolean
+): ParseResult<PType> = if (state.char == ')') handleFunction(state.next, start, types, scoped)
+else handleType(state, false).flatMap { type, afterState ->
     val actual = afterState.actual
     when (actual.char) {
-        ',' -> return handleParenthesizedType(actual.nextActual, start, types + type)
-        ')' -> handleFunction(actual.next,start, types + type)
+        ',' -> handleParenthesizedType(actual.nextActual, start, types + type, scoped)
+        ')' -> handleFunction(actual.next, start, types + type, scoped)
         else -> unclosedParenthesisError errAt actual.pos
     }
 }
 
-private fun handleFunction(state: ParseState, start: StringPos, types: List<PType>): ParseResult<PType> {
+private fun handleFunction(state: ParseState, start: StringPos, types: List<PType>, scoped: Boolean): ParseResult<PType> {
     val (symbol, afterSymbol) = handleSymbol(state.actual)
     return when (symbol.value) {
-        "->" -> handleType(afterSymbol.actual).flatMap { returnType, nextState ->
+        "->" -> handleType(afterSymbol.actual, scoped).flatMap { returnType, nextState ->
             FunctionType(types, returnType) at start..nextState.lastPos succTo nextState
         }
-        "=>" -> handleType(afterSymbol.actual).flatMap { returnType, nextState ->
+        "=>" -> handleType(afterSymbol.actual, scoped).flatMap { returnType, nextState ->
             ImplicitFunctionType(types, returnType) at start..nextState.lastPos succTo nextState
         }
         else -> if (types.size == 1) types.first() succTo state else missingTypeReturnTypeError errAt state

@@ -35,12 +35,9 @@ fun handleEscaped(state: ParseState) = when (state.char) {
     'r' -> '\r' succTo state + 1
     'f' -> 12.toChar() succTo state + 1
     'v' -> 11.toChar() succTo state + 1
-    'u' ->
-        if (state.nextChar == '{') handleUnicode(
-            state.code,
-            state.pos + 2
-        )
-        else missingBacketInUnicodeError errAt state.nextPos
+    'u' -> if (state.nextChar == '{') {
+        handleUnicode(state.code, state.pos + 2)
+    } else missingBacketInUnicodeError errAt state.nextPos
     else -> unclosedEscapeCharacterError errAt state.pos
 }
 
@@ -51,10 +48,7 @@ tailrec fun handleUnicode(
 ): ParseResult<Char> = when (val char = code.getOrNull(pos)) {
     in '0'..'9', in 'a'..'f', in 'A'..'F' ->
         handleUnicode(code, pos + 1, idBuilder.append(char))
-    '}' -> idBuilder.toString().toInt().toChar() succTo ParseState(
-        code,
-        pos + 1
-    )
+    '}' -> idBuilder.toString().toInt().toChar() succTo ParseState(code, pos + 1)
     else -> invalidHexLiteralError errAt pos
 }
 
@@ -90,17 +84,9 @@ fun isMalformedTab(state: ParseState): ParseState? = when (state.char) {
     else -> null
 }
 
+fun Char.isIdentifierStart() = isLetter() || this == '_'
 fun Char.isIdentifierPart() = isLetterOrDigit() || this == '_'
-fun Char.isSymbolPart() = !(isIdentifierPart() || isBracket() || isSeparator() || isQuote())
 
-fun Char.isLineSpace() = when (this) {
-    ' ', '\t' -> true
-    else -> false
-}
-
-fun Char?.isExpressionSeparator() = when (this) {
-    null, '\n', ';', ',' -> true
-    else -> false
-}
+fun Char.isSymbolPart() = !(isWhitespace() || isIdentifierPart() || isBracket() || isSeparator() || isQuote())
 
 fun Char?.isAfterPostfix() = this == null || isWhitespace() || isClosedBracket() || isSeparator()

@@ -1,6 +1,6 @@
 package com.scientianova.palm.errors
 
-class PalmError(val name: String, val context: String, val help: String)
+data class PalmError(val name: String, val context: String, val help: String)
 
 val missingSingleQuoteError = PalmError(
     "MISSING SINGLE QUOTE",
@@ -163,10 +163,9 @@ val unclosedWhenError = PalmError(
 
 val invalidPrefixOperatorError = PalmError(
     "INVALID PREFIX OPERATOR",
-    "I wss expecting an infix operator, but instead for a prefix operator:",
+    "I was expecting an infix operator, but instead got a prefix operator:",
     "Add a space here."
 )
-
 
 val missingExpressionSeparatorError = PalmError(
     "MISSING EXPRESSION SEPARATOR",
@@ -201,7 +200,7 @@ val invalidPatternError = PalmError(
 
 val emptyParenthesesOnExprError = PalmError(
     "EMPTY PARENTHESES",
-    "I saw some parentheses and ws expecting an expression, but didn't find one:",
+    "I saw some parentheses and was expecting an expression, but didn't find one:",
     "Add an expression here."
 )
 
@@ -233,4 +232,28 @@ val missingInInForError = PalmError(
     "MISSING IN",
     "I was going through a for loop and was expecting in next, but instead got:",
     "Add in here."
+)
+
+val invalidLambdaArgumentsError = PalmError(
+    "INVALID LAMBDA ARGUMENTS",
+    "",
+    ""
+)
+
+val invalidVariableDeclarationError = PalmError(
+    "INVALID VARIABLE DECLARATION ERROR",
+    "I was going through a variable declaration, but couldn't find a type or value after the type:",
+    "When declaring a variable you need to specify the type, with :, or the value, with =."
+)
+
+val invalidTypePathError = PalmError(
+    "INVALID PATH",
+    "I was going through the path to type and was expecting an identifier next, but instead got:",
+    ""
+)
+
+val postfixOperationOnTypeError = PalmError(
+    "POSTFIX OPERATION ON TYPE",
+    "I saw a postfix operation after a type:",
+    "You should use parentheses, so I know what you wanted the postfix operation to be applied on."
 )
