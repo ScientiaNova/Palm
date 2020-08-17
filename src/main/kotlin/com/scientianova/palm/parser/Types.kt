@@ -21,12 +21,8 @@ data class NamedType(
 
 data class FunctionType(
     val params: List<PType>,
-    val returnType: PType
-) : Type()
-
-data class ImplicitFunctionType(
-    val params: List<PType>,
-    val returnType: PType
+    val returnType: PType,
+    val implicit: Boolean
 ) : Type()
 
 fun handleType(state: ParseState, scoped: Boolean): ParseResult<PType> = when (state.char) {
@@ -93,10 +89,10 @@ private fun handleFunction(state: ParseState, start: StringPos, types: List<PTyp
     val (symbol, afterSymbol) = handleSymbol(state.actual)
     return when (symbol.value) {
         "->" -> handleType(afterSymbol.actual, scoped).flatMap { returnType, nextState ->
-            FunctionType(types, returnType) at start..nextState.lastPos succTo nextState
+            FunctionType(types, returnType, false) at start..nextState.lastPos succTo nextState
         }
         "=>" -> handleType(afterSymbol.actual, scoped).flatMap { returnType, nextState ->
-            ImplicitFunctionType(types, returnType) at start..nextState.lastPos succTo nextState
+            FunctionType(types, returnType, true) at start..nextState.lastPos succTo nextState
         }
         else -> if (types.size == 1) types.first() succTo state else missingTypeReturnTypeError errAt state
     }

@@ -65,6 +65,7 @@ val trueExpr = BoolExpr(true)
 val falseExpr = BoolExpr(false)
 
 object NullExpr : Expression()
+object ThisExpr : Expression()
 
 data class ListExpr(val components: List<PExpr>) : Expression()
 
@@ -112,12 +113,6 @@ object ContinueExpr : Expression()
 data class BreakExpr(val expr: PExpr?) : Expression()
 data class ReturnExpr(val expr: PExpr?) : Expression()
 
-inline fun <T> ParseState.requireChar(char: Char, error: PalmError, then: (ParseState) -> ParseResult<T>) =
-    if (this.char == char) then(next) else error errAt pos
-
-inline fun <T> ParseState.requireIdent(ident: String, error: PalmError, then: (ParseState) -> ParseResult<T>) =
-    if (this.startWithIdent(ident)) then(next + ident.length) else error errAt pos
-
 fun handleDecName(state: ParseState): ParseResult<PString> {
     val (ident, afterIdent) = handleIdent(state)
     return when (ident.value) {
@@ -132,33 +127,18 @@ fun PString.startExpr(
     scoped: Boolean,
     excludeCurly: Boolean = scoped
 ) = handleIdentSubexpr(this, afterIdent, scoped).flatMap { firstExpr, afterFirst ->
-    if (scoped) handleScopedBinOps(afterFirst.actual, area.first, BinOpsList.Head(firstExpr))
-    else handleInlinedBinOps(afterFirst.actual, area.first, excludeCurly, BinOpsList.Head(firstExpr))
-}
-
-inline fun <T : Any> growListFromResults(
-    startState: ParseState,
-    fn: (List<T>, ParseState) -> ParseResult<T?>
-): ParseResult<Nothing> {
-    var state = startState
-    var list = emptyList<T>()
-    while (true) when (val res = fn(list, state)) {
-        is ParseResult.Success -> {
-            state = res.next
-            res.value?.let { list = list + it }
-        }
-        is ParseResult.Failure -> return res
-    }
+    if (scoped) handleScopedBinOps(afterFirst, firstExpr)
+    else handleInlinedBinOps(afterFirst, firstExpr, excludeCurly)
 }
 
 fun handleExprScope(
     startState: ParseState,
     start: StringPos
-): ParseResult<PExprScope> = growListFromResults(startState) { list: List<ScopeStatement>, state ->
+): ParseResult<PExprScope> = reuseWhileSuccess(startState, emptyList<ScopeStatement>()) { list, state ->
     when (state.char) {
         null -> unclosedScopeError errAt state.pos
         '}' -> return ExprScope(list) at start..state.pos succTo state.next
-        ';' -> null succTo state.nextActual
+        ';' -> list succTo state.nextActual
         in identStartChars -> {
             val (ident, afterIdent) = handleIdent(state)
             when (ident.value) {
@@ -168,8 +148,8 @@ fun handleExprScope(
             }.flatMap { statement, afterState ->
                 val sepState = afterState.actualOrBreak
                 when (sepState.char) {
-                    '\n', ';' -> statement succTo sepState.nextActual
-                    '}' -> return ExprScope(list + statement) at start..state.pos succTo state.next
+                    '\n', ';' -> list + statement succTo sepState.nextActual
+                    '}' -> return ExprScope(list + statement) at start..sepState.pos succTo sepState.next
                     else -> missingExpressionSeparatorError errAt sepState.pos
                 }
             }
@@ -178,8 +158,8 @@ fun handleExprScope(
             val statement = ExprStatement(expr)
             val sepState = afterExpr.actualOrBreak
             when (sepState.char) {
-                '\n', ';' -> statement succTo sepState.nextActual
-                '}' -> return ExprScope(list + statement) at start..state.pos succTo state.next
+                '\n', ';' -> list + statement succTo sepState.nextActual
+                '}' -> return ExprScope(list + statement) at start..sepState.pos succTo sepState.next
                 else -> missingExpressionSeparatorError errAt sepState.pos
             }
         }
@@ -193,11 +173,11 @@ fun handleDeclaration(state: ParseState, mutable: Boolean): ParseResult<ScopeSta
             ':' -> handleType(symbolState.nextActualOrBreak, true).flatMap { type, afterType ->
                 val maybeEquals = afterType.actualOrBreak
                 if (maybeEquals.startWithSymbol("=")) handleScopedExpr(maybeEquals.nextActualOrBreak).map { expr ->
-                    VariableDecStatement(name, mutable, type, expr)
-                } else VariableDecStatement(name, mutable, type, null) succTo afterType
+                    VarDecStatement(name, mutable, type, expr)
+                } else VarDecStatement(name, mutable, type, null) succTo afterType
             }
             '=' -> handleScopedExpr(symbolState.nextActualOrBreak).map { expr ->
-                VariableDecStatement(name, mutable, null, expr)
+                VarDecStatement(name, mutable, null, expr)
             }
             else -> invalidVariableDeclarationError errAt afterName
         }
@@ -211,155 +191,144 @@ fun handleInlinedExpr(
     state: ParseState,
     excludeCurly: Boolean
 ) = handleSubexpr(state, false).flatMap { firstPart, next ->
-    handleInlinedBinOps(next, state.pos, excludeCurly, BinOpsList.Head(firstPart))
+    handleInlinedBinOps(next, firstPart, excludeCurly)
 }
 
 fun handleScopedExpr(state: ParseState) = handleSubexpr(state, true).flatMap { firstPart, next ->
-    handleScopedBinOps(next, state.pos, BinOpsList.Head(firstPart))
+    handleScopedBinOps(next, firstPart)
 }
 
 fun handleInlinedBinOps(
-    state: ParseState,
-    start: StringPos,
+    startState: ParseState,
+    first: PExpr,
     excludeCurly: Boolean,
-    list: BinOpsList
-): ParseResult<PExpr> = if (state.char?.isSymbolPart() == true) {
-    val (op, afterOp) = handleSymbol(state)
-    if (op.value.isPostfixOp(afterOp)) {
-        list.map(op.area) { expr ->
-            PostfixOpExpr(op, expr) at expr.area.first..op.area.last succTo afterOp
-        }.flatMap { newList, next ->
-            handleInlinedBinOps(next, start, excludeCurly, newList)
+): ParseResult<PExpr> = reuseWhileSuccess(startState, BinOpsList.Head(first)) { list: BinOpsList, state ->
+    if (state.char?.isSymbolPart() == true) {
+        val (op, afterOp) = handleSymbol(state)
+        if (op.value.isPostfixOp(afterOp)) {
+            list.map(op.area) { expr ->
+                PostfixOpExpr(op, expr) at expr.area.first..op.area.last succTo afterOp
+            }
+        } else handleSubexpr(afterOp.actual, false).map { sub ->
+            list.appendSymbol(op, sub)
         }
-    } else handleSubexpr(afterOp.actual, false).flatMap { sub, next ->
-        handleInlinedBinOps(next, start, excludeCurly, list.appendSymbol(op, sub))
-    }
-} else {
-    val actual = state.actual
-    when (actual.char) {
-        null -> finishBinOps(start, list, state)
-        in identStartChars -> {
-            val (infix, afterInfix) = handleIdent(actual)
-            when (infix.value) {
-                in keywords -> finishBinOps(start, list, state)
-                "is" -> handleType(afterInfix.actual, false).flatMap { type, next ->
-                    handleInlinedBinOps(next, start, excludeCurly, list.appendIs(type))
-                }
-                "as" -> {
-                    val (handling, typeStart) = when (afterInfix.char) {
-                        '!' -> AsHandling.Unsafe to afterInfix.nextActual
-                        '?' -> AsHandling.Nullable to afterInfix.nextActual
-                        else -> AsHandling.Safe to afterInfix.actual
+    } else {
+        val actual = state.actual
+        when (actual.char) {
+            null -> return finishBinOps(first.area.first, list, state)
+            in identStartChars -> {
+                val (infix, afterInfix) = handleIdent(actual)
+                when (infix.value) {
+                    in keywords -> return finishBinOps(first.area.first, list, state)
+                    "is" -> handleType(afterInfix.actual, false).map(list::appendIs)
+                    "as" -> {
+                        val (handling, typeStart) = when (afterInfix.char) {
+                            '!' -> AsHandling.Unsafe to afterInfix.nextActual
+                            '?' -> AsHandling.Nullable to afterInfix.nextActual
+                            else -> AsHandling.Safe to afterInfix.actual
+                        }
+                        handleType(typeStart, false).map { type ->
+                            list.appendAs(type, handling)
+                        }
                     }
-                    handleType(typeStart, false).flatMap { type, next ->
-                        handleInlinedBinOps(next, start, excludeCurly, list.appendAs(type, handling))
+                    else -> handleSubexpr(afterInfix.actual, false).map { part ->
+                        list.appendIdent(infix, part)
                     }
                 }
-                else -> handleSubexpr(afterInfix.actual, false).flatMap { part, next ->
-                    handleInlinedBinOps(next, start, excludeCurly, list.appendIdent(infix, part))
+            }
+            '`' -> handleBacktickedIdent(actual.next).flatMap { infix, afterInfix ->
+                handleSubexpr(afterInfix.nextActual, false).map { part ->
+                    list.appendIdent(infix, part)
                 }
             }
-        }
-        '`' -> handleBacktickedIdent(actual.next).flatMap { infix, afterInfix ->
-            handleSubexpr(afterInfix.nextActual, false).flatMap { part, next ->
-                handleInlinedBinOps(next, start, excludeCurly, list.appendIdent(infix, part))
-            }
-        }
-        in symbolChars -> {
-            val (op, afterOp) = handleSymbol(actual)
-            val symbol = op.value
-            if (afterOp.char?.isWhitespace() == false && !(symbol.endsWith('.') && symbol.length <= 2))
-                invalidPrefixOperatorError errAt afterOp.pos
-            else when (symbol) {
-                "->" -> finishBinOps(start, list, state)
-                else -> handleSubexpr(afterOp.actual, false).flatMap { part, next ->
-                    handleInlinedBinOps(next.actual, start, excludeCurly, list.appendSymbol(op, part))
+            in symbolChars -> {
+                val (op, afterOp) = handleSymbol(actual)
+                val symbol = op.value
+                if (afterOp.char?.isWhitespace() == false && !(symbol.endsWith('.') && symbol.length <= 2))
+                    invalidPrefixOperatorError errAt afterOp.pos
+                else when (symbol) {
+                    "->" -> return finishBinOps(first.area.first, list, state)
+                    else -> handleSubexpr(afterOp.actual, false).map { part ->
+                        list.appendSymbol(op, part)
+                    }
                 }
             }
+            '(' -> list.map(actual.pos) { expr -> handleCall(actual.nextActual, expr, excludeCurly) }
+            '{' -> if (excludeCurly) {
+                return finishBinOps(first.area.first, list, state)
+            } else list.map(actual.pos) { expr ->
+                handleLambda(actual.nextActual, actual.pos).map { lambda ->
+                    CallExpr(expr, CallParams(listOf(lambda))) at expr.area.first..lambda.area.first
+                }
+            }
+            else -> return finishBinOps(first.area.first, list, state)
         }
-        '(' -> list.map(state.pos) { expr -> handleCall(state.nextActual, expr, excludeCurly) }
-            .flatMap { newList, next ->
-                handleInlinedBinOps(next, start, excludeCurly, newList)
-            }
-        '{' -> if (excludeCurly) {
-            finishBinOps(start, list, state)
-        } else list.map(state.pos) { expr ->
-            handleLambda(state.nextActual, state.pos).map { lambda ->
-                CallExpr(expr, CallParams(listOf(lambda))) at expr.area.first..lambda.area.first
-            }
-        }.flatMap { nextList, next -> handleInlinedBinOps(next, start, excludeCurly, nextList) }
-        else -> finishBinOps(start, list, state)
     }
 }
 
 fun handleScopedBinOps(
-    state: ParseState,
-    start: StringPos,
-    list: BinOpsList
-): ParseResult<PExpr> = if (state.char?.isSymbolPart() == true) {
-    val (op, afterOp) = handleSymbol(state)
-    if (op.value.isPostfixOp(afterOp)) {
-        list.map(op.area) { expr ->
-            PostfixOpExpr(op, expr) at expr.area.first..op.area.last succTo afterOp
-        }.flatMap { newList, next ->
-            handleScopedBinOps(next, start, newList)
+    startState: ParseState,
+    first: PExpr
+): ParseResult<PExpr> = reuseWhileSuccess(startState, BinOpsList.Head(first)) { list: BinOpsList, state ->
+    if (state.char?.isSymbolPart() == true) {
+        val (op, afterOp) = handleSymbol(state)
+        if (op.value.isPostfixOp(afterOp)) {
+            list.map(op.area) { expr ->
+                PostfixOpExpr(op, expr) at expr.area.first..op.area.last succTo afterOp
+            }
+        } else handleSubexpr(afterOp.actual, true).map { sub ->
+            list.appendSymbol(op, sub)
         }
-    } else handleSubexpr(afterOp.actual, true).flatMap { sub, next ->
-        handleScopedBinOps(next, start, list.appendSymbol(op, sub))
-    }
-} else {
-    val actual = state.actualOrBreak
-    when (actual.char) {
-        null -> finishBinOps(start, list, state)
-        in identStartChars -> {
-            val (infix, afterInfix) = handleIdent(actual)
-            when (infix.value) {
-                in keywords -> finishBinOps(start, list, state)
-                "is" -> handleType(afterInfix.actual, false).flatMap { type, next ->
-                    handleScopedBinOps(next, start, list.appendIs(type))
-                }
-                "as" -> {
-                    val (handling, typeStart) = when (afterInfix.char) {
-                        '!' -> AsHandling.Unsafe to afterInfix.nextActual
-                        '?' -> AsHandling.Nullable to afterInfix.nextActual
-                        else -> AsHandling.Safe to afterInfix.actual
+    } else {
+        val actual = state.actualOrBreak
+        when (actual.char) {
+            null -> return finishBinOps(first.area.first, list, state)
+            in identStartChars -> {
+                val (infix, afterInfix) = handleIdent(actual)
+                when (infix.value) {
+                    in keywords -> return finishBinOps(first.area.first, list, state)
+                    "is" -> handleType(afterInfix.actual, false).map(list::appendIs)
+                    "as" -> {
+                        val (handling, typeStart) = when (afterInfix.char) {
+                            '!' -> AsHandling.Unsafe to afterInfix.nextActual
+                            '?' -> AsHandling.Nullable to afterInfix.nextActual
+                            else -> AsHandling.Safe to afterInfix.actual
+                        }
+                        handleType(typeStart, false).map { type ->
+                            list.appendAs(type, handling)
+                        }
                     }
-                    handleType(typeStart, false).flatMap { type, next ->
-                        handleScopedBinOps(next, start, list.appendAs(type, handling))
+                    else -> handleSubexpr(afterInfix.nextActual, true).map { part ->
+                        list.appendIdent(infix, part)
                     }
                 }
-                else -> handleSubexpr(afterInfix.nextActual, true).flatMap { part, next ->
-                    handleScopedBinOps(next, start, list.appendIdent(infix, part))
+            }
+            '`' -> handleBacktickedIdent(actual.next).flatMap { infix, afterInfix ->
+                handleSubexpr(afterInfix.nextActual, true).map { part ->
+                    list.appendIdent(infix, part)
                 }
             }
-        }
-        '`' -> handleBacktickedIdent(actual.next).flatMap { infix, afterInfix ->
-            handleSubexpr(afterInfix.nextActual, true).flatMap { part, next ->
-                handleScopedBinOps(next, start, list.appendIdent(infix, part))
-            }
-        }
-        in symbolChars -> {
-            val (op, afterOp) = handleSymbol(actual)
-            val symbol = op.value
-            if (afterOp.char?.isWhitespace() == false && !(symbol.endsWith('.') && symbol.length <= 2))
-                invalidPrefixOperatorError errAt afterOp.pos
-            else when (symbol) {
-                "->" -> finishBinOps(start, list, state)
-                else -> handleSubexpr(afterOp.actual, true).flatMap { part, next ->
-                    handleScopedBinOps(next.actual, start, list.appendSymbol(op, part))
+            in symbolChars -> {
+                val (op, afterOp) = handleSymbol(actual)
+                val symbol = op.value
+                if (afterOp.char?.isWhitespace() == false && !(symbol.endsWith('.') && symbol.length <= 2))
+                    invalidPrefixOperatorError errAt afterOp.pos
+                else when (symbol) {
+                    "->" -> return finishBinOps(first.area.first, list, state)
+                    else -> handleSubexpr(afterOp.actual, true).map { part ->
+                        list.appendSymbol(op, part)
+                    }
                 }
             }
-        }
-        '(' -> list.map(state.pos) { expr -> handleCall(state.nextActual, expr, false) }
-            .flatMap { newList, next -> handleScopedBinOps(next, start, newList) }
-        else -> {
-            val maybeCurly = actual.actual
-            if (maybeCurly.char == '{') list.map(state.pos) { expr ->
-                handleLambda(state.nextActual, state.pos).map { lambda ->
-                    CallExpr(expr, CallParams(listOf(lambda))) at expr.area.first..lambda.area.first
-                }
-            }.flatMap { nextList, next -> handleScopedBinOps(next, start, nextList) }
-            else finishBinOps(start, list, state)
+            '(' -> list.map(actual.pos) { expr -> handleCall(actual.nextActual, expr, false) }
+            else -> {
+                val maybeCurly = actual.actual
+                if (maybeCurly.char == '{') list.map(maybeCurly.pos) { expr ->
+                    handleLambda(maybeCurly.nextActual, maybeCurly.pos).map { lambda ->
+                        CallExpr(expr, CallParams(listOf(lambda))) at expr.area.first..lambda.area.first
+                    }
+                } else return finishBinOps(first.area.first, list, state)
+            }
         }
     }
 }
@@ -396,8 +365,8 @@ fun handleSubexpr(state: ParseState, scoped: Boolean): ParseResult<PExpr> = when
     in symbolChars -> {
         val (symbol, exprState) = handleSymbol(state)
         if (exprState.char.isAfterPostfix()) symbol.map(::OpRefExpr) succTo exprState
-        else handleSubexpr(exprState, scoped).flatMap { expr, next ->
-            PrefixOpExpr(symbol, expr) at state.pos..expr.area.last succTo next
+        else handleSubexpr(exprState, scoped).map { expr ->
+            PrefixOpExpr(symbol, expr) at state.pos..expr.area.last
         }
     }
     else -> invalidExpressionError errAt state.pos
@@ -415,6 +384,7 @@ fun handleIdentSubexpr(
     "true" -> trueExpr at ident.area succTo next
     "false" -> falseExpr at ident.area succTo next
     "null" -> NullExpr at ident.area succTo next
+    "this" -> ThisExpr at ident.area succTo next
     "continue" -> ContinueExpr at ident.area succTo next
     "return" -> handleContainerExpr(scoped, next, ident.area, ::ReturnExpr)
     "break" -> handleContainerExpr(scoped, next, ident.area, ::BreakExpr)
@@ -435,7 +405,7 @@ fun handleCall(
     state: ParseState,
     on: PExpr,
     excludeCurly: Boolean
-) = handleCallParams(state, on.area.first, CallParams()).flatMap { params, afterParams ->
+) = handleCallParams(state, on.area.first).flatMap { params, afterParams ->
     val actual = afterParams.actual
     if (!excludeCurly && actual.char == '{') handleLambda(actual.nextActual, actual.pos).map { lambda ->
         CallExpr(on, params.value + lambda) at on.area.first..lambda.area.last
@@ -443,28 +413,29 @@ fun handleCall(
 }
 
 fun handleCallParams(
-    state: ParseState,
-    start: StringPos,
-    params: CallParams
-): ParseResult<Positioned<CallParams>> = if (state.char == ')') {
-    params at start..state.pos succTo state.next
-} else {
-    if (state.char?.isIdentifierStart() == true) {
-        val (ident, afterIdent) = handleIdent(state)
-        val eqState = afterIdent.actual
-        if (eqState.startWithSymbol("=")) {
-            handleInlinedExpr(eqState.nextActual, false).map { expr ->
-                params + (ident to expr)
-            }
-        } else ident.startExpr(afterIdent, false).map(params::plus)
+    startState: ParseState,
+    start: StringPos
+): ParseResult<Positioned<CallParams>> = reuseWhileSuccess(startState, CallParams()) { params, state ->
+    if (state.char == ')') {
+        return params at start..state.pos succTo state.next
     } else {
-        handleInlinedExpr(state, false).map(params::plus)
-    }.flatMap { newParams, afterExpr ->
-        val symbolState = afterExpr.actual
-        when (symbolState.char) {
-            ')' -> newParams at start..symbolState.pos succTo symbolState.next
-            ',' -> handleCallParams(symbolState.nextActual, start, newParams)
-            else -> unclosedParenthesisError errAt symbolState.pos
+        if (state.char?.isIdentifierStart() == true) {
+            val (ident, afterIdent) = handleIdent(state)
+            val eqState = afterIdent.actual
+            if (eqState.startWithSymbol("=")) {
+                handleInlinedExpr(eqState.nextActual, false).map { expr ->
+                    params + (ident to expr)
+                }
+            } else ident.startExpr(afterIdent, false).map(params::plus)
+        } else {
+            handleInlinedExpr(state, false).map(params::plus)
+        }.flatMap { newParams, afterExpr ->
+            val symbolState = afterExpr.actual
+            when (symbolState.char) {
+                ')' -> return newParams at start..symbolState.pos succTo symbolState.next
+                ',' -> newParams succTo symbolState.nextActual
+                else -> unclosedParenthesisError errAt symbolState.pos
+            }
         }
     }
 }
@@ -525,7 +496,7 @@ fun handleIf(
 
 fun handleConditions(
     startState: ParseState
-): ParseResult<List<Condition>> = growListFromResults(startState) { list: List<Condition>, state ->
+): ParseResult<List<Condition>> = reuseWhileSuccess(startState, emptyList<Condition>()) { list, state ->
     if (state.char?.isIdentifierStart() == true) {
         val (ident, afterIdent) = handleIdent(state)
         when (ident.value) {
@@ -534,11 +505,11 @@ fun handleConditions(
             else -> ident.startExpr(afterIdent, scoped = false, excludeCurly = true).map(::ExprCondition)
         }
     } else {
-        handleInlinedExpr(state, true).map { expr -> ExprCondition(expr) }
+        handleInlinedExpr(state, true).map(::ExprCondition)
     }.flatMap { cond, afterCond ->
         val maybeComma = afterCond.actual
-        if (maybeComma.char == ',') cond succTo maybeComma.nextActual
-        else return (list + cond) succTo maybeComma
+        if (maybeComma.char == ',') list + cond succTo maybeComma.nextActual
+        else return list + cond succTo maybeComma
     }
 }
 
@@ -569,22 +540,22 @@ private fun handleWhenBranches(
     startState: ParseState,
     comparing: PExpr,
     start: StringPos
-): ParseResult<PExpr> = growListFromResults(startState) { list: List<WhenBranch>, state ->
+): ParseResult<PExpr> = reuseWhileSuccess(startState, emptyList<WhenBranch>()) { list, state ->
     when (state.char) {
         null -> unclosedWhenError errAt state
         '}' -> return WhenExpr(comparing, list) at start..state.pos succTo state.next
-        ';' -> null succTo state.nextActual
+        ';' -> list succTo state.nextActual
         else -> handlePattern(state, DeclarationType.NONE, false)
             .flatMapIfActualSymbol("->") { pattern, afterArrow ->
                 val maybeCurly = afterArrow.actual
                 (if (maybeCurly.char == '{') {
                     handleExprScope(maybeCurly.nextActual, maybeCurly.pos).toExpr()
                 } else handleScopedExpr(maybeCurly)).flatMap { expr, afterExpr ->
-                    val sepState = afterExpr.actual
+                    val sepState = afterExpr.actualOrBreak
                     when (sepState.char) {
                         '}' -> return WhenExpr(comparing, list + (pattern to expr)) at
                                 start..sepState.pos succTo sepState.next
-                        '\n', ';' -> (pattern to expr) succTo sepState.nextActual
+                        '\n', ';' -> list + (pattern to expr) succTo sepState.nextActual
                         else -> unclosedWhenError errAt sepState
                     }
                 }

@@ -2,7 +2,7 @@ package com.scientianova.palm.parser
 
 import com.scientianova.palm.errors.PalmCompilationException
 
-inline fun <T> parse(fn: (ParseState) -> ParseResult<Any>, code: String) = when (val res = fn(ParseState(code, 0))) {
+inline fun <T> parse(fn: (ParseState) -> ParseResult<T>, code: String): T = when (val res = fn(ParseState(code, 0))) {
     is ParseResult.Success -> res.value
     is ParseResult.Failure -> throw PalmCompilationException(code, "REPL", res.area, res.error)
 }
@@ -24,12 +24,12 @@ fun testExpr() = parse<PExpr>(
         }
     } else {
         val actual = state.actual
-        when (actual.char) {
+        when actual.char {
             null -> finishBinOps(start, list, state)
-            in identStartChars -> {
+            identStartChars -> {
                 val infix = handleIdent(actual)
                 when infix.value {
-                    in keywords -> finishBinOps(start, list, state)
+                    keywords -> finishBinOps(start, list, state)
                     "is" -> handleType(afterInfix.actual, false).flatMap { type, next ->
                         return handleInlinedBinOps(next, start, excludeCurly, list.appendIs(type))
                     }
@@ -49,11 +49,11 @@ fun testExpr() = parse<PExpr>(
                 }
             }
             '`' -> handleBacktickedIdent(actual.next).flatMap { infix, afterInfix ->
-                handleSubexpr(afterInfix.nextActual, false).flatMap<PExpr, PExpr> { part, next ->
+                handleSubexpr(afterInfix.nextActual, false).flatMap { part, next ->
                     return handleInlinedBinOps(next, start, excludeCurly, list.appendIdent(infix, part))
                 }
             }
-            in symbolChars -> {
+            symbolChars -> {
                 val op = handleSymbol(state)
                 val symbol = op.value
                 if !(symbol.endsWith('.') && symbol.length <= 2) || afterOp.char?.isWhitespace() == false {
