@@ -34,7 +34,7 @@ tailrec fun handleNumber(
     'd', 'D' ->
         DoubleExpr(builder.toString().toDouble()) at startPos..state.pos succTo state.next
     in identStartChars ->
-        invalidDecimalLiteralError errAt state.pos
+        invalidDecimalLiteralError failAt state.pos
     else ->
         convertIntString(builder) at (startPos until state.pos) succTo state
 }
@@ -57,17 +57,17 @@ tailrec fun handleDecimalNumber(
             val digitState = state + 3
             if (digitState.char?.isDigit() == true)
                 handleDecimalExponent(digitState, startPos, builder.append(exponentStart))
-            else invalidExponentError errAt digitState.pos
+            else invalidExponentError failAt digitState.pos
         }
         in '0'..'9' -> handleDecimalExponent(state + 2, startPos, builder)
-        else -> invalidExponentError errAt state.nextPos
+        else -> invalidExponentError failAt state.nextPos
     }
     'f', 'F' ->
         FloatExpr(builder.toString().toFloat()) at startPos..state.pos succTo state.next
     'd', 'D' ->
         DoubleExpr(builder.toString().toDouble()) at startPos..state.pos succTo state.next
     in identStartChars ->
-        invalidDecimalLiteralError errAt state.pos
+        invalidDecimalLiteralError failAt state.pos
     else -> DoubleExpr(builder.toString().toDouble()) at (startPos until state.pos) succTo state
 }
 
@@ -78,7 +78,7 @@ tailrec fun handleDecimalExponent(
 ): ParseResult<PExpr> = when (val char = state.char) {
     in '0'..'9' -> handleDecimalExponent(state.next, startPos, builder.append(char))
     '_' -> handleDecimalExponent(state.next, startPos, builder)
-    in identStartChars -> invalidDecimalLiteralError errAt state.pos
+    in identStartChars -> invalidDecimalLiteralError failAt state.pos
     else -> DoubleExpr(builder.toString().toDouble()) at (startPos until state.pos) succTo state
 }
 
@@ -100,7 +100,7 @@ tailrec fun handleBinaryNumber(
     'l', 'L' ->
         LongExpr(builder.toString().toLong(radix = 2)) at startPos..state.lastPos succTo state.next
     in identStartChars ->
-        invalidBinaryLiteralError errAt state.pos
+        invalidBinaryLiteralError failAt state.pos
     else ->
         (if (builder.length <= 32) IntExpr(builder.toString().toInt(radix = 2))
         else LongExpr(builder.toString().toLong(radix = 2))) at (startPos until state.pos) succTo state
@@ -116,7 +116,7 @@ tailrec fun handleHexNumber(
     '_' ->
         handleHexNumber(state.next, startPos, builder)
     in identStartChars ->
-        invalidHexLiteralError errAt state.pos
+        invalidHexLiteralError failAt state.pos
     else ->
         (if (builder.length <= 8) IntExpr(builder.toString().toInt(radix = 16))
         else LongExpr(builder.toString().toLong(radix = 16))) at (startPos until state.pos) succTo state

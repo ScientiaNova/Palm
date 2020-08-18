@@ -88,19 +88,21 @@ ${indent(indent)}}
         """.trimIndent()
     }
     is ContinueExpr -> "continue"
-    is BreakExpr -> "break" + (expr?.let { " " + it.toCodeString(indent)} ?: "")
-    is ReturnExpr -> "return" + (expr?.let { " " + it.toCodeString(indent)} ?: "")
+    is BreakExpr -> "break" + (expr?.let { " " + it.toCodeString(indent) } ?: "")
+    is ReturnExpr -> "return" + (expr?.let { " " + it.toCodeString(indent) } ?: "")
+}
+
+fun Param.toCodeString(indent: Int) = when (this) {
+    is Param.Free -> value.toCodeString(indent)
+    is Param.Named -> "$name = ${value.toCodeString(indent)}"
 }
 
 fun CallParams.toCodeString(indent: Int): String {
-    val (end, actualFree) = free.lastOrNull()?.let { last ->
-        if (last.value is LambdaExpr) " " + last.toCodeString(indent) to free.dropLast(1)
-        else null
-    } ?: "" to free
-    val freeString = actualFree.joinToString { it.toCodeString(indent) }
-    val namedString = named.toList().joinToString { "${it.first} = ${it.second.toCodeString(indent)}" }
-    return if (end.isNotBlank() && actualFree.isEmpty() && named.isEmpty()) end
-    else "($freeString${if (actualFree.isNotEmpty() && named.isNotEmpty()) ", " else ""}$namedString)$end"
+    val end = last?.let {
+        " " + it.toCodeString(indent)
+    } ?: ""
+    return if (params.isEmpty() && end.isNotBlank()) end
+    else "(${params.joinToString { it.toCodeString(indent) }})$end"
 }
 
 fun BinOpsList.toCodeString(indent: Int): String = when (this) {

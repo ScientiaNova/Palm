@@ -8,19 +8,19 @@ import com.scientianova.palm.util.at
 fun handleChar(
     state: ParseState
 ): ParseResult<Positioned<CharExpr>> = when (val char = state.char) {
-    null, '\n' -> loneSingleQuoteError errAt state.pos
+    null, '\n' -> loneSingleQuoteError failAt state.pos
     '\\' -> handleEscaped(state.next)
     else -> char succTo state.next
 }.flatMap { value, endState ->
     val endChar = endState.char
     when {
         endChar == '\'' -> CharExpr(value) at state.lastPos..endState.pos succTo endState.next
-        endChar == null -> unclosedCharLiteralError errAt endState.pos
+        endChar == null -> unclosedCharLiteralError failAt endState.pos
         endChar.isWhitespace() && value.isWhitespace() -> isMalformedTab(endState.next)?.let {
-            malformedTabError errAt state.lastPos..it.pos
-        } ?: missingSingleQuoteError errAt endState.pos
+            malformedTabError failAt state.lastPos..it.pos
+        } ?: missingSingleQuoteError failAt endState.pos
         else -> (if (value == '\'') missingSingleQuoteOnQuoteError else missingSingleQuoteError)
-            .errAt(endState.pos)
+            .failAt(endState.pos)
     }
 }
 
@@ -37,8 +37,8 @@ fun handleEscaped(state: ParseState) = when (state.char) {
     'v' -> 11.toChar() succTo state + 1
     'u' -> if (state.nextChar == '{') {
         handleUnicode(state.code, state.pos + 2)
-    } else missingBacketInUnicodeError errAt state.nextPos
-    else -> unclosedEscapeCharacterError errAt state.pos
+    } else missingBacketInUnicodeError failAt state.nextPos
+    else -> unclosedEscapeCharacterError failAt state.pos
 }
 
 tailrec fun handleUnicode(
@@ -49,7 +49,7 @@ tailrec fun handleUnicode(
     in '0'..'9', in 'a'..'f', in 'A'..'F' ->
         handleUnicode(code, pos + 1, idBuilder.append(char))
     '}' -> idBuilder.toString().toInt().toChar() succTo ParseState(code, pos + 1)
-    else -> invalidHexLiteralError errAt pos
+    else -> invalidHexLiteralError failAt pos
 }
 
 fun Char.isOpenBracket() = when (this) {

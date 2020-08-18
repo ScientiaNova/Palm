@@ -29,7 +29,7 @@ tailrec fun handleBacktickedIdent(
     builder: StringBuilder
 ): ParseResult<PString> = when (val char = code.getOrNull(pos)) {
     '/', '\\', '.', ';', ':', '<', '>', '[', ']', null ->
-        invalidBacktickedIdentifier errAt pos
+        invalidBacktickedIdentifier failAt pos
     '`' -> builder.toString() at (startPos until pos) succTo ParseState(code, pos)
     else -> handleBacktickedIdent(code, pos + 1, startPos, builder.append(char))
 }

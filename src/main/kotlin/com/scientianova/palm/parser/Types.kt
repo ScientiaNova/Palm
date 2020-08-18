@@ -33,14 +33,14 @@ fun handleType(state: ParseState, scoped: Boolean): ParseResult<PType> = when (s
         }
     }
     '(' -> handleParenthesizedType(state.nextActual, state.pos, emptyList(), scoped)
-    else -> unclosedSquareBacketError errAt state.pos
+    else -> unclosedSquareBacketError failAt state.pos
 }
 
 tailrec fun handlePath(state: ParseState, path: List<PString>): ParseResult<Path> {
     val actual = state.actual
     return if (actual.startWithSymbol(".")) {
         val (ident, afterIdent) = handleIdent(actual.nextActual)
-        if (ident.value.isEmpty()) invalidTypePathError errAt actual
+        if (ident.value.isEmpty()) invalidTypePathError failAt actual
         else handlePath(afterIdent, path + ident)
     } else path succTo state
 }
@@ -66,7 +66,7 @@ else handleType(state, false).flatMap { type, afterState ->
     when (symbolState.char) {
         ']' -> types + type succTo symbolState.next
         ',' -> handleGenerics(symbolState.nextActual, types + type)
-        else -> unclosedSquareBacketError errAt symbolState.pos
+        else -> unclosedSquareBacketError failAt symbolState.pos
     }
 }
 
@@ -81,7 +81,7 @@ else handleType(state, false).flatMap { type, afterState ->
     when (actual.char) {
         ',' -> handleParenthesizedType(actual.nextActual, start, types + type, scoped)
         ')' -> handleFunction(actual.next, start, types + type, scoped)
-        else -> unclosedParenthesisError errAt actual.pos
+        else -> unclosedParenthesisError failAt actual.pos
     }
 }
 
@@ -94,6 +94,6 @@ private fun handleFunction(state: ParseState, start: StringPos, types: List<PTyp
         "=>" -> handleType(afterSymbol.actual, scoped).flatMap { returnType, nextState ->
             FunctionType(types, returnType, true) at start..nextState.lastPos succTo nextState
         }
-        else -> if (types.size == 1) types.first() succTo state else missingTypeReturnTypeError errAt state
+        else -> if (types.size == 1) types.first() succTo state else missingTypeReturnTypeError failAt state
     }
 }

@@ -9,9 +9,14 @@ typealias PExpr = Positioned<Expression>
 data class IdentExpr(val name: String) : Expression()
 data class OpRefExpr(val symbol: String) : Expression()
 
-data class CallParams(val free: List<PExpr> = emptyList(), val named: Map<PString, PExpr> = emptyMap()) {
-    operator fun plus(expr: PExpr) = CallParams(free + expr, named)
-    operator fun plus(pair: Pair<PString, PExpr>) = CallParams(free, named + pair)
+sealed class Param {
+    data class Free(val value: PExpr) : Param()
+    data class Named(val name: PString, val value: PExpr) : Param()
+}
+
+data class CallParams(val params: List<Param> = emptyList(), val last: PExpr? = null) {
+    operator fun plus(param: Param) = CallParams(params + param, last)
+    fun withLast(expr: PExpr) = CallParams(params, expr)
 }
 
 data class CallExpr(
@@ -93,7 +98,7 @@ inline fun BinOpsList.map(area: StringArea, fn: (PExpr) -> ParseResult<PExpr>) =
     is BinOpsList.Head -> fn(value).map(BinOpsList::Head)
     is BinOpsList.Ident -> fn(value).map { BinOpsList.Ident(child, ident, it) }
     is BinOpsList.Symbol -> fn(value).map { BinOpsList.Symbol(child, symbol, it) }
-    else -> postfixOperationOnTypeError errAt area
+    else -> postfixOperationOnTypeError failAt area
 }
 
 inline fun BinOpsList.map(pos: StringPos, fn: (PExpr) -> ParseResult<PExpr>) = map(pos..pos, fn)
@@ -116,8 +121,8 @@ data class ReturnExpr(val expr: PExpr?) : Expression()
 fun handleDecName(state: ParseState): ParseResult<PString> {
     val (ident, afterIdent) = handleIdent(state)
     return when (ident.value) {
-        "" -> missingDeclarationNameError errAt ident.area
-        in keywords -> keywordDecNameError(ident.value) errAt ident.area
+        "" -> missingDeclarationNameError failAt ident.area
+        in keywords -> keywordDecNameError(ident.value) failAt ident.area
         else -> ident succTo afterIdent
     }
 }
@@ -136,7 +141,7 @@ fun handleExprScope(
     start: StringPos
 ): ParseResult<PExprScope> = reuseWhileSuccess(startState, emptyList<ScopeStatement>()) { list, state ->
     when (state.char) {
-        null -> unclosedScopeError errAt state.pos
+        null -> unclosedScopeError failAt state.pos
         '}' -> return ExprScope(list) at start..state.pos succTo state.next
         ';' -> list succTo state.nextActual
         in identStartChars -> {
@@ -150,7 +155,7 @@ fun handleExprScope(
                 when (sepState.char) {
                     '\n', ';' -> list + statement succTo sepState.nextActual
                     '}' -> return ExprScope(list + statement) at start..sepState.pos succTo sepState.next
-                    else -> missingExpressionSeparatorError errAt sepState.pos
+                    else -> missingExpressionSeparatorError failAt sepState.pos
                 }
             }
         }
@@ -160,7 +165,7 @@ fun handleExprScope(
             when (sepState.char) {
                 '\n', ';' -> list + statement succTo sepState.nextActual
                 '}' -> return ExprScope(list + statement) at start..sepState.pos succTo sepState.next
-                else -> missingExpressionSeparatorError errAt sepState.pos
+                else -> missingExpressionSeparatorError failAt sepState.pos
             }
         }
     }
@@ -179,13 +184,13 @@ fun handleDeclaration(state: ParseState, mutable: Boolean): ParseResult<ScopeSta
             '=' -> handleScopedExpr(symbolState.nextActualOrBreak).map { expr ->
                 VarDecStatement(name, mutable, null, expr)
             }
-            else -> invalidVariableDeclarationError errAt afterName
+            else -> invalidVariableDeclarationError failAt afterName
         }
     }
 
 fun expectScope(state: ParseState, error: PalmError) =
     if (state.char == '{') handleExprScope(state.nextActual, state.pos)
-    else error errAt state
+    else error failAt state
 
 fun handleInlinedExpr(
     state: ParseState,
@@ -245,7 +250,7 @@ fun handleInlinedBinOps(
                 val (op, afterOp) = handleSymbol(actual)
                 val symbol = op.value
                 if (afterOp.char?.isWhitespace() == false && !(symbol.endsWith('.') && symbol.length <= 2))
-                    invalidPrefixOperatorError errAt afterOp.pos
+                    invalidPrefixOperatorError failAt afterOp.pos
                 else when (symbol) {
                     "->" -> return finishBinOps(first.area.first, list, state)
                     else -> handleSubexpr(afterOp.actual, false).map { part ->
@@ -258,7 +263,7 @@ fun handleInlinedBinOps(
                 return finishBinOps(first.area.first, list, state)
             } else list.map(actual.pos) { expr ->
                 handleLambda(actual.nextActual, actual.pos).map { lambda ->
-                    CallExpr(expr, CallParams(listOf(lambda))) at expr.area.first..lambda.area.first
+                    CallExpr(expr, CallParams(last = lambda)) at expr.area.first..lambda.area.first
                 }
             }
             else -> return finishBinOps(first.area.first, list, state)
@@ -312,7 +317,7 @@ fun handleScopedBinOps(
                 val (op, afterOp) = handleSymbol(actual)
                 val symbol = op.value
                 if (afterOp.char?.isWhitespace() == false && !(symbol.endsWith('.') && symbol.length <= 2))
-                    invalidPrefixOperatorError errAt afterOp.pos
+                    invalidPrefixOperatorError failAt afterOp.pos
                 else when (symbol) {
                     "->" -> return finishBinOps(first.area.first, list, state)
                     else -> handleSubexpr(afterOp.actual, true).map { part ->
@@ -325,7 +330,7 @@ fun handleScopedBinOps(
                 val maybeCurly = actual.actual
                 if (maybeCurly.char == '{') list.map(maybeCurly.pos) { expr ->
                     handleLambda(maybeCurly.nextActual, maybeCurly.pos).map { lambda ->
-                        CallExpr(expr, CallParams(listOf(lambda))) at expr.area.first..lambda.area.first
+                        CallExpr(expr, CallParams(last = lambda)) at expr.area.first..lambda.area.first
                     }
                 } else return finishBinOps(first.area.first, list, state)
             }
@@ -343,7 +348,7 @@ private fun finishBinOps(
 ) = list.toExpr(start) succTo state
 
 fun handleSubexpr(state: ParseState, scoped: Boolean): ParseResult<PExpr> = when (state.char) {
-    null -> missingExpressionError errAt state.pos
+    null -> missingExpressionError failAt state.pos
     in identStartChars -> {
         val (ident, next) = handleIdent(state)
         handleIdentSubexpr(ident, next, scoped)
@@ -369,7 +374,7 @@ fun handleSubexpr(state: ParseState, scoped: Boolean): ParseResult<PExpr> = when
             PrefixOpExpr(symbol, expr) at state.pos..expr.area.last
         }
     }
-    else -> invalidExpressionError errAt state.pos
+    else -> invalidExpressionError failAt state.pos
 }
 
 
@@ -408,7 +413,7 @@ fun handleCall(
 ) = handleCallParams(state, on.area.first).flatMap { params, afterParams ->
     val actual = afterParams.actual
     if (!excludeCurly && actual.char == '{') handleLambda(actual.nextActual, actual.pos).map { lambda ->
-        CallExpr(on, params.value + lambda) at on.area.first..lambda.area.last
+        CallExpr(on, params.value.withLast(lambda)) at on.area.first..lambda.area.last
     } else CallExpr(on, params.value) at params.area succTo afterParams
 }
 
@@ -424,17 +429,17 @@ fun handleCallParams(
             val eqState = afterIdent.actual
             if (eqState.startWithSymbol("=")) {
                 handleInlinedExpr(eqState.nextActual, false).map { expr ->
-                    params + (ident to expr)
+                    params + Param.Named(ident, expr)
                 }
-            } else ident.startExpr(afterIdent, false).map(params::plus)
+            } else ident.startExpr(afterIdent, false).map { params + Param.Free(it) }
         } else {
-            handleInlinedExpr(state, false).map(params::plus)
+            handleInlinedExpr(state, false).map { params + Param.Free(it) }
         }.flatMap { newParams, afterExpr ->
             val symbolState = afterExpr.actual
             when (symbolState.char) {
                 ')' -> return newParams at start..symbolState.pos succTo symbolState.next
                 ',' -> newParams succTo symbolState.nextActual
-                else -> unclosedParenthesisError errAt symbolState.pos
+                else -> unclosedParenthesisError failAt symbolState.pos
             }
         }
     }
@@ -443,7 +448,7 @@ fun handleCallParams(
 fun handleParenthesizedExpr(
     state: ParseState
 ): ParseResult<PExpr> = if (state.char == ')') {
-    emptyParenthesesOnExprError errAt state.pos
+    emptyParenthesesOnExprError failAt state.pos
 } else handleInlinedExpr(state, false).expectActual(')', unclosedParenthesisError)
 
 fun handleList(
@@ -465,7 +470,7 @@ fun handleList(
             sections + (ListExpr(exprList + expr) at lastStart..symbolState.pos),
             symbolState.pos
         )
-        else -> unclosedSquareBacketError errAt symbolState
+        else -> unclosedSquareBacketError failAt symbolState
     }
 }
 
@@ -542,7 +547,7 @@ private fun handleWhenBranches(
     start: StringPos
 ): ParseResult<PExpr> = reuseWhileSuccess(startState, emptyList<WhenBranch>()) { list, state ->
     when (state.char) {
-        null -> unclosedWhenError errAt state
+        null -> unclosedWhenError failAt state
         '}' -> return WhenExpr(comparing, list) at start..state.pos succTo state.next
         ';' -> list succTo state.nextActual
         else -> handlePattern(state, DeclarationType.NONE, false)
@@ -556,7 +561,7 @@ private fun handleWhenBranches(
                         '}' -> return WhenExpr(comparing, list + (pattern to expr)) at
                                 start..sepState.pos succTo sepState.next
                         '\n', ';' -> list + (pattern to expr) succTo sepState.nextActual
-                        else -> unclosedWhenError errAt sepState
+                        else -> unclosedWhenError failAt sepState
                     }
                 }
             }
@@ -574,7 +579,7 @@ private fun handleLambdaParams(
     state: ParseState,
     params: LambdaParams
 ): ParseResult<LambdaParams> = if (state.startWithSymbol("->")) {
-    if (params.isEmpty()) invalidLambdaArgumentsError errAt state
+    if (params.isEmpty()) invalidLambdaArgumentsError failAt state
     else params succTo state + 2
 } else handleDecName(state).flatMap { name, afterName ->
     val sepState = afterName.actual
@@ -587,12 +592,12 @@ private fun handleLambdaParams(
                 )
                 sepState2.startWithSymbol("->") ->
                     params + (name to type) succTo sepState2 + 2
-                else -> invalidLambdaArgumentsError errAt sepState2
+                else -> invalidLambdaArgumentsError failAt sepState2
             }
         }
         ',' -> handleLambdaParams(sepState.nextActual, params + (name to null))
         else -> if (sepState.startWithSymbol("->")) {
             params + (name to null) succTo sepState + 2
-        } else invalidLambdaArgumentsError errAt sepState
+        } else invalidLambdaArgumentsError failAt sepState
     }
 }

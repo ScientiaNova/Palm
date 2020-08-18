@@ -15,7 +15,7 @@ tailrec fun handleSingleLineString(
     builder: StringBuilder,
     lastStart: StringPos = startPos
 ): ParseResult<PExpr> = when (val char = state.char) {
-    null, '\n' -> missingDoubleQuoteError errAt state.lastPos
+    null, '\n' -> missingDoubleQuoteError failAt state.lastPos
     '"' -> finishString(parts, builder, lastStart, state, startPos)
     '$' -> {
         val interState = state.next
@@ -51,7 +51,7 @@ tailrec fun handleMultiLineString(
     builder: StringBuilder,
     lastStart: StringPos = startPos
 ): ParseResult<PExpr> = when (val char = state.char) {
-    null -> unclosedMultilineStringError errAt startPos..state.pos
+    null -> unclosedMultilineStringError failAt startPos..state.pos
     '"' -> if (state.next.startWith("\"\"")) {
         finishString(parts, builder, lastStart, state + 2, startPos)
     } else handleMultiLineString(state.next, startPos, parts, builder.append('"'), lastStart)
