@@ -28,7 +28,7 @@ data class FunctionType(
 fun handleType(state: ParseState, scoped: Boolean): ParseResult<PType> = when (state.char) {
     in identStartChars -> {
         val (ident, afterIdent) = handleIdent(state)
-        handlePath(afterIdent, listOf(ident)).flatMap { path, afterPath ->
+        handlePath(afterIdent, ident).flatMap { path, afterPath ->
             handleWholeGenerics(afterPath, path at state.pos..afterPath.lastPos, scoped)
         }
     }
@@ -36,15 +36,12 @@ fun handleType(state: ParseState, scoped: Boolean): ParseResult<PType> = when (s
     else -> unclosedSquareBacketError failAt state.pos
 }
 
-tailrec fun handlePath(state: ParseState, path: List<PString>): ParseResult<Path> {
-    val actual = state.actual
-    return if (actual.startWithSymbol(".")) {
-        val (ident, afterIdent) = handleIdent(actual.nextActual)
-        if (ident.value.isEmpty()) invalidTypePathError failAt actual
-        else handlePath(afterIdent, path + ident)
-    } else path succTo state
+fun handlePath(startState: ParseState, start: PString): ParseResult<Path> = reuseWhileSuccess(startState, listOf(start)) { path, state ->
+    val maybeDot = state.actual
+    if (maybeDot.startWithSymbol(".")) {
+        expectIdent(maybeDot.nextActual).map(path::plus)
+    } else return path succTo state
 }
-
 
 fun handleWholeGenerics(
     state: ParseState,
@@ -85,7 +82,12 @@ else handleType(state, false).flatMap { type, afterState ->
     }
 }
 
-private fun handleFunction(state: ParseState, start: StringPos, types: List<PType>, scoped: Boolean): ParseResult<PType> {
+private fun handleFunction(
+    state: ParseState,
+    start: StringPos,
+    types: List<PType>,
+    scoped: Boolean
+): ParseResult<PType> {
     val (symbol, afterSymbol) = handleSymbol(state.actual)
     return when (symbol.value) {
         "->" -> handleType(afterSymbol.actual, scoped).flatMap { returnType, nextState ->

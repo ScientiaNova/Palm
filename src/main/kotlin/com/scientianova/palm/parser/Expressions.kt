@@ -9,19 +9,19 @@ typealias PExpr = Positioned<Expression>
 data class IdentExpr(val name: String) : Expression()
 data class OpRefExpr(val symbol: String) : Expression()
 
-sealed class Param {
-    data class Free(val value: PExpr) : Param()
-    data class Named(val name: PString, val value: PExpr) : Param()
+sealed class Arg {
+    data class Free(val value: PExpr) : Arg()
+    data class Named(val name: PString, val value: PExpr) : Arg()
 }
 
-data class CallParams(val params: List<Param> = emptyList(), val last: PExpr? = null) {
-    operator fun plus(param: Param) = CallParams(params + param, last)
-    fun withLast(expr: PExpr) = CallParams(params, expr)
+data class CallArgs(val args: List<Arg> = emptyList(), val last: PExpr? = null) {
+    operator fun plus(arg: Arg) = CallArgs(args + arg, last)
+    fun withLast(expr: PExpr) = CallArgs(args, expr)
 }
 
 data class CallExpr(
     val expr: PExpr,
-    val params: CallParams
+    val args: CallArgs
 ) : Expression()
 
 typealias LambdaParams = List<Pair<PString, PType?>>
@@ -118,14 +118,8 @@ object ContinueExpr : Expression()
 data class BreakExpr(val expr: PExpr?) : Expression()
 data class ReturnExpr(val expr: PExpr?) : Expression()
 
-fun handleDecName(state: ParseState): ParseResult<PString> {
-    val (ident, afterIdent) = handleIdent(state)
-    return when (ident.value) {
-        "" -> missingDeclarationNameError failAt ident.area
-        in keywords -> keywordDecNameError(ident.value) failAt ident.area
-        else -> ident succTo afterIdent
-    }
-}
+fun handleDecName(state: ParseState): ParseResult<PString> =
+    expectIdent(state).faiLif(keywords::contains, ::keywordDecNameError)
 
 fun PString.startExpr(
     afterIdent: ParseState,
@@ -263,7 +257,7 @@ fun handleInlinedBinOps(
                 return finishBinOps(first.area.first, list, state)
             } else list.map(actual.pos) { expr ->
                 handleLambda(actual.nextActual, actual.pos).map { lambda ->
-                    CallExpr(expr, CallParams(last = lambda)) at expr.area.first..lambda.area.first
+                    CallExpr(expr, CallArgs(last = lambda)) at expr.area.first..lambda.area.first
                 }
             }
             else -> return finishBinOps(first.area.first, list, state)
@@ -330,7 +324,7 @@ fun handleScopedBinOps(
                 val maybeCurly = actual.actual
                 if (maybeCurly.char == '{') list.map(maybeCurly.pos) { expr ->
                     handleLambda(maybeCurly.nextActual, maybeCurly.pos).map { lambda ->
-                        CallExpr(expr, CallParams(last = lambda)) at expr.area.first..lambda.area.first
+                        CallExpr(expr, CallArgs(last = lambda)) at expr.area.first..lambda.area.first
                     }
                 } else return finishBinOps(first.area.first, list, state)
             }
@@ -410,30 +404,30 @@ fun handleCall(
     state: ParseState,
     on: PExpr,
     excludeCurly: Boolean
-) = handleCallParams(state, on.area.first).flatMap { params, afterParams ->
+) = handleCallArgs(state, on.area.first).flatMap { args, afterParams ->
     val actual = afterParams.actual
     if (!excludeCurly && actual.char == '{') handleLambda(actual.nextActual, actual.pos).map { lambda ->
-        CallExpr(on, params.value.withLast(lambda)) at on.area.first..lambda.area.last
-    } else CallExpr(on, params.value) at params.area succTo afterParams
+        CallExpr(on, args.value.withLast(lambda)) at on.area.first..lambda.area.last
+    } else CallExpr(on, args.value) at args.area succTo afterParams
 }
 
-fun handleCallParams(
+fun handleCallArgs(
     startState: ParseState,
     start: StringPos
-): ParseResult<Positioned<CallParams>> = reuseWhileSuccess(startState, CallParams()) { params, state ->
+): ParseResult<Positioned<CallArgs>> = reuseWhileSuccess(startState, CallArgs()) { args, state ->
     if (state.char == ')') {
-        return params at start..state.pos succTo state.next
+        return args at start..state.pos succTo state.next
     } else {
         if (state.char?.isIdentifierStart() == true) {
             val (ident, afterIdent) = handleIdent(state)
             val eqState = afterIdent.actual
             if (eqState.startWithSymbol("=")) {
                 handleInlinedExpr(eqState.nextActual, false).map { expr ->
-                    params + Param.Named(ident, expr)
+                    args + Arg.Named(ident, expr)
                 }
-            } else ident.startExpr(afterIdent, false).map { params + Param.Free(it) }
+            } else ident.startExpr(afterIdent, false).map { args + Arg.Free(it) }
         } else {
-            handleInlinedExpr(state, false).map { params + Param.Free(it) }
+            handleInlinedExpr(state, false).map { args + Arg.Free(it) }
         }.flatMap { newParams, afterExpr ->
             val symbolState = afterExpr.actual
             when (symbolState.char) {

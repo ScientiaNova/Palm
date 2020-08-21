@@ -2,6 +2,7 @@ package com.scientianova.palm.parser
 
 import com.scientianova.palm.errors.PalmError
 import com.scientianova.palm.errors.unexpectedSymbolError
+import com.scientianova.palm.util.Positioned
 import com.scientianova.palm.util.StringArea
 import com.scientianova.palm.util.StringPos
 
@@ -20,6 +21,11 @@ inline fun <T> ParseState.requireChar(char: Char, error: PalmError, then: (Parse
 
 inline fun <T> ParseState.requireIdent(ident: String, error: PalmError, then: (ParseState) -> ParseResult<T>) =
     if (this.startWithIdent(ident)) then(next + ident.length) else error failAt pos
+
+inline fun <T> ParseResult<Positioned<T>>.faiLif(predicate: (T) -> Boolean, errorFn: (T) -> PalmError) =
+    if (this is ParseResult.Success && predicate(value.value)) {
+        ParseResult.Failure(errorFn(value.value), value.area)
+    } else this
 
 inline fun <T, S> ParseResult<T>.map(fn: (T) -> S): ParseResult<S> = when (this) {
     is ParseResult.Success -> ParseResult.Success(fn(value), next)
@@ -53,7 +59,7 @@ inline fun <T, S> ParseResult<T>.flatMapIfActual(
     char: Char,
     error: PalmError,
     fn: (T, ParseState) -> ParseResult<S>
-): ParseResult<S> = flatMapIfActual({it == char}, error, fn)
+): ParseResult<S> = flatMapIfActual({ it == char }, error, fn)
 
 inline fun <T, S> ParseResult<T>.flatMapIfActualSymbol(
     symbol: String,
@@ -110,3 +116,5 @@ inline fun <T> reuseWhileSuccess(
         is ParseResult.Failure -> return res
     }
 }
+
+fun <T> Pair<T, ParseState>.toResult(): ParseResult<T> = ParseResult.Success(first, second)

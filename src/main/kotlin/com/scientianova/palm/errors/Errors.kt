@@ -257,3 +257,15 @@ val postfixOperationOnTypeError = PalmError(
     "I saw a postfix operation after a type:",
     "You should use parentheses, so I know what you wanted the postfix operation to be applied on."
 )
+
+val missingIdentifierError = PalmError(
+    "MISSING IDENTIFIER",
+    "I saw a expecting an identifier here, but instead got:",
+    "Add an identifier here."
+)
+
+val unknownParamModifierError = PalmError(
+    "UNKNOWN PARAMETER MODIFIER",
+    "I was going through the parameters of a function and found a parameter modifier I don't recognize:",
+    "If you wanted that to be a name of a parameter you need to put a colon and then its type after it."
+)

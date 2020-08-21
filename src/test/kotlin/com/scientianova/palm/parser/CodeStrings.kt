@@ -70,7 +70,7 @@ ${indent(indent)}}
 """.trimIndent()
     is ListExpr -> "[${components.joinToString { it.toCodeString(indent) }}]"
     is ForExpr -> "for $name in ${iterable.toCodeString(indent)} ${body.toCodeString(indent)}"
-    is CallExpr -> expr.toCodeString(indent) + params.toCodeString(indent)
+    is CallExpr -> expr.toCodeString(indent) + args.toCodeString(indent)
     is PrefixOpExpr -> symbol.value + expr.showInBinOps(indent)
     is BinaryOpsExpr -> list.toCodeString(indent)
     is PostfixOpExpr -> expr.showInBinOps(indent) + symbol.value
@@ -92,17 +92,17 @@ ${indent(indent)}}
     is ReturnExpr -> "return" + (expr?.let { " " + it.toCodeString(indent) } ?: "")
 }
 
-fun Param.toCodeString(indent: Int) = when (this) {
-    is Param.Free -> value.toCodeString(indent)
-    is Param.Named -> "$name = ${value.toCodeString(indent)}"
+fun Arg.toCodeString(indent: Int) = when (this) {
+    is Arg.Free -> value.toCodeString(indent)
+    is Arg.Named -> "$name = ${value.toCodeString(indent)}"
 }
 
-fun CallParams.toCodeString(indent: Int): String {
+fun CallArgs.toCodeString(indent: Int): String {
     val end = last?.let {
         " " + it.toCodeString(indent)
     } ?: ""
-    return if (params.isEmpty() && end.isNotBlank()) end
-    else "(${params.joinToString { it.toCodeString(indent) }})$end"
+    return if (args.isEmpty() && end.isNotBlank()) end
+    else "(${args.joinToString { it.toCodeString(indent) }})$end"
 }
 
 fun BinOpsList.toCodeString(indent: Int): String = when (this) {
