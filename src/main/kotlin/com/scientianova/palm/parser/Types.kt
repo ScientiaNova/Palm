@@ -1,6 +1,5 @@
 package com.scientianova.palm.parser
 
-import com.scientianova.palm.errors.invalidTypePathError
 import com.scientianova.palm.errors.missingTypeReturnTypeError
 import com.scientianova.palm.errors.unclosedParenthesisError
 import com.scientianova.palm.errors.unclosedSquareBacketError
@@ -33,15 +32,16 @@ fun handleType(state: ParseState, scoped: Boolean): ParseResult<PType> = when (s
         }
     }
     '(' -> handleParenthesizedType(state.nextActual, state.pos, emptyList(), scoped)
-    else -> unclosedSquareBacketError failAt state.pos
+    else -> unclosedSquareBacketError errAt state.pos
 }
 
-fun handlePath(startState: ParseState, start: PString): ParseResult<Path> = reuseWhileSuccess(startState, listOf(start)) { path, state ->
-    val maybeDot = state.actual
-    if (maybeDot.startWithSymbol(".")) {
-        expectIdent(maybeDot.nextActual).map(path::plus)
-    } else return path succTo state
-}
+fun handlePath(startState: ParseState, start: PString): ParseResult<Path> =
+    reuseWhileSuccess(startState, listOf(start)) { path, state ->
+        val maybeDot = state.actual
+        if (maybeDot.startWithSymbol(".")) {
+            expectIdent(maybeDot.nextActual).map(path::plus)
+        } else return path succTo state
+    }
 
 fun handleWholeGenerics(
     state: ParseState,
@@ -63,7 +63,7 @@ else handleType(state, false).flatMap { type, afterState ->
     when (symbolState.char) {
         ']' -> types + type succTo symbolState.next
         ',' -> handleGenerics(symbolState.nextActual, types + type)
-        else -> unclosedSquareBacketError failAt symbolState.pos
+        else -> unclosedSquareBacketError errAt symbolState.pos
     }
 }
 
@@ -78,7 +78,7 @@ else handleType(state, false).flatMap { type, afterState ->
     when (actual.char) {
         ',' -> handleParenthesizedType(actual.nextActual, start, types + type, scoped)
         ')' -> handleFunction(actual.next, start, types + type, scoped)
-        else -> unclosedParenthesisError failAt actual.pos
+        else -> unclosedParenthesisError errAt actual.pos
     }
 }
 
@@ -96,6 +96,6 @@ private fun handleFunction(
         "=>" -> handleType(afterSymbol.actual, scoped).flatMap { returnType, nextState ->
             FunctionType(types, returnType, true) at start..nextState.lastPos succTo nextState
         }
-        else -> if (types.size == 1) types.first() succTo state else missingTypeReturnTypeError failAt state
+        else -> if (types.size == 1) types.first() succTo state else missingTypeReturnTypeError errAt state
     }
 }

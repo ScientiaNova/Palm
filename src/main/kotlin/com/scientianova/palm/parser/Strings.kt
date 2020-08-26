@@ -1,83 +1,91 @@
+@file:Suppress("UNCHECKED_CAST")
+
 package com.scientianova.palm.parser
 
 import com.scientianova.palm.errors.missingDoubleQuoteError
+import com.scientianova.palm.errors.missingStringError
 import com.scientianova.palm.errors.unclosedMultilineStringError
-import com.scientianova.palm.util.Positioned
 import com.scientianova.palm.util.StringPos
 import com.scientianova.palm.util.at
-import com.scientianova.palm.util.map
 
-@Suppress("NON_TAIL_RECURSIVE_CALL")
-tailrec fun handleSingleLineString(
+fun <R> interpolatedExpr() = interpolatedExpr as Parser<R, PExpr>
+
+private val interpolatedExpr: Parser<Any, PExpr> = oneOf(
+    identifier<Any>().map { if (it == "this") ThisExpr else IdentExpr(it) },
+    scopeExpr()
+).withPos()
+
+fun <R> string() = string as Parser<R, Expression>
+
+private val string: Parser<Any, Expression> =
+    matchChar<Any>('\"', missingStringError).takeR(
+        oneOf(
+            matchChar<Any>('\"').takeR(matchChar<Any>('\"').takeR { state, succ: SuccFn<Any, Expression>, cErr, _ ->
+                handleMultiLineString(state, emptyList(), StringBuilder(), state.pos, succ, cErr)
+            }.orDefault(emptyString)), { state, succ, cErr, _ ->
+                handleSingleLineString(state, emptyList(), StringBuilder(), state.pos, succ, cErr)
+            }
+        )
+    )
+
+tailrec fun <R> handleSingleLineString(
     state: ParseState,
-    startPos: StringPos,
     parts: List<PExpr>,
     builder: StringBuilder,
-    lastStart: StringPos = startPos
-): ParseResult<PExpr> = when (val char = state.char) {
-    null, '\n' -> missingDoubleQuoteError failAt state.lastPos
-    '"' -> finishString(parts, builder, lastStart, state, startPos)
+    lastStart: StringPos,
+    succFn: SuccFn<R, Expression>,
+    errFn: ErrFn<R>
+): R = when (val char = state.char) {
+    null, '\n' -> errFn(missingDoubleQuoteError, state.area)
+    '"' -> succFn(finishString(parts, builder, lastStart, state), state.next)
     '$' -> {
         val interState = state.next
-        when (interState.char) {
-            in identStartChars -> {
-                val (ident, afterIdent) = handleIdent(state.next)
+        when (val res = returnResultT(interState, interpolatedExpr())) {
+            is ParseResultT.Success ->
                 handleSingleLineString(
-                    afterIdent, startPos,
-                    parts.interpolating(builder, lastStart, interState.pos, ident.map(::IdentExpr)),
-                    StringBuilder(), afterIdent.pos
+                    res.next, parts.interpolating(builder, lastStart, state.nextPos,
+                        res.value), StringBuilder(), res.next.pos, succFn, errFn
                 )
-            }
-            '{' -> handleExprScope(state.nextActual, state.pos).flatMap { scope, afterScope ->
-                handleSingleLineString(
-                    afterScope, startPos,
-                    parts.interpolating(builder, lastStart, interState.pos, scope.toExpr()),
-                    StringBuilder(), afterScope.pos
-                )
-            }
-            else -> handleSingleLineString(state.next, startPos, parts, builder.append(char), lastStart)
+            is ParseResultT.Error -> errFn(res.error, res.area)
+            is ParseResultT.Failure ->
+                handleSingleLineString(interState, parts, builder.append(char), lastStart, succFn, errFn)
         }
     }
-    '\\' -> handleEscaped(state.next).flatMap { escaped, afterState ->
-        handleSingleLineString(afterState, startPos, parts, builder.append(escaped), lastStart)
+    '\\' -> when (val res = handleEscaped(state.next)) {
+        is ParseResult.Success ->
+            handleSingleLineString(res.next, parts, builder.append(res.value), lastStart, succFn, errFn)
+        is ParseResult.Error ->
+            errFn(res.error, res.area)
     }
-    else -> handleSingleLineString(state.next, startPos, parts, builder.append(char), lastStart)
+    else -> handleSingleLineString(state.next, parts, builder.append(char), lastStart, succFn, errFn)
 }
 
-tailrec fun handleMultiLineString(
+tailrec fun <R> handleMultiLineString(
     state: ParseState,
-    startPos: StringPos,
     parts: List<PExpr>,
     builder: StringBuilder,
-    lastStart: StringPos = startPos
-): ParseResult<PExpr> = when (val char = state.char) {
-    null -> unclosedMultilineStringError failAt startPos..state.pos
+    lastStart: StringPos,
+    succFn: SuccFn<R, Expression>,
+    errFn: ErrFn<R>
+): R = when (val char = state.char) {
+    null -> errFn(unclosedMultilineStringError, state.area)
     '"' -> if (state.next.startWith("\"\"")) {
-        finishString(parts, builder, lastStart, state + 2, startPos)
-    } else handleMultiLineString(state.next, startPos, parts, builder.append('"'), lastStart)
+        succFn(finishString(parts, builder, lastStart, state + 2), state + 3)
+    } else handleMultiLineString(state.next, parts, builder.append('"'), lastStart, succFn, errFn)
     '$' -> {
         val interState = state.next
-        when (interState.char) {
-            in identStartChars -> {
-                val (ident, afterIdent) = handleIdent(state.next)
-                handleSingleLineString(
-                    afterIdent, startPos,
-                    parts.interpolating(builder, lastStart, interState.pos, ident.map(::IdentExpr)),
-                    StringBuilder(), afterIdent.pos
-                )
-            }
-            '{' -> handleExprScope(state.nextActual, state.pos).flatMap { scope, afterScope ->
-                @Suppress("NON_TAIL_RECURSIVE_CALL")
+        when (val res = returnResultT(interState, interpolatedExpr())) {
+            is ParseResultT.Success ->
                 handleMultiLineString(
-                    afterScope, startPos,
-                    parts.interpolating(builder, lastStart, interState.pos, scope.toExpr()),
-                    StringBuilder(), afterScope.pos
+                    res.next, parts.interpolating(builder, lastStart, state.nextPos,
+                        res.value), StringBuilder(), res.next.pos, succFn, errFn
                 )
-            }
-            else -> handleMultiLineString(state.next, startPos, parts, builder.append(char), lastStart)
+            is ParseResultT.Error -> errFn(res.error, res.area)
+            is ParseResultT.Failure ->
+                handleMultiLineString(interState, parts, builder.append(char), lastStart, succFn, errFn)
         }
     }
-    else -> handleMultiLineString(state.next, startPos, parts, builder.append(char), lastStart)
+    else -> handleMultiLineString(state.next, parts, builder.append(char), lastStart, succFn, errFn)
 }
 
 private fun List<PExpr>.interpolating(
@@ -91,14 +99,15 @@ private fun finishString(
     parts: List<PExpr>,
     builder: StringBuilder,
     lastStart: StringPos,
-    endState: ParseState,
-    startPos: StringPos
-): ParseResult.Success<Positioned<Expression>> =
-    (if (parts.isEmpty()) StringExpr(builder.toString())
-    else BinaryOpsExpr(
-        (parts + (StringExpr(builder.toString()) at lastStart..endState.pos))
-            .toBinOps(BinOpsList.Head(parts.first()), 1)
-    )) at startPos..endState.pos succTo endState.next
+    endState: ParseState
+): Expression =
+    if (parts.isEmpty()) {
+        StringExpr(builder.toString())
+    } else
+        BinaryOpsExpr(
+            (parts + (StringExpr(builder.toString()) at lastStart..endState.pos))
+                .toBinOps(BinOpsList.Head(parts.first()), 1)
+        )
 
 private tailrec fun List<PExpr>.toBinOps(last: BinOpsList, index: Int): BinOpsList = if (index < size) {
     val current = get(index)

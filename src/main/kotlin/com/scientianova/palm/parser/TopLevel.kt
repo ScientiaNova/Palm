@@ -12,7 +12,7 @@ fun handleImports(startState: ParseState) = reuseWhileSuccess(startState, emptyL
             val sepState = afterImport.actual
             when (sepState.char) {
                 '\n', ';' -> list + newImports succTo sepState.next
-                else -> missingExpressionSeparatorError failAt sepState
+                else -> missingExpressionSeparatorError errAt sepState
             }
         }
         else -> list succTo state
@@ -49,7 +49,7 @@ fun handleDecModifier(ident: PString, nextState: ParseState) = when (ident.value
     "lateinit" -> DecProperty.LateInit at ident.area succTo nextState
     "tailrec" -> DecProperty.TailRec at ident.area succTo nextState
     "inner" -> DecProperty.Inner at ident.area succTo nextState
-    else -> unknownParamModifierError failAt ident.area
+    else -> unknownParamModifierError errAt ident.area
 }
 
 enum class TopLevelPrivacy {

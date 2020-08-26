@@ -1,22 +1,34 @@
+@file:Suppress("UNCHECKED_CAST")
+
 package com.scientianova.palm.parser
 
-tailrec fun handleSingleLineComment(state: ParseState): ParseState = when (state.char) {
-    null, '\n' -> state
-    else -> handleSingleLineComment(state.next)
+import com.scientianova.palm.util.StringPos
+
+tailrec fun handleSingleLineComment(code: String, pos: StringPos): StringPos = when (code.getOrNull(pos)) {
+    null, '\n' -> pos
+    else -> handleSingleLineComment(code, pos + 1)
 }
 
 @Suppress("NON_TAIL_RECURSIVE_CALL")
-tailrec fun handleMultiLineComment(state: ParseState): ParseState = when (state.char) {
-    null -> state
+tailrec fun handleMultiLineComment(code: String, pos: StringPos): StringPos = when (code.getOrNull(pos)) {
+    null -> pos
     '*' ->  {
-        if (state.nextChar == '/') state + 2
-        else handleMultiLineComment(state.next)
+        if (code.getOrNull(pos + 1) == '/') pos + 2
+        else handleMultiLineComment(code, pos + 1)
     }
     '/' ->  {
-        if (state.nextChar == '*') {
-            val newNext = handleMultiLineComment(state + 2)
-            handleMultiLineComment(newNext)
-        } else handleMultiLineComment(state.next)
+        if (code.getOrNull(pos + 1) == '*') {
+            val newPos = handleMultiLineComment(code, pos + 2)
+            handleMultiLineComment(code, newPos)
+        } else handleMultiLineComment(code, pos + 1)
     }
-    else -> handleMultiLineComment(state.next)
+    else -> handleMultiLineComment(code, pos + 1)
 }
+
+private val whiteSpace: Parser<Any, Unit> = { state, succ, _, _ -> succ(Unit, state.actual) }
+
+fun <R> whitespace() = whiteSpace as Parser<R, Unit>
+
+private val whiteSpaceOnLine: Parser<Any, Unit> = { state, succ, _, _ -> succ(Unit, state.actualOrBreak) }
+
+fun <R> whiteSpaceOnLine() = whiteSpaceOnLine as Parser<R, Unit>

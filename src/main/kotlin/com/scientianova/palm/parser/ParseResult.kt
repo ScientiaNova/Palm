@@ -8,38 +8,47 @@ import com.scientianova.palm.util.StringPos
 
 sealed class ParseResult<out T> {
     data class Success<T>(val value: T, val next: ParseState) : ParseResult<T>()
-    data class Failure(val error: PalmError, val area: StringArea) : ParseResult<Nothing>()
+    data class Error(val error: PalmError, val area: StringArea) : ParseResult<Nothing>()
 }
 
-infix fun <T> T.succTo(next: ParseState) = ParseResult.Success(this, next)
-infix fun PalmError.failAt(area: StringArea): ParseResult<Nothing> = ParseResult.Failure(this, area)
-infix fun PalmError.failAt(pos: StringPos): ParseResult<Nothing> = ParseResult.Failure(this, pos..pos)
-infix fun PalmError.failAt(state: ParseState): ParseResult<Nothing> = failAt(state.pos)
+sealed class ParseResultT<out T> {
+    data class Success<T>(val value: T, val next: ParseState) : ParseResultT<T>()
+    data class Error(val error: PalmError, val area: StringArea) : ParseResultT<Nothing>()
+    object Failure : ParseResultT<Nothing>()
+}
 
-inline fun <T> ParseState.requireChar(char: Char, error: PalmError, then: (ParseState) -> ParseResult<T>) =
-    if (this.char == char) then(next) else error failAt pos
+fun <T> success(value: T, next: ParseState) = ParseResult.Success(value, next)
+fun error(error: PalmError, area: StringArea) = ParseResult.Error(error, area)
+
+fun <T> successT(value: T, next: ParseState) = ParseResultT.Success(value, next)
+fun errorT(error: PalmError, area: StringArea) = ParseResultT.Error(error, area)
+
+infix fun <T> T.succTo(next: ParseState) = ParseResult.Success(this, next)
+infix fun PalmError.errAt(area: StringArea): ParseResult<Nothing> = ParseResult.Error(this, area)
+infix fun PalmError.errAt(pos: StringPos): ParseResult<Nothing> = ParseResult.Error(this, pos..pos)
+infix fun PalmError.errAt(state: ParseState): ParseResult<Nothing> = errAt(state.pos)
 
 inline fun <T> ParseState.requireIdent(ident: String, error: PalmError, then: (ParseState) -> ParseResult<T>) =
-    if (this.startWithIdent(ident)) then(next + ident.length) else error failAt pos
+    if (this.startWithIdent(ident)) then(next + ident.length) else error errAt pos
 
 inline fun <T> ParseResult<Positioned<T>>.faiLif(predicate: (T) -> Boolean, errorFn: (T) -> PalmError) =
     if (this is ParseResult.Success && predicate(value.value)) {
-        ParseResult.Failure(errorFn(value.value), value.area)
+        ParseResult.Error(errorFn(value.value), value.area)
     } else this
 
 inline fun <T, S> ParseResult<T>.map(fn: (T) -> S): ParseResult<S> = when (this) {
     is ParseResult.Success -> ParseResult.Success(fn(value), next)
-    is ParseResult.Failure -> this
+    is ParseResult.Error -> this
 }
 
 inline fun <T, S> ParseResult<T>.flatMap(fn: (T, ParseState) -> ParseResult<S>): ParseResult<S> = when (this) {
     is ParseResult.Success -> fn(value, next)
-    is ParseResult.Failure -> this
+    is ParseResult.Error -> this
 }
 
 fun <T, S : T> ParseResult<S>.orDefault(state: ParseState, value: T) = when (this) {
     is ParseResult.Success -> this.value to next
-    is ParseResult.Failure -> value to state
+    is ParseResult.Error -> value to state
 }
 
 inline fun <T, S> ParseResult<T>.flatMapIfActual(
@@ -50,9 +59,9 @@ inline fun <T, S> ParseResult<T>.flatMapIfActual(
     is ParseResult.Success -> {
         val actual = next.actual
         if (predicate(actual.char)) fn(value, actual.next)
-        else error failAt actual
+        else error errAt actual
     }
-    is ParseResult.Failure -> this
+    is ParseResult.Error -> this
 }
 
 inline fun <T, S> ParseResult<T>.flatMapIfActual(
@@ -69,9 +78,9 @@ inline fun <T, S> ParseResult<T>.flatMapIfActualSymbol(
     is ParseResult.Success -> {
         val (pSymbol, afterSymbol) = handleSymbol(next.actual)
         if (symbol == pSymbol.value) fn(value, afterSymbol)
-        else error(symbol) failAt pSymbol.area
+        else error(symbol) errAt pSymbol.area
     }
-    is ParseResult.Failure -> this
+    is ParseResult.Error -> this
 }
 
 inline fun <T, S, C> ParseResult<T>.zipWithNext(
@@ -81,7 +90,7 @@ inline fun <T, S, C> ParseResult<T>.zipWithNext(
     is ParseResult.Success -> nextFun(next).map { nextValue ->
         zipFun(value, nextValue)
     }
-    is ParseResult.Failure -> this
+    is ParseResult.Error -> this
 }
 
 inline fun <T, S> ParseResult<T>.biFlatMap(
@@ -89,32 +98,24 @@ inline fun <T, S> ParseResult<T>.biFlatMap(
     onFail: () -> ParseResult<S>
 ) = when (this) {
     is ParseResult.Success -> onSucc(value, next)
-    is ParseResult.Failure -> onFail()
+    is ParseResult.Error -> onFail()
 }
 
 fun <T> ParseResult<T>.expectActual(char: Char, error: PalmError) = when (this) {
     is ParseResult.Success -> {
         val actual = next.actual
         if (actual.char == char) value succTo actual.next
-        else error failAt actual
+        else error errAt actual
     }
-    is ParseResult.Failure -> this
+    is ParseResult.Error -> this
 }
 
-inline fun <T> reuseWhileSuccess(
-    startState: ParseState,
+inline fun <T> loopValue(
     startValue: T,
-    fn: (T, ParseState) -> ParseResult<T>
-): ParseResult<Nothing> {
-    var state = startState
+    fn: (T) -> T
+): Nothing {
     var value = startValue
-    while (true) when (val res = fn(value, state)) {
-        is ParseResult.Success -> {
-            state = res.next
-            value = res.value
-        }
-        is ParseResult.Failure -> return res
+    while (true) {
+        value = fn(value)
     }
 }
-
-fun <T> Pair<T, ParseState>.toResult(): ParseResult<T> = ParseResult.Success(first, second)

@@ -1,52 +1,83 @@
+@file:Suppress("UNCHECKED_CAST")
+
 package com.scientianova.palm.parser
 
 import com.scientianova.palm.errors.invalidBacktickedIdentifier
-import com.scientianova.palm.util.PString
+import com.scientianova.palm.errors.missingIdentifierError
+import com.scientianova.palm.errors.missingSymbolError
 import com.scientianova.palm.util.StringPos
-import com.scientianova.palm.util.at
 
-fun handleIdent(state: ParseState) = handleIdent(state.code, state.pos, state.pos, StringBuilder())
+fun <R> identifier() = identifier as Parser<R, String>
 
-tailrec fun handleIdent(
+private val identifier: Parser<Any, String> = oneOf(normalIdentifier(), tickedIdentifier())
+
+fun <R> normalIdentifier() = normalIdentifier as Parser<R, String>
+
+private val normalIdentifier: Parser<Any, String> = { state, succ, _, eErr ->
+    val char = state.char
+    if (char != null && char.isIdentifierStart()) {
+        handleNormalIdent(state.code, state.nextPos, StringBuilder().append(char), succ)
+    } else {
+        eErr(missingIdentifierError, state.area)
+    }
+}
+
+private tailrec fun <R> handleNormalIdent(
     code: String,
     pos: StringPos,
-    startPos: StringPos,
-    builder: StringBuilder
-): Pair<PString, ParseState> {
+    builder: StringBuilder,
+    succFn: SuccFn<R, String>
+): R {
     val char = code.getOrNull(pos)
-    return if (char?.isIdentifierPart() == true)
-        handleIdent(code, pos + 1, startPos, builder.append(char))
-    else builder.toString() at (startPos until pos) to ParseState(code, pos)
+    return if (char?.isIdentifierPart() == true) {
+        handleNormalIdent(code, pos + 1, builder.append(char), succFn)
+    } else {
+        succFn(builder.toString(), ParseState(code, pos))
+    }
 }
 
-fun handleBacktickedIdent(state: ParseState) =
-    handleBacktickedIdent(state.code, state.pos, state.pos, StringBuilder())
+fun <R> tickedIdentifier() = tickedIdentifier as Parser<R, String>
 
-tailrec fun handleBacktickedIdent(
+private val tickedIdentifier: Parser<Any, String> =
+    matchChar<Any>('`', missingIdentifierError).takeR { state, succ, cErr, _ ->
+        handleTickedIdent(state.code, state.pos, StringBuilder(), succ, cErr)
+    }
+
+private tailrec fun <R> handleTickedIdent(
     code: String,
     pos: StringPos,
-    startPos: StringPos,
-    builder: StringBuilder
-): ParseResult<PString> = when (val char = code.getOrNull(pos)) {
+    builder: StringBuilder,
+    succFn: SuccFn<R, String>,
+    errFn: ErrFn<R>
+): R = when (val char = code.getOrNull(pos)) {
     '/', '\\', '.', ';', ':', '<', '>', '[', ']', null ->
-        invalidBacktickedIdentifier failAt pos
-    '`' -> builder.toString() at (startPos until pos) succTo ParseState(code, pos)
-    else -> handleBacktickedIdent(code, pos + 1, startPos, builder.append(char))
+        errFn(invalidBacktickedIdentifier, pos..pos)
+    '`' -> succFn(builder.toString(), ParseState(code, pos + 1))
+    else -> handleTickedIdent(code, pos + 1, builder.append(char), succFn, errFn)
 }
 
-fun handleSymbol(state: ParseState) =
-    handleSymbol(state.code, state.pos, state.pos, StringBuilder())
+fun <R> symbol() = symbol as Parser<R, String>
 
-tailrec fun handleSymbol(
+private val symbol: Parser<Any, String> = { state, succ, _, eErr ->
+    val char = state.char
+    if (char != null && char.isSymbolPart()) {
+        handleSymbol(state.code, state.nextPos, StringBuilder().append(char), succ, eErr)
+    } else {
+        eErr(missingSymbolError, state.area)
+    }
+}
+
+private tailrec fun <R> handleSymbol(
     code: String,
     pos: StringPos,
-    startPos: StringPos,
-    builder: StringBuilder
-): Pair<PString, ParseState> {
+    builder: StringBuilder,
+    succFn: SuccFn<R, String>,
+    errFn: ErrFn<R>
+): R {
     val char = code.getOrNull(pos)
     return if (char?.isSymbolPart() == true)
-        handleSymbol(code, pos + 1, startPos, builder.append(char))
-    else builder.toString() at (startPos until pos) to ParseState(code, pos)
+        handleSymbol(code, pos + 1, builder.append(char), succFn, errFn)
+    else succFn(builder.toString(), ParseState(code, pos))
 }
 
 val keywords =

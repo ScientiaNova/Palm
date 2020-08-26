@@ -1,47 +1,57 @@
 package com.scientianova.palm.parser
 
 import com.scientianova.palm.errors.*
-import com.scientianova.palm.util.Positioned
 import com.scientianova.palm.util.StringPos
-import com.scientianova.palm.util.at
 
-fun handleChar(
-    state: ParseState
-): ParseResult<Positioned<CharExpr>> = when (val char = state.char) {
-    null, '\n' -> loneSingleQuoteError failAt state.pos
-    '\\' -> handleEscaped(state.next)
-    else -> char succTo state.next
-}.flatMap { value, endState ->
+private val char: Parser<Any, CharExpr> = matchChar<Any>('\'', missingCharError).takeR { state, succ, cErr, _ ->
+    when (val char = state.char) {
+        null, '\n' -> cErr(loneSingleQuoteError, state.area)
+        '\\' -> when (val res = handleEscaped(state.next)) {
+            is ParseResult.Success -> finishChar(res.next, res.value, succ, cErr)
+            is ParseResult.Error -> cErr(res.error, res.area)
+        }
+        else -> finishChar(state.next, char, succ, cErr)
+    }
+}
+
+@Suppress("UNCHECKED_CAST")
+fun <R> char() = char as Parser<R, CharExpr>
+
+private fun <R> finishChar(
+    endState: ParseState,
+    value: Char,
+    succFn: SuccFn<R, CharExpr>,
+    errFn: ErrFn<R>
+): R {
     val endChar = endState.char
-    when {
-        endChar == '\'' -> CharExpr(value) at state.lastPos..endState.pos succTo endState.next
-        endChar == null -> unclosedCharLiteralError failAt endState.pos
-        endChar.isWhitespace() && value.isWhitespace() -> isMalformedTab(endState.next)?.let {
-            malformedTabError failAt state.lastPos..it.pos
-        } ?: missingSingleQuoteError failAt endState.pos
-        else -> (if (value == '\'') missingSingleQuoteOnQuoteError else missingSingleQuoteError)
-            .failAt(endState.pos)
+    return when {
+        endChar == '\'' -> succFn(CharExpr(value), endState.next)
+        endChar == null -> errFn(unclosedCharLiteralError, endState.area)
+        endChar == ' ' && value == ' ' -> isMalformedTab(endState.next)?.let {
+            errFn(malformedTabError, it.pos - 2..it.pos)
+        } ?: errFn(missingSingleQuoteError, endState.area)
+        else -> errFn(if (value == '\'') missingSingleQuoteOnQuoteError else missingSingleQuoteError, endState.area)
     }
 }
 
 
 fun handleEscaped(state: ParseState) = when (state.char) {
-    '"' -> '\"' succTo state + 1
-    '$' -> '$' succTo state + 1
-    '\\' -> '\\' succTo state + 1
-    't' -> '\t' succTo state + 1
-    'n' -> '\n' succTo state + 1
-    'b' -> '\b' succTo state + 1
-    'r' -> '\r' succTo state + 1
-    'f' -> 12.toChar() succTo state + 1
-    'v' -> 11.toChar() succTo state + 1
+    '"' -> '\"' succTo state.next
+    '$' -> '$' succTo state.next
+    '\\' -> '\\' succTo state.next
+    't' -> '\t' succTo state.next
+    'n' -> '\n' succTo state.next
+    'b' -> '\b' succTo state.next
+    'r' -> '\r' succTo state.next
+    'f' -> 12.toChar() succTo state.next
+    'v' -> 11.toChar() succTo state.next
     'u' -> if (state.nextChar == '{') {
         handleUnicode(state.code, state.pos + 2)
-    } else missingBacketInUnicodeError failAt state.nextPos
-    else -> unclosedEscapeCharacterError failAt state.pos
+    } else missingBacketInUnicodeError errAt state.nextPos
+    else -> unclosedEscapeCharacterError errAt state.pos
 }
 
-tailrec fun handleUnicode(
+private tailrec fun handleUnicode(
     code: String,
     pos: StringPos,
     idBuilder: StringBuilder = StringBuilder()
@@ -49,7 +59,7 @@ tailrec fun handleUnicode(
     in '0'..'9', in 'a'..'f', in 'A'..'F' ->
         handleUnicode(code, pos + 1, idBuilder.append(char))
     '}' -> idBuilder.toString().toInt().toChar() succTo ParseState(code, pos + 1)
-    else -> invalidHexLiteralError failAt pos
+    else -> invalidHexLiteralError errAt pos
 }
 
 fun Char.isOpenBracket() = when (this) {
@@ -77,7 +87,7 @@ fun Char.isQuote() = when (this) {
     else -> false
 }
 
-fun isMalformedTab(state: ParseState): ParseState? = when (state.char) {
+private fun isMalformedTab(state: ParseState): ParseState? = when (state.char) {
     null -> null
     ' ' -> isMalformedTab(state.next)
     '\'' -> state

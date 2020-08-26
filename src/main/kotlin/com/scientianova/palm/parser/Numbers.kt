@@ -1,123 +1,149 @@
 package com.scientianova.palm.parser
 
-import com.scientianova.palm.errors.invalidBinaryLiteralError
-import com.scientianova.palm.errors.invalidDecimalLiteralError
-import com.scientianova.palm.errors.invalidExponentError
-import com.scientianova.palm.errors.invalidHexLiteralError
+import com.scientianova.palm.errors.*
 import com.scientianova.palm.util.StringPos
-import com.scientianova.palm.util.at
 
-tailrec fun handleNumber(
-    state: ParseState,
-    startPos: StringPos,
-    builder: StringBuilder
-): ParseResult<PExpr> = when (val char = state.char) {
-    in '0'..'9' ->
-        handleNumber(state.next, startPos, builder.append(char))
-    '_' ->
-        handleNumber(state.next, startPos, builder)
-    '.' -> {
-        val next = state.next
-        if (next.char in '0'..'9') handleDecimalNumber(next, startPos, builder.append(char))
-        else convertIntString(builder) at (startPos until state.pos) succTo state
+private val number: Parser<Any, Expression> = { state, succ, cErr, eErr ->
+    when (val first = state.char) {
+        '0' -> when (state.nextChar) {
+            'x', 'X' -> handleHexNumber(state.code, state.pos + 2, StringBuilder(), succ, cErr)
+            'b', 'B' -> handleBinaryNumber(state.code, state.pos + 2, StringBuilder(), succ, cErr)
+            else -> handleNumber(state.code, state.nextPos, StringBuilder("0"), succ, eErr)
+        }
+        in '1'..'9' ->
+            handleNumber(state.code, state.nextPos, StringBuilder().append(first), succ, cErr)
+        else -> eErr(missingNumberError, state.area)
     }
-    'b', 'B' ->
-        ByteExpr(builder.toString().toByte()) at startPos..state.pos succTo state.next
-    's', 'S' ->
-        ShortExpr(builder.toString().toShort()) at startPos..state.pos succTo state.next
-    'i', 'I' ->
-        IntExpr(builder.toString().toInt()) at startPos..state.pos succTo state.next
-    'l', 'L' ->
-        LongExpr(builder.toString().toLong()) at startPos..state.pos succTo state.next
-    'f', 'F' ->
-        FloatExpr(builder.toString().toFloat()) at startPos..state.pos succTo state.next
-    'd', 'D' ->
-        DoubleExpr(builder.toString().toDouble()) at startPos..state.pos succTo state.next
-    in identStartChars ->
-        invalidDecimalLiteralError failAt state.pos
-    else ->
-        convertIntString(builder) at (startPos until state.pos) succTo state
 }
 
-fun convertIntString(builder: StringBuilder): Expression = when {
+@Suppress("UNCHECKED_CAST")
+fun <R> number() = number as Parser<R, Expression>
+
+private tailrec fun <R> handleNumber(
+    code: String,
+    pos: StringPos,
+    builder: StringBuilder,
+    succFn: SuccFn<R, Expression>,
+    errFn: ErrFn<R>
+): R = when (val char = code.getOrNull(pos)) {
+    in '0'..'9' ->
+        handleNumber(code, pos + 1, builder.append(char), succFn, errFn)
+    '_' ->
+        handleNumber(code, pos + 1, builder, succFn, errFn)
+    '.' -> {
+        val next = code.getOrNull(pos + 1)
+        if (next in '0'..'9') handleDecimalNumber(code, pos + 2, builder.append(char).append(next), succFn, errFn)
+        else succFn(convertIntString(builder), ParseState(code, pos))
+    }
+    'b', 'B' ->
+        succFn(ByteExpr(builder.toString().toByte()), ParseState(code, pos + 1))
+    's', 'S' ->
+        succFn(ShortExpr(builder.toString().toShort()), ParseState(code, pos + 1))
+    'i', 'I' ->
+        succFn(IntExpr(builder.toString().toInt()), ParseState(code, pos + 1))
+    'l', 'L' ->
+        succFn(LongExpr(builder.toString().toLong()), ParseState(code, pos + 1))
+    'f', 'F' ->
+        succFn(FloatExpr(builder.toString().toFloat()), ParseState(code, pos + 1))
+    'd', 'D' ->
+        succFn(DoubleExpr(builder.toString().toDouble()), ParseState(code, pos + 1))
+    in identStartChars ->
+        errFn(invalidDecimalLiteralError, pos..pos)
+    else ->
+        succFn(convertIntString(builder), ParseState(code, pos))
+}
+
+private fun convertIntString(builder: StringBuilder): Expression = when {
     builder.length <= 10 -> IntExpr(builder.toString().toInt())
     builder.length <= 19 -> LongExpr(builder.toString().toLong())
     else -> DoubleExpr(builder.toString().toDouble())
 }
 
-tailrec fun handleDecimalNumber(
-    state: ParseState,
-    startPos: StringPos,
-    builder: StringBuilder
-): ParseResult<PExpr> = when (val char = state.char) {
-    in '0'..'9' -> handleDecimalNumber(state.next, startPos, builder.append(char))
-    '_' -> handleDecimalNumber(state.next, startPos, builder)
-    'e' -> when (val exponentStart = state.nextChar) {
+private tailrec fun <R> handleDecimalNumber(
+    code: String,
+    pos: StringPos,
+    builder: StringBuilder,
+    succFn: SuccFn<R, Expression>,
+    errFn: ErrFn<R>
+): R = when (val char = code.getOrNull(pos)) {
+    in '0'..'9' -> handleDecimalNumber(code, pos + 1, builder.append(char), succFn, errFn)
+    '_' -> handleDecimalNumber(code, pos + 1, builder, succFn, errFn)
+    'e' -> when (val exponentStart = code.getOrNull(pos + 1)) {
         '+', '-' -> {
-            val digitState = state + 3
-            if (digitState.char?.isDigit() == true)
-                handleDecimalExponent(digitState, startPos, builder.append(exponentStart))
-            else invalidExponentError failAt digitState.pos
+            val digit = code.getOrNull(pos + 2)
+            if (digit?.isDigit() == true)
+                handleDecimalExponent(code, pos + 3, builder.append(exponentStart).append(digit), succFn, errFn)
+            else errFn(invalidExponentError, (pos + 2).let { it..it })
         }
-        in '0'..'9' -> handleDecimalExponent(state + 2, startPos, builder)
-        else -> invalidExponentError failAt state.nextPos
+        in '0'..'9' -> handleDecimalExponent(code, pos + 2, builder.append(exponentStart), succFn, errFn)
+        else -> errFn(invalidExponentError, (pos + 1).let { it..it })
     }
     'f', 'F' ->
-        FloatExpr(builder.toString().toFloat()) at startPos..state.pos succTo state.next
+        succFn(FloatExpr(builder.toString().toFloat()), ParseState(code, pos + 1))
     'd', 'D' ->
-        DoubleExpr(builder.toString().toDouble()) at startPos..state.pos succTo state.next
+        succFn(DoubleExpr(builder.toString().toDouble()),ParseState(code, pos + 1))
     in identStartChars ->
-        invalidDecimalLiteralError failAt state.pos
-    else -> DoubleExpr(builder.toString().toDouble()) at (startPos until state.pos) succTo state
+        errFn(invalidDecimalLiteralError, pos..pos)
+    else -> succFn(DoubleExpr(builder.toString().toDouble()), ParseState(code, pos))
 }
 
-tailrec fun handleDecimalExponent(
-    state: ParseState,
-    startPos: StringPos,
-    builder: StringBuilder
-): ParseResult<PExpr> = when (val char = state.char) {
-    in '0'..'9' -> handleDecimalExponent(state.next, startPos, builder.append(char))
-    '_' -> handleDecimalExponent(state.next, startPos, builder)
-    in identStartChars -> invalidDecimalLiteralError failAt state.pos
-    else -> DoubleExpr(builder.toString().toDouble()) at (startPos until state.pos) succTo state
+private tailrec fun <R> handleDecimalExponent(
+    code: String,
+    pos :StringPos,
+    builder: StringBuilder,
+    succFn: SuccFn<R, Expression>,
+    errFn: ErrFn<R>
+): R = when (val char = code.getOrNull(pos)) {
+    in '0'..'9' -> handleDecimalExponent(code, pos + 1, builder.append(char), succFn, errFn)
+    '_' -> handleDecimalExponent(code, pos + 1, builder, succFn, errFn)
+    in identStartChars -> errFn(invalidDecimalLiteralError, pos..pos)
+    else -> succFn(DoubleExpr(builder.toString().toDouble()), ParseState(code, pos))
 }
 
-tailrec fun handleBinaryNumber(
-    state: ParseState,
-    startPos: StringPos,
-    builder: StringBuilder
-): ParseResult<PExpr> = when (val char = state.char) {
+private tailrec fun <R> handleBinaryNumber(
+    code: String,
+    pos :StringPos,
+    builder: StringBuilder,
+    succFn: SuccFn<R, Expression>,
+    errFn: ErrFn<R>
+): R = when (val char = code.getOrNull(pos)) {
     '0', '1' ->
-        handleBinaryNumber(state.next, startPos, builder.append(char))
+        handleBinaryNumber(code, pos + 1, builder.append(char), succFn, errFn)
     '_' ->
-        handleBinaryNumber(state.next, startPos, builder)
+        handleBinaryNumber(code, pos + 1, builder, succFn, errFn)
     'b', 'B' ->
-        ByteExpr(builder.toString().toByte(radix = 2)) at startPos..state.pos succTo state.next
+        succFn(ByteExpr(builder.toString().toByte(radix = 2)), ParseState(code, pos))
     's', 'S' ->
-        ShortExpr(builder.toString().toShort(radix = 2)) at startPos..state.pos succTo state.next
+        succFn(ShortExpr(builder.toString().toShort(radix = 2)), ParseState(code, pos))
     'i', 'I' ->
-        IntExpr(builder.toString().toInt(radix = 2)) at startPos..state.pos succTo state.next
+        succFn(IntExpr(builder.toString().toInt(radix = 2)), ParseState(code, pos))
     'l', 'L' ->
-        LongExpr(builder.toString().toLong(radix = 2)) at startPos..state.lastPos succTo state.next
+        succFn(LongExpr(builder.toString().toLong(radix = 2)), ParseState(code, pos + 1))
     in identStartChars ->
-        invalidBinaryLiteralError failAt state.pos
+        errFn(invalidBinaryLiteralError, pos..pos)
     else ->
-        (if (builder.length <= 32) IntExpr(builder.toString().toInt(radix = 2))
-        else LongExpr(builder.toString().toLong(radix = 2))) at (startPos until state.pos) succTo state
+        succFn(
+            if (builder.length <= 32) IntExpr(builder.toString().toInt(radix = 2))
+            else LongExpr(builder.toString().toLong(radix = 2)), ParseState(code, pos)
+        )
 }
 
-tailrec fun handleHexNumber(
-    state: ParseState,
-    startPos: StringPos,
-    builder: StringBuilder
-): ParseResult<PExpr> = when (val char = state.char) {
+private tailrec fun <R> handleHexNumber(
+    code: String,
+    pos :StringPos,
+    builder: StringBuilder,
+    succFn: SuccFn<R, Expression>,
+    errFn: ErrFn<R>
+): R = when (val char = code.getOrNull(pos)) {
     in '0'..'9', in 'a'..'f', in 'A'..'F' ->
-        handleHexNumber(state.next, startPos, builder.append(char))
+        handleHexNumber(code, pos + 1, builder.append(char), succFn, errFn)
     '_' ->
-        handleHexNumber(state.next, startPos, builder)
+        handleHexNumber(code, pos + 1, builder, succFn, errFn)
     in identStartChars ->
-        invalidHexLiteralError failAt state.pos
+        errFn(invalidHexLiteralError, pos..pos)
     else ->
-        (if (builder.length <= 8) IntExpr(builder.toString().toInt(radix = 16))
-        else LongExpr(builder.toString().toLong(radix = 16))) at (startPos until state.pos) succTo state
+        succFn(
+            if (builder.length <= 8) IntExpr(builder.toString().toInt(radix = 16))
+            else LongExpr(builder.toString().toLong(radix = 16)), ParseState(code, pos)
+        )
 }

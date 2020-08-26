@@ -31,7 +31,7 @@ data class FunParam(
 fun expectIdent(state: ParseState): ParseResult<PString> = when (state.char) {
     in identStartChars -> handleIdent(state).toResult()
     '`' -> handleBacktickedIdent(state)
-    else -> missingIdentifierError failAt state
+    else -> missingIdentifierError errAt state
 }
 
 fun handleParam(
@@ -51,7 +51,7 @@ fun handleParam(
 fun handleParamModifier(ident: PString, nextState: ParseState) = when (ident.value) {
     "using" -> ParamModifier.Using succTo nextState
     "given" -> ParamModifier.Given succTo nextState
-    else -> unknownParamModifierError failAt ident.area
+    else -> unknownParamModifierError errAt ident.area
 }
 
 data class FileFunctionInfo(

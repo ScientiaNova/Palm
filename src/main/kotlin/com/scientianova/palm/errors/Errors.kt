@@ -120,16 +120,11 @@ val invalidHexLiteralError = PalmError(
     "Hexidecimal number literals can only contain the digits 0-9, a-f and A-F."
 )
 
-fun missingScopeError(after: String) = PalmError(
+val missingScopeError = PalmError(
     "MISSING SCOPE",
-    "I was saw $after and was expecting a scope next, but instead got:",
+    "I was expecting a scope next, but instead got:",
     "Start a scope here with an {."
 )
-
-val missingScopeAfterWhenError = missingScopeError("a when")
-val missingScopeAfterIfError = missingScopeError("an if")
-val missingScopeAfterElseError = missingScopeError("an else")
-val missingScopeAfterForError = missingScopeError("a for")
 
 val invalidImportError = PalmError(
     "INVALID IMPORT",
@@ -258,14 +253,29 @@ val postfixOperationOnTypeError = PalmError(
     "You should use parentheses, so I know what you wanted the postfix operation to be applied on."
 )
 
-val missingIdentifierError = PalmError(
-    "MISSING IDENTIFIER",
-    "I saw a expecting an identifier here, but instead got:",
-    "Add an identifier here."
+fun aOrAn(nextStart: Char) = when (nextStart) {
+    'a', 'e', 'i', 'o', 'u' -> "an"
+    else -> "a"
+}
+
+fun missing(thing: String) = PalmError(
+    "MISSING ${thing.toUpperCase()}",
+    "I saw a expecting ${aOrAn(thing.first())} $thing here, but instead got:",
+    "Add an $thing here."
 )
+
+val missingIdentifierError = missing("identifier")
 
 val unknownParamModifierError = PalmError(
     "UNKNOWN PARAMETER MODIFIER",
     "I was going through the parameters of a function and found a parameter modifier I don't recognize:",
     "If you wanted that to be a name of a parameter you need to put a colon and then its type after it."
 )
+
+val missingSymbolError = missing("symbol")
+
+val missingCharError = missing("char")
+
+val missingStringError = missing("string")
+
+val missingNumberError = missing("number")

@@ -15,7 +15,7 @@ fun handleImportStart(
 ): ParseResult<List<Import>> = if (state.char?.isIdentifierStart() == true) {
     val (ident, afterIdent) = handleIdent(state)
     handleImport(afterIdent, listOf(ident))
-} else invalidImportError failAt state.pos
+} else invalidImportError errAt state.pos
 
 private tailrec fun handleImport(
     state: ParseState,
@@ -31,7 +31,7 @@ private tailrec fun handleImport(
         listOf(OperatorImport(path + symbol)) succTo next
     }
     '{' -> handleImportGroup(state + 2, path, emptyList())
-    else -> invalidImportError failAt state.pos
+    else -> invalidImportError errAt state.pos
 } else {
     val maybeAsState = state.actual
     if (maybeAsState.startWithIdent("as")) {
@@ -50,6 +50,6 @@ else handleImport(state, path).flatMap { part, afterState ->
     when (symbolState.char) {
         '}' -> parts + part succTo symbolState.next
         ',' -> handleImportGroup(symbolState.nextActual, path, parts + part)
-        else -> unclosedImportGroupError failAt state.pos
+        else -> unclosedImportGroupError errAt state.pos
     }
 }

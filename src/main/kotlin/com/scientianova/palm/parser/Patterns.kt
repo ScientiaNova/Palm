@@ -40,12 +40,12 @@ fun handlePattern(
             }
             "val" ->
                 if (decType == DeclarationType.NONE) handlePattern(afterIdent.actual, DeclarationType.VAL, false)
-                else invalidDoubleDeclarationError failAt ident.area
+                else invalidDoubleDeclarationError errAt ident.area
             "var" ->
                 if (decType == DeclarationType.NONE) handlePattern(afterIdent.actual, DeclarationType.VAR, false)
-                else invalidDoubleDeclarationError failAt ident.area
+                else invalidDoubleDeclarationError errAt ident.area
             else -> if (excludeExpression) {
-                invalidPatternError failAt state.pos
+                invalidPatternError errAt state.pos
             } else ident.startExpr(afterIdent, false).map { expr ->
                 if (expr.value is IdentExpr) when (decType) {
                     DeclarationType.NONE -> expr.map(::ExprPattern)
@@ -75,6 +75,6 @@ else handlePattern(state, decType, false).flatMap { pattern, afterPattern ->
     when (symbolState.char) {
         ',' -> handlePatternTuple(symbolState.nextActual, decType, startPos, patterns + pattern)
         ')' -> (patterns + pattern) succTo symbolState.next
-        else -> unclosedParenthesisError failAt symbolState.pos
+        else -> unclosedParenthesisError errAt symbolState.pos
     }
 }

@@ -4,7 +4,7 @@ import com.scientianova.palm.errors.PalmCompilationException
 
 inline fun <T> parse(fn: (ParseState) -> ParseResult<T>, code: String): T = when (val res = fn(ParseState(code, 0))) {
     is ParseResult.Success -> res.value
-    is ParseResult.Failure -> throw PalmCompilationException(code, "REPL", res.area, res.error)
+    is ParseResult.Error -> throw PalmCompilationException(code, "REPL", res.area, res.error)
 }
 
 fun testExpr() = parse<PExpr>(

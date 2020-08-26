@@ -2,24 +2,20 @@ package com.scientianova.palm.errors
 
 import com.scientianova.palm.util.*
 
-class PalmCompilationException(
-    code: String,
-    fileName: String,
-    erroredArea: StringArea,
-    error: PalmError
-) : Exception(
+typealias PError = Positioned<PalmError>
+
+fun PError.messageFor(code: String, fileName: String) =
     """
 
--- ${error.name} ${"-".repeat(80 - error.name.length - fileName.length)} $fileName
+-- ${value.name} ${"-".repeat(80 - value.name.length - fileName.length)} $fileName
 
-${error.context.wrap()}
+${value.context.wrap()}
 
-${highlightError(code, erroredArea)}
-${error.help.lines().map { it.wrap() }.joinToString("\n") { it }}
+${highlightError(code, area)}
+${value.help.lines().map { it.wrap() }.joinToString("\n") { it }}
 
 -------------------------------------------------------------------------------------
 """.trimIndent()
-)
 
 private fun highlightError(code: String, posRange: StringArea): String {
     val lineEnds = code.lineEnds
@@ -31,7 +27,8 @@ private fun highlightError(code: String, posRange: StringArea): String {
         """
 $row| $line
 ${" ".repeat(row.toString().length)}  ${line.take(firstCoord.column - 1).replace("[^ \t]".toRegex(), " ")}${
-        "^".repeat(posRange.first - posRange.last + 1)}
+            "^".repeat(posRange.first - posRange.last + 1)
+        }
 """.trimIndent()
     } else {
         val codeLines = code.lines()
