@@ -31,7 +31,7 @@ infix fun PalmError.errAt(state: ParseState): ParseResult<Nothing> = errAt(state
 inline fun <T> ParseState.requireIdent(ident: String, error: PalmError, then: (ParseState) -> ParseResult<T>) =
     if (this.startWithIdent(ident)) then(next + ident.length) else error errAt pos
 
-inline fun <T> ParseResult<Positioned<T>>.faiLif(predicate: (T) -> Boolean, errorFn: (T) -> PalmError) =
+inline fun <T> ParseResult<Positioned<T>>.errIf(predicate: (T) -> Boolean, errorFn: (T) -> PalmError) =
     if (this is ParseResult.Success && predicate(value.value)) {
         ParseResult.Error(errorFn(value.value), value.area)
     } else this

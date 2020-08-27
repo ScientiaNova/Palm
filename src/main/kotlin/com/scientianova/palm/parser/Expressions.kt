@@ -98,14 +98,15 @@ fun BinOpsList.toExpr() =
     if (this is BinOpsList.Head) value.value
     else BinaryOpsExpr(this)
 
-inline fun BinOpsList.map(area: StringArea, fn: (PExpr) -> ParseResult<PExpr>) = when (this) {
-    is BinOpsList.Head -> fn(value).map(BinOpsList::Head)
-    is BinOpsList.Ident -> fn(value).map { BinOpsList.Ident(child, ident, it) }
-    is BinOpsList.Symbol -> fn(value).map { BinOpsList.Symbol(child, symbol, it) }
-    else -> postfixOperationOnTypeError errAt area
+inline fun <R> BinOpsList.map(crossinline fn: (PExpr) -> PExpr): Parser<R, BinOpsList> = { state, succ, cErr, _ ->
+    when (this) {
+        is BinOpsList.Head -> succ(BinOpsList.Head(fn(value)), state)
+        is BinOpsList.Ident -> succ(BinOpsList.Ident(child, ident, fn(value)), state)
+        is BinOpsList.Symbol -> succ(BinOpsList.Symbol(child, symbol, fn(value)), state)
+        is BinOpsList.Is -> cErr(postfixOperationOnTypeError, type.area.last + 1 until state.pos)
+        is BinOpsList.As -> cErr(postfixOperationOnTypeError, type.area.last + 1 until state.pos)
+    }
 }
-
-inline fun BinOpsList.map(pos: StringPos, fn: (PExpr) -> ParseResult<PExpr>) = map(pos..pos, fn)
 
 val BinOpsList.lastPos
     get() = when (this) {
@@ -123,7 +124,7 @@ data class BreakExpr(val expr: PExpr?) : Expression()
 data class ReturnExpr(val expr: PExpr?) : Expression()
 
 fun handleDecName(state: ParseState): ParseResult<PString> =
-    expectIdent(state).faiLif(keywords::contains, ::keywordDecNameError)
+    expectIdent(state).errIf(keywords::contains, ::keywordDecNameError)
 
 fun PString.startExpr(
     afterIdent: ParseState,
@@ -201,7 +202,7 @@ fun handleDeclaration(state: ParseState, mutable: Boolean): ParseResult<ScopeSta
         }
     }
 
-private val asHandling : Parser<Any, AsHandling> = { state, succ, _, _ ->
+private val asHandling: Parser<Any, AsHandling> = { state, succ, _, _ ->
     when (state.char) {
         '!' -> succ(AsHandling.Unsafe, state.next)
         '?' -> succ(AsHandling.Nullable, state.next)
@@ -226,6 +227,17 @@ fun handleScopedExpr(state: ParseState) = handleSubexpr(state, true).flatMap { f
     handleScopedBinOps(next, firstPart)
 }
 
+private val directOp: Parser<Any, (BinOpsList) -> BinOpsList> = symbol<Any>().withPos().flatMap { op ->
+    val symbol = op.value
+    if (symbol.length == 2 && symbol.last() == '.') whitespace<Any>().takeR(subExpr()).withPos().map { expr ->
+        { list: BinOpsList -> list.appendSymbol(op, expr) }
+    } else oneOf(
+        subExpr<Any>().withPos().map { expr ->
+            { list: BinOpsList -> list.appendSymbol(op, expr) }
+        }, valueP { list: BinOpsList -> TODO() }
+    )
+}
+
 fun handleInlinedBinOps(
     startState: ParseState,
     first: PExpr,
@@ -243,7 +255,6 @@ fun handleInlinedBinOps(
     } else {
         val actual = state.actual
         when (actual.char) {
-            null -> return finishBinOps(first.area.first, list, state)
             in identStartChars -> {
                 val (infix, afterInfix) = handleIdent(actual)
                 when (infix.value) {
@@ -310,7 +321,6 @@ fun handleScopedBinOps(
     } else {
         val actual = state.actualOrBreak
         when (actual.char) {
-            null -> return finishBinOps(first.area.first, list, state)
             in identStartChars -> {
                 val (infix, afterInfix) = handleIdent(actual)
                 when (infix.value) {
@@ -659,4 +669,5 @@ private fun handleLambdaParams(
             params + (name to null) succTo sepState + 2
         } else invalidLambdaArgumentsError errAt sepState
     }
+}
 }

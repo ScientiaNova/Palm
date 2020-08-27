@@ -19,6 +19,14 @@ fun <R, A, B> Parser<R, A>.map(fn: (A) -> B): Parser<R, B> = { state, succ, cErr
     this(state, succ1, cErr, eErr)
 }
 
+fun <R, A, B> Parser<R, A>.amap(funP: Parser<R, (A) -> B>): Parser<R, B> = { state, succ, cErr, eErr ->
+    val succ1 = { fn: (A) -> B, s: ParseState ->
+        val succ1 = { a: A, s1: ParseState -> succ(fn(a), s1) }
+        this(s, succ1, cErr, eErr)
+    }
+    funP(state, succ1, cErr, eErr)
+}
+
 fun <R, A, B> Parser<R, A>.flatMap(fn: (A) -> Parser<R, B>): Parser<R, B> = { state, succ, cErr, eErr ->
     val succ1 = { a: A, s: ParseState -> fn(a)(s, succ, cErr, eErr) }
     this(state, succ1, cErr, eErr)
