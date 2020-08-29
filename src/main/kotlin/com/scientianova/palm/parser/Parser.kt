@@ -36,10 +36,11 @@ fun <R, A, B> Parser<R, A>.takeL(other: Parser<R, B>) = flatMap { value -> other
 
 fun <R, A, B> Parser<R, A>.takeR(other: Parser<R, B>) = flatMap { other }
 
-fun <R, A> oneOf(first: Parser<R, A>, vararg rest: Parser<R, A>) = oneOf(Cons(first, rest.toCons()))
-
-fun <R, A> oneOf(parsers: Cons<Parser<R, A>>): Parser<R, A> = { state, succ, cErr, eErr ->
-    handleOneOf(state, succ, cErr, eErr, parsers)
+fun <R, A> oneOf(vararg parsers: Parser<R, A>): Parser<R, A> {
+    val startIndex = parsers.lastIndex
+    return { state, succ, cErr, eErr ->
+        handleOneOf(state, succ, cErr, eErr, parsers, startIndex)
+    }
 }
 
 private fun <R, A> handleOneOf(
@@ -47,20 +48,19 @@ private fun <R, A> handleOneOf(
     succ: (A, ParseState) -> R,
     cErr: (PalmError, StringArea) -> R,
     eErr: (PalmError, StringArea) -> R,
-    parsers: Cons<Parser<R, A>>
-): R {
-    val next = parsers.next
-    return if (next == null) {
-        parsers.value(state, succ, cErr, eErr)
-    } else {
-        parsers.value(state, succ, cErr) { _, _ -> handleOneOf(state, succ, cErr, eErr, next) }
-    }
+    parsers: Array<out Parser<R, A>>,
+    index: Int
+): R = if (index == 0) {
+    parsers[index](state, succ, cErr, eErr)
+} else {
+    parsers[index](state, succ, cErr) { _, _ -> handleOneOf(state, succ, cErr, eErr, parsers, index - 1) }
 }
 
-fun <R, A> oneOfOrError(error: PalmError, vararg parsers: Parser<R, A>) = oneOfOrError(error, parsers.toCons())
-
-fun <R, A> oneOfOrError(error: PalmError, parsers: Cons<Parser<R, A>>?): Parser<R, A> = { state, succ, cErr, eErr ->
-    handleOneOfOrError(state, succ, cErr, eErr, parsers, error)
+fun <R, A> oneOfOrError(error: PalmError, vararg parsers: Parser<R, A>): Parser<R, A> {
+    val startIndex = parsers.lastIndex
+    return { state, succ, cErr, eErr ->
+        handleOneOfOrError(state, succ, cErr, eErr, parsers, error, startIndex)
+    }
 }
 
 private fun <R, A> handleOneOfOrError(
@@ -68,20 +68,22 @@ private fun <R, A> handleOneOfOrError(
     succ: (A, ParseState) -> R,
     cErr: (PalmError, StringArea) -> R,
     eErr: (PalmError, StringArea) -> R,
-    parsers: Cons<Parser<R, A>>?,
-    error: PalmError
-): R = if (parsers == null) {
+    parsers: Array<out Parser<R, A>>,
+    error: PalmError,
+    index: Int
+): R = if (index < 0) {
     eErr(error, state.area)
 } else {
-    parsers.value(state, succ, cErr) { _, _ ->
-        handleOneOfOrError(state, succ, cErr, eErr, parsers.next, error)
+    parsers[index](state, succ, cErr) { _, _ ->
+        handleOneOfOrError(state, succ, cErr, eErr, parsers, error, index - 1)
     }
 }
 
-fun <R, A> oneOfOrDefault(default: A, vararg parsers: Parser<R, A>) = oneOfOrDefault(default, parsers.toCons())
-
-fun <R, A> oneOfOrDefault(default: A, parsers: Cons<Parser<R, A>>?): Parser<R, A> = { state, succ, cErr, eErr ->
-    handleOneOfOrDefault(state, succ, cErr, eErr, parsers, default)
+fun <R, A> oneOfOrDefault(default: A, vararg parsers: Parser<R, A>): Parser<R, A> {
+    val startIndex = parsers.lastIndex
+    return { state, succ, cErr, eErr ->
+        handleOneOfOrDefault(state, succ, cErr, eErr, parsers, default, startIndex)
+    }
 }
 
 private fun <R, A> handleOneOfOrDefault(
@@ -89,13 +91,14 @@ private fun <R, A> handleOneOfOrDefault(
     succ: (A, ParseState) -> R,
     cErr: (PalmError, StringArea) -> R,
     eErr: (PalmError, StringArea) -> R,
-    parsers: Cons<Parser<R, A>>?,
-    default: A
-): R = if (parsers == null) {
+    parsers: Array<out Parser<R, A>>,
+    default: A,
+    index: Int
+): R = if (index < 0) {
     succ(default, state)
 } else {
-    parsers.value(state, succ, cErr) { _, _ ->
-        handleOneOfOrDefault(state, succ, cErr, eErr, parsers.next, default)
+    parsers[index](state, succ, cErr) { _, _ ->
+        handleOneOfOrDefault(state, succ, cErr, eErr, parsers, default, index - 1)
     }
 }
 
@@ -142,3 +145,29 @@ fun <T> returnResult(state: ParseState, parser: Parser<ParseResult<T>, T>) =
 
 fun <T> returnResultT(state: ParseState, parser: Parser<ParseResultT<T>, T>) =
     parser(state, ::successT, ::errorT) { _, _ -> ParseResultT.Failure }
+
+fun <R, A> elevateError(parser: Parser<R, A>): Parser<R, A> = { state, succ, cErr, _ ->
+    parser(state, succ, cErr, cErr)
+}
+
+fun <R, A> loopingBodyParser(
+    endChar: Char,
+    elemParser: Parser<ParseResult<A>, A>,
+    unclosedError: PalmError
+): Parser<R, List<A>> = parser@{ startState, succ, cErr, _ ->
+    loopValue(emptyList<A>() to startState.actual) { (list, state) ->
+        if (state.char == endChar) {
+            return@parser succ(list, state.next)
+        } else when (val res = returnResult(state, elemParser)) {
+            is ParseResult.Success -> {
+                val symbolState = res.next.actual
+                when (symbolState.char) {
+                    ',' -> list + res.value to symbolState.next
+                    endChar -> return@parser succ(list + res.value, symbolState.next)
+                    else -> return@parser cErr(unclosedError, symbolState.area)
+                }
+            }
+            is ParseResult.Error -> return@parser cErr(res.error, res.area)
+        }
+    }
+}

@@ -279,3 +279,5 @@ val missingCharError = missing("char")
 val missingStringError = missing("string")
 
 val missingNumberError = missing("number")
+
+val missingTypeError = missing("type")

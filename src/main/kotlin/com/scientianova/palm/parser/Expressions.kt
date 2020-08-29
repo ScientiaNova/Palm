@@ -88,6 +88,7 @@ sealed class BinOpsList {
     data class Symbol(val child: BinOpsList, val symbol: PString, val value: PExpr) : BinOpsList()
     data class Is(val child: BinOpsList, val type: PType) : BinOpsList()
     data class As(val child: BinOpsList, val type: PType, val handling: AsHandling) : BinOpsList()
+    data class Error(val error: PalmError, val area: StringArea) : BinOpsList()
 }
 
 fun BinOpsList.appendIdent(ident: PString, expr: PExpr) = BinOpsList.Ident(this, ident, expr)
@@ -98,24 +99,14 @@ fun BinOpsList.toExpr() =
     if (this is BinOpsList.Head) value.value
     else BinaryOpsExpr(this)
 
-inline fun <R> BinOpsList.map(crossinline fn: (PExpr) -> PExpr): Parser<R, BinOpsList> = { state, succ, cErr, _ ->
-    when (this) {
-        is BinOpsList.Head -> succ(BinOpsList.Head(fn(value)), state)
-        is BinOpsList.Ident -> succ(BinOpsList.Ident(child, ident, fn(value)), state)
-        is BinOpsList.Symbol -> succ(BinOpsList.Symbol(child, symbol, fn(value)), state)
-        is BinOpsList.Is -> cErr(postfixOperationOnTypeError, type.area.last + 1 until state.pos)
-        is BinOpsList.As -> cErr(postfixOperationOnTypeError, type.area.last + 1 until state.pos)
-    }
+inline fun BinOpsList.map(fn: (PExpr) -> PExpr) = when (this) {
+    is BinOpsList.Head -> BinOpsList.Head(fn(value))
+    is BinOpsList.Ident -> BinOpsList.Ident(child, ident, fn(value))
+    is BinOpsList.Symbol -> BinOpsList.Symbol(child, symbol, fn(value))
+    is BinOpsList.Is -> BinOpsList.Error(postfixOperationOnTypeError, (type.area.last + 1).let { it..it })
+    is BinOpsList.As -> BinOpsList.Error(postfixOperationOnTypeError, (type.area.last + 1).let { it..it })
+    is BinOpsList.Error -> this
 }
-
-val BinOpsList.lastPos
-    get() = when (this) {
-        is BinOpsList.Head -> value.area.last
-        is BinOpsList.Ident -> value.area.last
-        is BinOpsList.Symbol -> value.area.last
-        is BinOpsList.Is -> type.area.last
-        is BinOpsList.As -> type.area.last
-    }
 
 enum class AsHandling { Safe, Nullable, Unsafe }
 
@@ -212,10 +203,6 @@ private val asHandling: Parser<Any, AsHandling> = { state, succ, _, _ ->
 
 fun <R> asHandling() = asHandling as Parser<R, AsHandling>
 
-fun expectScope(state: ParseState, error: PalmError) =
-    if (state.char == '{') handleScopeBody(state.nextActual, state.pos)
-    else error errAt state
-
 fun handleInlinedExpr(
     state: ParseState,
     excludeCurly: Boolean
@@ -234,9 +221,11 @@ private val directOp: Parser<Any, (BinOpsList) -> BinOpsList> = symbol<Any>().wi
     } else oneOf(
         subExpr<Any>().withPos().map { expr ->
             { list: BinOpsList -> list.appendSymbol(op, expr) }
-        }, valueP { list: BinOpsList -> TODO() }
+        }, valueP { list: BinOpsList -> list.map { PostfixOpExpr(op, it) at it.area.first..op.area.last } }
     )
 }
+
+private val binOps: Parser<Any, Expression> =
 
 fun handleInlinedBinOps(
     startState: ParseState,
@@ -258,7 +247,6 @@ fun handleInlinedBinOps(
             in identStartChars -> {
                 val (infix, afterInfix) = handleIdent(actual)
                 when (infix.value) {
-                    in keywords -> return finishBinOps(first.area.first, list, state)
                     "is" -> handleType(afterInfix.actual, false).map(list::appendIs)
                     "as" -> {
                         val (handling, typeStart) = when (afterInfix.char) {
@@ -270,6 +258,7 @@ fun handleInlinedBinOps(
                             list.appendAs(type, handling)
                         }
                     }
+                    in keywords -> return finishBinOps(first.area.first, list, state)
                     else -> handleSubexpr(afterInfix.actual, false).map { part ->
                         list.appendIdent(infix, part)
                     }
