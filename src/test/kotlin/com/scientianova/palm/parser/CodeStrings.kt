@@ -60,7 +60,7 @@ fun Expression.toCodeString(indent: Int): String = when (this) {
             (ifFalse?.let { " else ${it.toCodeString(indent)}" } ?: "")
     is ScopeExpr -> scope.toCodeString(indent)
     is WhenExpr -> """
-when ${comparing.value.toCodeString(indent)} {
+when ${comparing?.let { it.value.toCodeString(indent) + " " } ?: ""}{
 ${indent(indent + 1)}${
         branches.joinToString("\n" + indent(indent + 1)) {
             it.first.value.toCodeString(indent + 1) + " -> " + it.second.toCodeString(indent + 1)
@@ -121,6 +121,7 @@ fun BinOpsList.toCodeString(indent: Int): String = when (this) {
         }
         "${child.toCodeString(indent)} as$suffix ${type.toCodeString(indent)}"
     }
+    is BinOpsList.Error -> "Error!!!"
 }
 
 private fun PExpr.showInBinOps(indent: Int): String = if (value is BinaryOpsExpr) {

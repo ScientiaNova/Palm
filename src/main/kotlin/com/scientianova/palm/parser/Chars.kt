@@ -3,7 +3,7 @@ package com.scientianova.palm.parser
 import com.scientianova.palm.errors.*
 import com.scientianova.palm.util.StringPos
 
-private val char: Parser<Any, CharExpr> = matchChar<Any>('\'', missingCharError).takeR { state, succ, cErr, _ ->
+private val char: Parser<Any, CharExpr> = tryChar<Any>('\'', missingCharError).takeR { state, succ, cErr, _ ->
     when (val char = state.char) {
         null, '\n' -> cErr(loneSingleQuoteError, state.area)
         '\\' -> when (val res = handleEscaped(state.next)) {
@@ -47,7 +47,7 @@ fun handleEscaped(state: ParseState) = when (state.char) {
     'v' -> 11.toChar() succTo state.next
     'u' -> if (state.nextChar == '{') {
         handleUnicode(state.code, state.pos + 2)
-    } else missingBacketInUnicodeError errAt state.nextPos
+    } else missingBracketInUnicodeError errAt state.nextPos
     else -> unclosedEscapeCharacterError errAt state.pos
 }
 

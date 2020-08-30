@@ -1,6 +1,8 @@
 package com.scientianova.palm.parser
 
+import com.scientianova.palm.errors.PError
 import com.scientianova.palm.errors.PalmError
+import com.scientianova.palm.errors.notEOLError
 import com.scientianova.palm.errors.unexpectedSymbolError
 import com.scientianova.palm.util.*
 
@@ -36,11 +38,17 @@ fun <R, A, B> Parser<R, A>.takeL(other: Parser<R, B>) = flatMap { value -> other
 
 fun <R, A, B> Parser<R, A>.takeR(other: Parser<R, B>) = flatMap { other }
 
-fun <R, A> oneOf(vararg parsers: Parser<R, A>): Parser<R, A> {
-    val startIndex = parsers.lastIndex
-    return { state, succ, cErr, eErr ->
-        handleOneOf(state, succ, cErr, eErr, parsers, startIndex)
-    }
+fun <R, A, B> Parser<R, A>.takeRLazy(fn: () -> Parser<R, B>): Parser<R, B> {
+    val lazy = lazy(fn)
+    return flatMap { lazy.value }
+}
+
+fun <R, A> Parser<R, A>.or(other: Parser<R, A>): Parser<R, A> = { state, succ, cErr, eErr ->
+    this(state, succ, cErr) { _, _ -> other(state, succ, cErr, eErr) }
+}
+
+fun <R, A> oneOf(vararg parsers: Parser<R, A>): Parser<R, A> = { state, succ, cErr, eErr ->
+    handleOneOf(state, succ, cErr, eErr, parsers, 0)
 }
 
 private fun <R, A> handleOneOf(
@@ -50,17 +58,14 @@ private fun <R, A> handleOneOf(
     eErr: (PalmError, StringArea) -> R,
     parsers: Array<out Parser<R, A>>,
     index: Int
-): R = if (index == 0) {
+): R = if (index == parsers.lastIndex) {
     parsers[index](state, succ, cErr, eErr)
 } else {
-    parsers[index](state, succ, cErr) { _, _ -> handleOneOf(state, succ, cErr, eErr, parsers, index - 1) }
+    parsers[index](state, succ, cErr) { _, _ -> handleOneOf(state, succ, cErr, eErr, parsers, index + 1) }
 }
 
-fun <R, A> oneOfOrError(error: PalmError, vararg parsers: Parser<R, A>): Parser<R, A> {
-    val startIndex = parsers.lastIndex
-    return { state, succ, cErr, eErr ->
-        handleOneOfOrError(state, succ, cErr, eErr, parsers, error, startIndex)
-    }
+fun <R, A> oneOfOrError(error: PalmError, vararg parsers: Parser<R, A>): Parser<R, A> = { state, succ, cErr, eErr ->
+    handleOneOfOrError(state, succ, cErr, eErr, parsers, error, 0)
 }
 
 private fun <R, A> handleOneOfOrError(
@@ -71,19 +76,16 @@ private fun <R, A> handleOneOfOrError(
     parsers: Array<out Parser<R, A>>,
     error: PalmError,
     index: Int
-): R = if (index < 0) {
+): R = if (index == parsers.size) {
     eErr(error, state.area)
 } else {
     parsers[index](state, succ, cErr) { _, _ ->
-        handleOneOfOrError(state, succ, cErr, eErr, parsers, error, index - 1)
+        handleOneOfOrError(state, succ, cErr, eErr, parsers, error, index + 1)
     }
 }
 
-fun <R, A> oneOfOrDefault(default: A, vararg parsers: Parser<R, A>): Parser<R, A> {
-    val startIndex = parsers.lastIndex
-    return { state, succ, cErr, eErr ->
-        handleOneOfOrDefault(state, succ, cErr, eErr, parsers, default, startIndex)
-    }
+fun <R, A> oneOfOrDefault(default: A, vararg parsers: Parser<R, A>): Parser<R, A> = { state, succ, cErr, eErr ->
+    handleOneOfOrDefault(state, succ, cErr, eErr, parsers, default, 0)
 }
 
 private fun <R, A> handleOneOfOrDefault(
@@ -94,11 +96,11 @@ private fun <R, A> handleOneOfOrDefault(
     parsers: Array<out Parser<R, A>>,
     default: A,
     index: Int
-): R = if (index < 0) {
+): R = if (index == parsers.size) {
     succ(default, state)
 } else {
     parsers[index](state, succ, cErr) { _, _ ->
-        handleOneOfOrDefault(state, succ, cErr, eErr, parsers, default, index - 1)
+        handleOneOfOrDefault(state, succ, cErr, eErr, parsers, default, index + 1)
     }
 }
 
@@ -110,7 +112,19 @@ fun <R, A> Parser<R, A>.orNull() = orDefault(null)
 
 fun <R, A> valueP(value: A): Parser<R, A> = { state, succ, _, _ -> succ(value, state) }
 
-fun <R> matchChar(
+fun <R, A> consumedError(error: PalmError): Parser<R, A> = { state, _, cErr, _ ->
+    cErr(error, state.area)
+}
+
+fun <R, A> consumedError(error: PalmError, area: StringArea): Parser<R, A> = { state, _, cErr, _ ->
+    cErr(error, area)
+}
+
+fun <R, A> emptyError(error: PalmError): Parser<R, A> = { state, _, _, eErr ->
+    eErr(error, state.area)
+}
+
+fun <R> tryChar(
     char: Char,
     error: PalmError = unexpectedSymbolError(char.toString())
 ): Parser<R, Char> = { state, succ, _, eErr ->
@@ -121,14 +135,58 @@ fun <R> matchChar(
     }
 }
 
-fun <R> matchString(
+fun <R> requireChar(
+    char: Char,
+    error: PalmError = unexpectedSymbolError(char.toString())
+): Parser<R, Char> = { state, succ, cErr, _ ->
+    if (state.char == char) {
+        succ(char, state.next)
+    } else {
+        cErr(error, state.area)
+    }
+}
+
+fun <R> tryString(
     string: String,
     error: PalmError = unexpectedSymbolError(string)
 ): Parser<R, String> = { state, succ, _, eErr ->
-    if (state.startWith(string)) {
+    if (state.startsWith(string)) {
         succ(string, state + string.length)
     } else {
         eErr(error, state.area)
+    }
+}
+
+fun <R> tryIdent(
+    string: String,
+    error: PalmError = unexpectedSymbolError(string)
+): Parser<R, String> = { state, succ, _, eErr ->
+    if (state.startsWithIdent(string)) {
+        succ(string, state + string.length)
+    } else {
+        eErr(error, state.area)
+    }
+}
+
+fun <R> requireIdent(
+    string: String,
+    error: PalmError = unexpectedSymbolError(string)
+): Parser<R, String> = { state, succ, cErr, _ ->
+    if (state.startsWithIdent(string)) {
+        succ(string, state + string.length)
+    } else {
+        cErr(error, state.area)
+    }
+}
+
+fun <R> requireSymbol(
+    string: String,
+    error: PalmError = unexpectedSymbolError(string)
+): Parser<R, String> = { state, succ, cErr, _ ->
+    if (state.startsWithSymbol(string)) {
+        succ(string, state + string.length)
+    } else {
+        cErr(error, state.area)
     }
 }
 
@@ -140,6 +198,9 @@ fun <R, A> Parser<R, A>.withPos(): Parser<R, Positioned<A>> = { state, succ, cEr
 fun <R, A, B, C> Parser<R, A>.zipWith(other: Parser<R, B>, fn: (A, B) -> C) =
     flatMap { a -> other.map { b -> fn(a, b) } }
 
+fun <R, A, B, C, D> Parser<R, A>.zipWith2(second: Parser<R, B>, third: Parser<R, C>, fn: (A, B, C) -> D) =
+    flatMap { a -> second.flatMap { b -> third.map { c -> fn(a, b, c) } } }
+
 fun <T> returnResult(state: ParseState, parser: Parser<ParseResult<T>, T>) =
     parser(state, ::success, ::error, ::error)
 
@@ -149,6 +210,16 @@ fun <T> returnResultT(state: ParseState, parser: Parser<ParseResultT<T>, T>) =
 fun <R, A> elevateError(parser: Parser<R, A>): Parser<R, A> = { state, succ, cErr, _ ->
     parser(state, succ, cErr, cErr)
 }
+
+fun <R, A> Parser<R, Positioned<A>>.failIf(
+    errFn: (A) -> PalmError,
+    predicate: (A) -> Boolean
+): Parser<R, Positioned<A>> =
+    { state, succ, cErr, eErr ->
+        val succ1 =
+            { a: Positioned<A>, s: ParseState -> if (predicate(a.value)) cErr(errFn(a.value), a.area) else succ(a, s) }
+        this(state, succ1, cErr, eErr)
+    }
 
 fun <R, A> loopingBodyParser(
     endChar: Char,
@@ -171,3 +242,14 @@ fun <R, A> loopingBodyParser(
         }
     }
 }
+
+private fun <A> parseSuccess(a: A, state: ParseState) = if (state.char == null) {
+    Right(a)
+} else {
+    Left(notEOLError at state.area)
+}
+
+private fun <A> parseError(error: PalmError, area: StringArea): Either<PError, A> = Left(error at area)
+
+fun <A> parse(startState: ParseState, parser: Parser<Either<PError, A>, A>) =
+    parser(startState, ::parseSuccess, ::parseError, ::parseError)

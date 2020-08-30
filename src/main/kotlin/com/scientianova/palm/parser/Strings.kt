@@ -18,9 +18,9 @@ private val interpolatedExpr: Parser<Any, PExpr> = oneOf(
 fun <R> string() = string as Parser<R, Expression>
 
 private val string: Parser<Any, Expression> =
-    matchChar<Any>('\"', missingStringError).takeR(
+    tryChar<Any>('\"', missingStringError).takeR(
         oneOf(
-            matchChar<Any>('\"').takeR(matchChar<Any>('\"').takeR { state, succ: SuccFn<Any, Expression>, cErr, _ ->
+            tryChar<Any>('\"').takeR(tryChar<Any>('\"').takeR { state, succ: SuccFn<Any, Expression>, cErr, _ ->
                 handleMultiLineString(state, emptyList(), StringBuilder(), state.pos, succ, cErr)
             }.orDefault(emptyString)), { state, succ, cErr, _ ->
                 handleSingleLineString(state, emptyList(), StringBuilder(), state.pos, succ, cErr)
@@ -69,7 +69,7 @@ tailrec fun <R> handleMultiLineString(
     errFn: ErrFn<R>
 ): R = when (val char = state.char) {
     null -> errFn(unclosedMultilineStringError, state.area)
-    '"' -> if (state.next.startWith("\"\"")) {
+    '"' -> if (state.next.startsWith("\"\"")) {
         succFn(finishString(parts, builder, lastStart, state + 2), state + 3)
     } else handleMultiLineString(state.next, parts, builder.append('"'), lastStart, succFn, errFn)
     '$' -> {

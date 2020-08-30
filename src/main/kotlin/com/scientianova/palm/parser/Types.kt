@@ -25,34 +25,13 @@ data class FunctionType(
     val implicit: Boolean
 ) : Type()
 
-private inline fun type(noinline whitespaceP: Parser<Any, Unit>, crossinline typePFn: () -> Parser<Any, Type>) =
-    oneOfOrError(
-        missingTypeError,
-        identifier<Any>().withPos().zipWith(pathTail) { start, tail ->
-            listOf(start, *tail.toTypedArray())
-        }.zipWith(whitespaceP.takeR(generics), ::NamedType),
-        parenthesizedType(whitespaceP, typePFn)
-    )
-
-fun <R> inlinedType(): Parser<R, Type> = inlinedType as Parser<R, Type>
-private val inlinedType: Parser<Any, Type> by lazy { type(whitespace()) { inlinedType() } }
-
-fun <R> scopedType(): Parser<R, Type> = scopedType as Parser<R, Type>
-private val scopedType: Parser<Any, Type> by lazy { type(whiteSpaceOnLine()) { scopedType() } }
-
-private val typeAnnotation: Parser<Any, PType> by lazy {
-    matchChar<Any>(':').takeR(whitespace()).takeR(elevateError(scopedType())).withPos()
-}
-
-fun <R> typeAnnotation() = typeAnnotation as Parser<R, PType>
+fun <R> pathNode() = pathNode as Parser<R, PString>
 
 private val pathNode: Parser<Any, PString> = whitespace<Any>()
-    .takeL(matchChar('.'))
+    .takeL(tryChar('.'))
     .takeR(whitespace())
     .takeR(elevateError(identifier()))
     .withPos()
-
-fun <R> pathNode() = pathNode as Parser<R, PString>
 
 private val pathTail: Parser<Any, List<PString>> = parser@{ startState, succ, cErr, _ ->
     loopValue(listOf<PString>() to startState) { (list, state) ->
@@ -64,20 +43,40 @@ private val pathTail: Parser<Any, List<PString>> = parser@{ startState, succ, cE
     }
 }
 
-private val generics: Parser<Any, List<PType>> = matchChar<Any>('[')
-    .takeR(loopingBodyParser(']', inlinedType<ParseResult<PType>>().withPos(), unclosedSquareBacketError))
+private val generics: Parser<Any, List<PType>> = tryChar<Any>('[')
+    .takeRLazy { loopingBodyParser(']', inlineType<ParseResult<PType>>().withPos(), unclosedSquareBacketError) }
+
+private inline fun type(noinline whitespaceP: Parser<Any, Unit>, crossinline typePFn: () -> Parser<Any, Type>) =
+    oneOfOrError(
+        missingTypeError,
+        identifier<Any>().withPos().zipWith(pathTail) { start, tail ->
+            listOf(start, *tail.toTypedArray())
+        }.zipWith(whitespaceP.takeR(generics), ::NamedType),
+        parenthesizedType(whitespaceP, typePFn)
+    )
+
+fun <R> inlineType(): Parser<R, Type> = inlineType as Parser<R, Type>
+private val inlineType: Parser<Any, Type> = type(whitespace()) { inlineType() }
+
+fun <R> scopedType(): Parser<R, Type> = scopedType as Parser<R, Type>
+private val scopedType: Parser<Any, Type> = type(whitespaceOnLine()) { scopedType() }
+
+fun <R> typeAnnotation() = typeAnnotation as Parser<R, PType>
+private val typeAnnotation: Parser<Any, PType> by lazy {
+    tryChar<Any>(':').takeR(whitespace()).takeR(elevateError(scopedType())).withPos()
+}
 
 private inline fun parenthesizedType(
     noinline whitespaceP: Parser<Any, Unit>,
     crossinline typePFn: () -> Parser<Any, Type>
-): Parser<Any, Type> = matchChar<Any>('(')
-    .takeR(loopingBodyParser(')', inlinedType<ParseResult<PType>>().withPos(), unclosedParenthesisError))
+): Parser<Any, Type> = tryChar<Any>('(')
+    .takeRLazy { loopingBodyParser(')', inlineType<ParseResult<PType>>().withPos(), unclosedParenthesisError) }
     .flatMap { list ->
         oneOf(
             whitespace<Any>().takeR(
                 oneOf(
-                    matchString<Any>("->").map { false },
-                    matchString<Any>("=>").map { true },
+                    tryString<Any>("->").map { false },
+                    tryString<Any>("=>").map { true },
                 )
             ).zipWith(whitespaceP.takeR(typePFn()).withPos()) { implicit, returnType ->
                 FunctionType(list, returnType, implicit)

@@ -25,10 +25,10 @@ tailrec fun handleMultiLineComment(code: String, pos: StringPos): StringPos = wh
     else -> handleMultiLineComment(code, pos + 1)
 }
 
-private val whiteSpace: Parser<Any, Unit> = { state, succ, _, _ -> succ(Unit, state.actual) }
+private val whitespace: Parser<Any, Unit> = { state, succ, _, _ -> succ(Unit, state.actual) }
 
-fun <R> whitespace() = whiteSpace as Parser<R, Unit>
+fun <R> whitespace() = whitespace as Parser<R, Unit>
 
-private val whiteSpaceOnLine: Parser<Any, Unit> = { state, succ, _, _ -> succ(Unit, state.actualOrBreak) }
+private val whitespaceOnLine: Parser<Any, Unit> = { state, succ, _, _ -> succ(Unit, state.actualOrBreak) }
 
-fun <R> whiteSpaceOnLine() = whiteSpaceOnLine as Parser<R, Unit>
+fun <R> whitespaceOnLine() = whitespaceOnLine as Parser<R, Unit>

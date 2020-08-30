@@ -7,10 +7,6 @@ import com.scientianova.palm.errors.missingIdentifierError
 import com.scientianova.palm.errors.missingSymbolError
 import com.scientianova.palm.util.StringPos
 
-fun <R> identifier() = identifier as Parser<R, String>
-
-private val identifier: Parser<Any, String> = oneOf(normalIdentifier(), tickedIdentifier())
-
 fun <R> normalIdentifier() = normalIdentifier as Parser<R, String>
 
 private val normalIdentifier: Parser<Any, String> = { state, succ, _, eErr ->
@@ -39,7 +35,7 @@ private tailrec fun <R> handleNormalIdent(
 fun <R> tickedIdentifier() = tickedIdentifier as Parser<R, String>
 
 private val tickedIdentifier: Parser<Any, String> =
-    matchChar<Any>('`', missingIdentifierError).takeR { state, succ, cErr, _ ->
+    tryChar<Any>('`', missingIdentifierError).takeR { state, succ, cErr, _ ->
         handleTickedIdent(state.code, state.pos, StringBuilder(), succ, cErr)
     }
 
@@ -55,6 +51,10 @@ private tailrec fun <R> handleTickedIdent(
     '`' -> succFn(builder.toString(), ParseState(code, pos + 1))
     else -> handleTickedIdent(code, pos + 1, builder.append(char), succFn, errFn)
 }
+
+fun <R> identifier() = identifier as Parser<R, String>
+
+private val identifier: Parser<Any, String> = oneOf(normalIdentifier(), tickedIdentifier())
 
 fun <R> symbol() = symbol as Parser<R, String>
 

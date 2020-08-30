@@ -1,14 +1,21 @@
 package com.scientianova.palm.parser
 
-import com.scientianova.palm.errors.PalmCompilationException
+import com.scientianova.palm.errors.PError
+import com.scientianova.palm.errors.messageFor
+import com.scientianova.palm.util.Either
+import com.scientianova.palm.util.Left
+import com.scientianova.palm.util.Right
 
-inline fun <T> parse(fn: (ParseState) -> ParseResult<T>, code: String): T = when (val res = fn(ParseState(code, 0))) {
-    is ParseResult.Success -> res.value
-    is ParseResult.Error -> throw PalmCompilationException(code, "REPL", res.area, res.error)
+fun testParse(
+    parser: Parser<Either<PError, String>, String>,
+    code: String
+): String = when (val either = parse(ParseState(code, 0), parser)) {
+    is Right -> either.right
+    is Left -> either.left.messageFor(code, "REPL")
 }
 
-fun testExpr() = parse<PExpr>(
-    ::handleScopedExpr, """
+fun testExpr() = testParse(
+    scopedExpr<Either<PError, String>>().map { it.toCodeString(0) }, """
     if state.char?.isSymbolPart() == true {
         val op = handleSymbol(state)
         if op.value.isPostfixOp(afterOp) {

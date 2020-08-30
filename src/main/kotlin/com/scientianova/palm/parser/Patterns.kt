@@ -1,9 +1,14 @@
+@file:Suppress("UNCHECKED_CAST")
+
 package com.scientianova.palm.parser
 
 import com.scientianova.palm.errors.invalidDoubleDeclarationError
 import com.scientianova.palm.errors.invalidPatternError
+import com.scientianova.palm.errors.missingPatternError
 import com.scientianova.palm.errors.unclosedParenthesisError
-import com.scientianova.palm.util.*
+import com.scientianova.palm.util.PString
+import com.scientianova.palm.util.Positioned
+import com.scientianova.palm.util.at
 
 sealed class Pattern
 typealias PPattern = Positioned<Pattern>
@@ -15,66 +20,112 @@ data class TypePattern(val type: PType) : Pattern()
 
 object WildcardPattern : Pattern()
 
-enum class DeclarationType { VAR, VAL, NONE }
+fun <R> varPattern() = varPattern as Parser<R, PPattern>
+fun <R> valPattern() = valPattern as Parser<R, PPattern>
+fun <R> pattern() = pattern as Parser<R, PPattern>
 
-fun handlePattern(
-    state: ParseState,
-    decType: DeclarationType,
-    excludeExpression: Boolean
-): ParseResult<PPattern> = when {
-    state.char == '.' && state.nextChar?.isIdentifierStart() == true -> {
-        val (ident, afterIdent) = handleIdent(state.next)
-        val maybeParen = afterIdent.actual
-        if (maybeParen.char == '(') handlePatternTuple(maybeParen.nextActual, decType, maybeParen.pos, emptyList())
-            .flatMap { components, next ->
-                EnumPattern(ident, components) at state.pos..next.lastPos succTo next
-            }
-        else EnumPattern(ident, emptyList()) at state.pos..ident.area.last succTo afterIdent
-    }
-    state.char?.isIdentifierStart() == true -> {
-        val (ident, afterIdent) = handleIdent(state)
+fun <R> varPatternNoExpr() = varPatternNoExpr as Parser<R, PPattern>
+fun <R> valPatternNoExpr() = valPatternNoExpr as Parser<R, PPattern>
+
+private val varPattern: Parser<Any, PPattern> = oneOfOrError(
+    missingPatternError,
+    enumPattern(::varPattern).withPos(),
+    normalIdentifier<Any>().withPos().flatMap { ident ->
         when (ident.value) {
-            "_" -> WildcardPattern at ident.area succTo afterIdent
-            "is" -> handleType(afterIdent.actual, false).map { type ->
-                TypePattern(type) at state.pos..type.area.last
-            }
-            "val" ->
-                if (decType == DeclarationType.NONE) handlePattern(afterIdent.actual, DeclarationType.VAL, false)
-                else invalidDoubleDeclarationError errAt ident.area
-            "var" ->
-                if (decType == DeclarationType.NONE) handlePattern(afterIdent.actual, DeclarationType.VAR, false)
-                else invalidDoubleDeclarationError errAt ident.area
-            else -> if (excludeExpression) {
-                invalidPatternError errAt state.pos
-            } else ident.startExpr(afterIdent, false).map { expr ->
-                if (expr.value is IdentExpr) when (decType) {
-                    DeclarationType.NONE -> expr.map(::ExprPattern)
-                    DeclarationType.VAL -> DecPattern(expr.value.name, false) at expr.area
-                    DeclarationType.VAR -> DecPattern(expr.value.name, true) at expr.area
-                } else expr.map(::ExprPattern)
+            "_" -> valueP(WildcardPattern at ident.area)
+            "val" -> consumedError(invalidDoubleDeclarationError, ident.area)
+            "var" -> consumedError(invalidDoubleDeclarationError, ident.area)
+            else -> inlineIdentExpr<Any>(ident).map {
+                val expr = it.value
+                if (expr is IdentExpr) {
+                    DecPattern(expr.name, true)
+                } else {
+                    ExprPattern(it.value)
+                } at it.area
             }
         }
+    },
+    inlineExpr<Any>().map {
+        val expr = it.value
+        if (expr is IdentExpr) {
+            DecPattern(expr.name, true)
+        } else {
+            ExprPattern(it.value)
+        } at it.area
     }
-    else -> handleInlinedExpr(state, false).map { expr ->
-        if (expr.value is IdentExpr) when (decType) {
-            DeclarationType.NONE -> expr.map(::ExprPattern)
-            DeclarationType.VAL -> DecPattern(expr.value.name, false) at expr.area
-            DeclarationType.VAR -> DecPattern(expr.value.name, true) at expr.area
-        } else expr.map(::ExprPattern)
-    }
-}
+)
 
-fun handlePatternTuple(
-    state: ParseState,
-    decType: DeclarationType,
-    startPos: StringPos,
-    patterns: List<PPattern>
-): ParseResult<List<PPattern>> = if (state.char == ')') patterns succTo state.next
-else handlePattern(state, decType, false).flatMap { pattern, afterPattern ->
-    val symbolState = afterPattern.actual
-    when (symbolState.char) {
-        ',' -> handlePatternTuple(symbolState.nextActual, decType, startPos, patterns + pattern)
-        ')' -> (patterns + pattern) succTo symbolState.next
-        else -> unclosedParenthesisError errAt symbolState.pos
+private val valPattern: Parser<Any, PPattern> = oneOfOrError(
+    missingPatternError,
+    enumPattern(::valPattern).withPos(),
+    normalIdentifier<Any>().withPos().flatMap { ident ->
+        when (ident.value) {
+            "_" -> valueP(WildcardPattern at ident.area)
+            "val" -> consumedError(invalidDoubleDeclarationError, ident.area)
+            "var" -> consumedError(invalidDoubleDeclarationError, ident.area)
+            else -> inlineIdentExpr<Any>(ident).map {
+                val expr = it.value
+                if (expr is IdentExpr) {
+                    DecPattern(expr.name, false)
+                } else {
+                    ExprPattern(it.value)
+                } at it.area
+            }
+        }
+    },
+    inlineExpr<Any>().map {
+        val expr = it.value
+        if (expr is IdentExpr) {
+            DecPattern(expr.name, false)
+        } else {
+            ExprPattern(it.value)
+        } at it.area
     }
-}
+)
+
+private val pattern: Parser<Any, PPattern> = oneOfOrError(
+    missingPatternError,
+    enumPattern(::pattern).withPos(),
+    normalIdentifier<Any>().withPos().flatMap { ident ->
+        when (ident.value) {
+            "_" -> valueP(WildcardPattern at ident.area)
+            "val" -> whitespace<Any>().takeR(valPattern)
+            "var" -> whitespace<Any>().takeR(varPattern)
+            else -> inlineIdentExpr<Any>(ident).map { ExprPattern(it.value) at it.area }
+        }
+    },
+    inlineExpr<Any>().map { ExprPattern(it.value) at it.area }
+)
+
+private val varPatternNoExpr: Parser<Any, PPattern> = oneOfOrError(
+    missingPatternError,
+    enumPattern(::varPattern).withPos(),
+    normalIdentifier<Any>().withPos().flatMap { ident ->
+        when (ident.value) {
+            "_" -> valueP(WildcardPattern at ident.area)
+            "val" -> consumedError(invalidDoubleDeclarationError, ident.area)
+            "var" -> consumedError(invalidDoubleDeclarationError, ident.area)
+            else -> consumedError(invalidPatternError, ident.area)
+        }
+    }
+)
+
+private val valPatternNoExpr: Parser<Any, PPattern> = oneOfOrError(
+    missingPatternError,
+    enumPattern(::valPattern).withPos(),
+    normalIdentifier<Any>().withPos().flatMap { ident ->
+        when (ident.value) {
+            "_" -> valueP(WildcardPattern at ident.area)
+            "val" -> consumedError(invalidDoubleDeclarationError, ident.area)
+            "var" -> consumedError(invalidDoubleDeclarationError, ident.area)
+            else -> consumedError(invalidPatternError, ident.area)
+        }
+    }
+)
+
+private fun patternTuple(patternP: () -> Parser<ParseResult<PPattern>, PPattern>): Parser<Any, List<PPattern>> =
+    tryChar<Any>('(').takeRLazy { loopingBodyParser(')', patternP(), unclosedParenthesisError) }
+
+private fun enumPattern(patternP: () -> Parser<ParseResult<PPattern>, PPattern>) = tryChar<Any>('.')
+    .takeR(identifier<Any>().withPos())
+    .zipWith(patternTuple(patternP).orDefault(emptyList()), ::EnumPattern)

@@ -14,17 +14,24 @@ data class ParseState(val code: String, val pos: StringPos) {
     val last get() = copy(pos = pos - 1)
     val next get() = copy(pos = pos + 1)
 
-    val actual get() = ParseState(code, actual(code, pos))
-    val actualOrBreak get() = ParseState(code, actualOrBreak(code, pos))
+    val actual get() = when (char) {
+        '\n', '\t', '\r', ' ' -> ParseState(code, actual(code, nextPos))
+        else -> this
+    }
+
+    val actualOrBreak get() = when (char) {
+        '\t', '\r', ' ' -> ParseState(code, actualOrBreak(code, nextPos))
+        else -> this
+    }
 
     val nextActual get() = next.actual
     val nextActualOrBreak get() = next.actualOrBreak
 
-    fun startWith(string: String) = code.startsWith(string, startIndex = pos)
-    fun startWithIdent(string: String) = startWith(string)
+    fun startsWith(string: String) = code.startsWith(string, startIndex = pos)
+    fun startsWithIdent(string: String) = startsWith(string)
             && code.getOrNull(pos + string.length)?.isIdentifierPart() != true
 
-    fun startWithSymbol(string: String) = startWith(string)
+    fun startsWithSymbol(string: String) = startsWith(string)
             && code.getOrNull(pos + string.length)?.isSymbolPart() != true
 
     operator fun plus(places: Int) = copy(pos = pos + places)

@@ -84,13 +84,7 @@ val unclosedSquareBacketError = PalmError(
     "Add a ] here."
 )
 
-val invalidExpressionError = PalmError(
-    "INVALID EXPRESSION",
-    "I was expecting an expression, but instead got:",
-    ""
-)
-
-val missingBacketInUnicodeError = PalmError(
+val missingBracketInUnicodeError = PalmError(
     "MISSING CURLY BRACKET",
     "I saw a \\u and was expecting an open curly bracket next, but instead got:",
     "Add an { here."
@@ -136,12 +130,6 @@ val unclosedImportGroupError = PalmError(
     "UNCLOSED IMPORT GROUP",
     "I was going through an import group and instead of a closed curly bracket found:",
     "Add a } here."
-)
-
-val missingExpressionError = PalmError(
-    "MISSING EXPRESSION",
-    "I was expecting an expression, but I seem to have reached the end of the file:",
-    ""
 )
 
 val unclosedCharLiteralError = PalmError(
@@ -237,7 +225,7 @@ val invalidLambdaArgumentsError = PalmError(
 
 val invalidVariableDeclarationError = PalmError(
     "INVALID VARIABLE DECLARATION ERROR",
-    "I was going through a variable declaration, but couldn't find a type or value after the type:",
+    "I was going through a variable declaration, but couldn't find a type or value after the name:",
     "When declaring a variable you need to specify the type, with :, or the value, with =."
 )
 
@@ -281,3 +269,27 @@ val missingStringError = missing("string")
 val missingNumberError = missing("number")
 
 val missingTypeError = missing("type")
+
+val infixKeywordError = PalmError(
+    "INVALID INFIX FUNCTION",
+    "I thought I saw an infix function, but it was in fact a keyword:",
+    ""
+)
+
+val arrowOpError = PalmError(
+    "INVALID OPERATOR",
+    "I thought I saw an infix operator, but it was in fact an arrow:",
+    ""
+)
+
+val missingPatternError = missing("pattern")
+
+val missingConditionError = missing("condition")
+
+val missingExpressionError = missing("expression")
+
+val notEOLError = PalmError(
+    "NOT END OF LINE",
+    "I got to:",
+    "I was expecting to see the end of the file next"
+)

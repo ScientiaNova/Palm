@@ -1,6 +1,5 @@
 package com.scientianova.palm.parser
 
-import com.scientianova.palm.errors.missingIdentifierError
 import com.scientianova.palm.errors.unknownParamModifierError
 import com.scientianova.palm.util.PString
 
@@ -13,6 +12,7 @@ sealed class FunDec<T> {
     abstract val params: List<FunParam>
     abstract val info: T
 }
+
 data class Function<T>(
     override val name: PString,
     override val params: List<FunParam>,
@@ -27,26 +27,6 @@ data class FunParam(
     val type: PType,
     val default: PExpr? = null
 )
-
-fun expectIdent(state: ParseState): ParseResult<PString> = when (state.char) {
-    in identStartChars -> handleIdent(state).toResult()
-    '`' -> handleBacktickedIdent(state)
-    else -> missingIdentifierError errAt state
-}
-
-fun handleParam(
-    startState: ParseState
-): ParseResult<FunParam> = reuseWhileSuccess(startState, emptyList<ParamModifier>()) { mods, state ->
-    expectIdent(state).flatMap { ident, afterIdent ->
-        val maybeColon = afterIdent.actual
-        if (maybeColon.char == ':') handleType(maybeColon.nextActual, false).flatMap { type, afterType ->
-            val maybeEq = afterType.actual
-            if (maybeEq.char == '=') handleInlinedExpr(maybeEq.nextActual, false).flatMap { expr, afterExpr ->
-                return FunParam(mods, ident, type, expr) succTo afterExpr
-            } else return FunParam(mods, ident, type) succTo afterType
-        } else handleParamModifier(ident, maybeColon).map(mods::plus)
-    }
-}
 
 fun handleParamModifier(ident: PString, nextState: ParseState) = when (ident.value) {
     "using" -> ParamModifier.Using succTo nextState
