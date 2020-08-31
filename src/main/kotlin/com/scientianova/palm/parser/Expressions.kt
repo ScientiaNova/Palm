@@ -113,7 +113,7 @@ data class ReturnExpr(val expr: PExpr?) : Expression()
 
 fun <R> scope() = scope as Parser<R, ExprScope>
 
-private val scope: Parser<Any, ExprScope> = requireChar<Any>('{', missingScopeError).takeR{ state, succ, cErr, _ ->
+private val scope: Parser<Any, ExprScope> = requireChar<Any>('{', missingScopeError).takeR { state, succ, cErr, _ ->
     handleScopeBody(state.nextActual, emptyList(), succ, cErr)
 }
 
@@ -337,10 +337,7 @@ private fun binOpsBody(
                 },
             invocation<Any>(excludeCurly).withPos().map { args ->
                 { list ->
-                    list.map { expr ->
-                        CallExpr(expr, args.value) at
-                                expr.area.first..args.area.last
-                    }
+                    list.map { expr -> CallExpr(expr, args.value) at expr.area.first..args.area.last }
                 }
             },
             *if (excludeCurly) {
@@ -368,17 +365,16 @@ private val scopedBinOpsBody: Parser<Any, (BinOpsList) -> BinOpsList> by lazy {
 
 fun <R> scopedBinOpsBody() = scopedBinOpsBody as Parser<R, (BinOpsList) -> BinOpsList>
 
-private fun <R> handleScopedBinOpsBody(
-    startExpr: PExpr,
-    startState: ParseState,
+private tailrec fun <R> handleScopedBinOpsBody(
+    list: BinOpsList,
+    state: ParseState,
     succFn: SuccFn<R, PExpr>,
-    errFn: ErrFn<R>
-): R = loopValue(BinOpsList.Head(startExpr) to startState) { (list, state): Pair<BinOpsList, ParseState> ->
-    when (val res = returnResultT(state, scopedBinOpsBody())) {
-        is ParseResultT.Success -> res.value(list) to res.next
-        is ParseResultT.Failure -> return succFn(list.toExpr(startExpr.area.first..state.lastPos), state)
-        is ParseResultT.Error -> return errFn(res.error, res.area)
-    }
+    errFn: ErrFn<R>,
+    startPos: StringPos
+): R = when (val res = returnResultT(state, scopedBinOpsBody())) {
+    is ParseResultT.Success -> handleScopedBinOpsBody(res.value(list), res.next, succFn, errFn, startPos)
+    is ParseResultT.Failure -> succFn(list.toExpr(startPos..state.lastPos), state)
+    is ParseResultT.Error -> errFn(res.error, res.area)
 }
 
 private val inlineTerm: Parser<Any, Expression> by lazy {
@@ -391,17 +387,16 @@ private val inlineBinOpsBody: Parser<Any, (BinOpsList) -> BinOpsList> by lazy {
 
 fun <R> inlineBinOpsBody() = inlineBinOpsBody as Parser<R, (BinOpsList) -> BinOpsList>
 
-private fun <R> handleInlineBinOpsBody(
-    startExpr: PExpr,
-    startState: ParseState,
+private tailrec fun <R> handleInlineBinOpsBody(
+    list: BinOpsList,
+    state: ParseState,
     succFn: SuccFn<R, PExpr>,
-    errFn: ErrFn<R>
-): R = loopValue(BinOpsList.Head(startExpr) to startState) { (list, state): Pair<BinOpsList, ParseState> ->
-    when (val res = returnResultT(state, inlineBinOpsBody())) {
-        is ParseResultT.Success -> res.value(list) to res.next
-        is ParseResultT.Failure -> return succFn(list.toExpr(startExpr.area.first..state.lastPos), state)
-        is ParseResultT.Error -> return errFn(res.error, res.area)
-    }
+    errFn: ErrFn<R>,
+    startPos: StringPos
+): R = when (val res = returnResultT(state, inlineBinOpsBody())) {
+    is ParseResultT.Success -> handleInlineBinOpsBody(res.value(list), res.next, succFn, errFn, startPos)
+    is ParseResultT.Failure -> succFn(list.toExpr(startPos..state.lastPos), state)
+    is ParseResultT.Error -> errFn(res.error, res.area)
 }
 
 private val inlineNoCurlyTerm: Parser<Any, Expression> by lazy {
@@ -414,17 +409,16 @@ private val inlineNoCurlyBinOpsBody: Parser<Any, (BinOpsList) -> BinOpsList> by 
 
 fun <R> inlineNoCurlyBinOpsBody() = inlineNoCurlyBinOpsBody as Parser<R, (BinOpsList) -> BinOpsList>
 
-private fun <R> handleInlineNoCurlyBinOpsBody(
-    startExpr: PExpr,
-    startState: ParseState,
+private tailrec fun <R> handleInlineNoCurlyBinOpsBody(
+    list: BinOpsList,
+    state: ParseState,
     succFn: SuccFn<R, PExpr>,
-    errFn: ErrFn<R>
-): R = loopValue(BinOpsList.Head(startExpr) to startState) { (list, state): Pair<BinOpsList, ParseState> ->
-    when (val res = returnResultT(state, inlineNoCurlyBinOpsBody())) {
-        is ParseResultT.Success -> res.value(list) to res.next
-        is ParseResultT.Failure -> return succFn(list.toExpr(startExpr.area.first..state.lastPos), state)
-        is ParseResultT.Error -> return errFn(res.error, res.area)
-    }
+    errFn: ErrFn<R>,
+    startPos: StringPos
+): R = when (val res = returnResultT(state, inlineNoCurlyBinOpsBody())) {
+    is ParseResultT.Success -> handleInlineNoCurlyBinOpsBody(res.value(list), res.next, succFn, errFn, startPos)
+    is ParseResultT.Failure -> succFn(list.toExpr(startPos..state.lastPos), state)
+    is ParseResultT.Error -> errFn(res.error, res.area)
 }
 
 fun <R> invocation(excludeCurly: Boolean) = tryChar<R>('(')
@@ -435,48 +429,45 @@ fun <R> invocation(excludeCurly: Boolean) = tryChar<R>('(')
     }
 
 fun <R> callArg(): Parser<R, Arg> = oneOf(
-    identifier<R>().withPos().zipWith(equalsInlineExpr(), Arg::Named),
-    inlineExpr<R>().map(Arg::Free)
+    identifier<R>().withPos().flatMap { ident ->
+        equalsInlineExpr<R>().map { expr -> Arg.Named(ident, expr) }.or(inlineIdentExpr<R>(ident).map(Arg::Free))
+    }, inlineExpr<R>().map(Arg::Free)
 )
 
 fun <R> inlineIdentExpr(ident: PString): Parser<R, PExpr> = identTerm<R>(ident.value, whitespace(), inlineExpr())
-    .flatMap { term -> { state, succ: SuccFn<R, PExpr>, _, _ -> succ(term at ident.area.first..state.lastPos, state) } }
-    .flatMap {
-        { state, succ, cErr, _ -> handleInlineBinOpsBody(it, state, succ, cErr) }
+    .flatMap { term ->
+        { state, succ: SuccFn<R, PExpr>, _, _ -> succ(term at ident.area.first..state.lastPos, state) }
+    }.flatMap {
+        { state, succ, cErr, _ -> handleInlineBinOpsBody(BinOpsList.Head(it), state.actual, succ, cErr, it.area.first) }
     }
 
-fun <R> inlineNoCurlyIdentExpr(ident: PString): Parser<R, PExpr> =
-    identTerm<R>(ident.value, whitespace(), inlineNoCurlyExpr())
+fun <R> inlineNoCurlyIdentExpr(ident: PString): Parser<R, PExpr> = identTerm<R>(ident.value, whitespace(), inlineNoCurlyExpr())
         .flatMap { term ->
-            { state, succ: SuccFn<R, PExpr>, _, _ ->
-                succ(
-                    term at ident.area.first..state.lastPos,
-                    state
-                )
-            }
+            { state, succ: SuccFn<R, PExpr>, _, _ -> succ(term at ident.area.first..state.lastPos, state) }
         }.flatMap {
-            { state, succ, cErr, _ -> handleInlineNoCurlyBinOpsBody(it, state, succ, cErr) }
+            { state, succ, cErr, _ -> handleInlineNoCurlyBinOpsBody(BinOpsList.Head(it), state.actual, succ, cErr, it.area.first) }
         }
 
 fun <R> scopedIdentExpr(ident: PString): Parser<R, PExpr> = identTerm<R>(ident.value, whitespace(), scopedExpr())
-    .flatMap { term -> { state, succ: SuccFn<R, PExpr>, _, _ -> succ(term at ident.area.first..state.lastPos, state) } }
-    .flatMap {
-        { state, succ, cErr, _ -> handleScopedBinOpsBody(it, state, succ, cErr) }
+    .flatMap { term ->
+        { state, succ: SuccFn<R, PExpr>, _, _ -> succ(term at ident.area.first..state.lastPos, state) }
+    }.flatMap {
+        { state, succ, cErr, _ -> handleScopedBinOpsBody(BinOpsList.Head(it), state.actual, succ, cErr, it.area.first) }
     }
 
 fun <R> inlineExpr(): Parser<R, PExpr> = inlineExpr as Parser<R, PExpr>
 private val inlineExpr: Parser<Any, PExpr> = inlineTerm.withPos().flatMap {
-    { state, succ, cErr, _ -> handleInlineBinOpsBody(it, state, succ, cErr) }
+    { state, succ, cErr, _ -> handleInlineBinOpsBody(BinOpsList.Head(it), state.actual, succ, cErr, it.area.first) }
 }
 
 fun <R> inlineNoCurlyExpr(): Parser<R, PExpr> = inlineNoCurlyExpr as Parser<R, PExpr>
 private val inlineNoCurlyExpr: Parser<Any, PExpr> = inlineNoCurlyTerm.withPos().flatMap {
-    { state, succ, cErr, _ -> handleInlineNoCurlyBinOpsBody(it, state, succ, cErr) }
+    { state, succ, cErr, _ -> handleInlineNoCurlyBinOpsBody(BinOpsList.Head(it), state.actual, succ, cErr, it.area.first) }
 }
 
 fun <R> scopedExpr(): Parser<R, PExpr> = scopedExpr as Parser<R, PExpr>
 private val scopedExpr: Parser<Any, PExpr> = scopedTerm.withPos().flatMap {
-    { state, succ, cErr, _ -> handleScopedBinOpsBody(it, state, succ, cErr) }
+    { state, succ, cErr, _ -> handleScopedBinOpsBody(BinOpsList.Head(it), state.actual, succ, cErr, it.area.first) }
 }
 
 fun <R> equalsScopedExpr() = equalsScopedExpr as Parser<R, PExpr>
@@ -577,7 +568,7 @@ private fun <R> handleWhenBody(
     succFn: SuccFn<R, List<WhenBranch>>,
     errFn: ErrFn<R>
 ): R = when (state.char) {
-    null -> errFn(unclosedScopeError, state.area)
+    null -> errFn(unclosedWhenError, state.area)
     '}' -> succFn(branches, state.next)
     ';' -> handleWhenBody(state.next, branches, succFn, errFn)
     else -> when (val res = returnResult(state, whenBranch())) {
@@ -585,7 +576,7 @@ private fun <R> handleWhenBody(
             val sepState = res.next.actualOrBreak
             when (sepState.char) {
                 ';', '\n' -> handleWhenBody(sepState.nextActual, branches + res.value, succFn, errFn)
-                else -> errFn(unclosedScopeError, sepState.area)
+                else -> errFn(unclosedWhenError, sepState.area)
             }
         }
         is ParseResult.Error -> errFn(res.error, res.area)

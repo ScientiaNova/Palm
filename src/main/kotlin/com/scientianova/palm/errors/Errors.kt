@@ -111,7 +111,7 @@ val invalidDecimalLiteralError = PalmError(
 val invalidHexLiteralError = PalmError(
     "INVALID HEX LITERAL",
     "I was going through a hexidecimal number literal and got:",
-    "Hexidecimal number literals can only contain the digits 0-9, a-f and A-F."
+    "Hexadecimal number literals can only contain the digits 0-9, a-f and A-F."
 )
 
 val missingScopeError = PalmError(
@@ -144,18 +144,6 @@ val unclosedWhenError = PalmError(
     "Add a } here."
 )
 
-val invalidPrefixOperatorError = PalmError(
-    "INVALID PREFIX OPERATOR",
-    "I was expecting an infix operator, but instead got a prefix operator:",
-    "Add a space here."
-)
-
-val missingExpressionSeparatorError = PalmError(
-    "MISSING EXPRESSION SEPARATOR",
-    "I saw 2 expression on the same line without a separator between them:",
-    "Add a ; here."
-)
-
 val unclosedScopeError = PalmError(
     "UNCLOSED SCOPE",
     "I was going through a scope, but have reached the end of the file:",
@@ -178,13 +166,6 @@ val invalidPatternError = PalmError(
     "INVALID PATTERN",
     "I was expecting a pattern, but instead got:",
     ""
-)
-
-
-val emptyParenthesesOnExprError = PalmError(
-    "EMPTY PARENTHESES",
-    "I saw some parentheses and was expecting an expression, but didn't find one:",
-    "Add an expression here."
 )
 
 fun unexpectedSymbolError(symbol: String) = PalmError(
@@ -223,18 +204,6 @@ val invalidLambdaArgumentsError = PalmError(
     ""
 )
 
-val invalidVariableDeclarationError = PalmError(
-    "INVALID VARIABLE DECLARATION ERROR",
-    "I was going through a variable declaration, but couldn't find a type or value after the name:",
-    "When declaring a variable you need to specify the type, with :, or the value, with =."
-)
-
-val invalidTypePathError = PalmError(
-    "INVALID PATH",
-    "I was going through the path to type and was expecting an identifier next, but instead got:",
-    ""
-)
-
 val postfixOperationOnTypeError = PalmError(
     "POSTFIX OPERATION ON TYPE",
     "I saw a postfix operation after a type:",
@@ -246,11 +215,14 @@ fun aOrAn(nextStart: Char) = when (nextStart) {
     else -> "a"
 }
 
-fun missing(thing: String) = PalmError(
-    "MISSING ${thing.toUpperCase()}",
-    "I saw a expecting ${aOrAn(thing.first())} $thing here, but instead got:",
-    "Add an $thing here."
-)
+fun missing(thing: String): PalmError {
+    val particle = aOrAn(thing.first())
+    return PalmError(
+        "MISSING ${thing.toUpperCase()}",
+        "I was expecting $particle $thing here, but instead got:",
+        "Add $particle $thing here."
+    )
+}
 
 val missingIdentifierError = missing("identifier")
 

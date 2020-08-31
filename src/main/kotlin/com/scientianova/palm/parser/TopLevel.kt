@@ -1,6 +1,5 @@
 package com.scientianova.palm.parser
 
-import com.scientianova.palm.errors.missingExpressionSeparatorError
 import com.scientianova.palm.errors.unknownParamModifierError
 import com.scientianova.palm.util.PString
 import com.scientianova.palm.util.at

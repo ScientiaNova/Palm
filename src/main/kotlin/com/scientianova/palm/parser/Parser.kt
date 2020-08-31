@@ -116,7 +116,7 @@ fun <R, A> consumedError(error: PalmError): Parser<R, A> = { state, _, cErr, _ -
     cErr(error, state.area)
 }
 
-fun <R, A> consumedError(error: PalmError, area: StringArea): Parser<R, A> = { state, _, cErr, _ ->
+fun <R, A> consumedError(error: PalmError, area: StringArea): Parser<R, A> = { _, _, cErr, _ ->
     cErr(error, area)
 }
 
@@ -191,7 +191,7 @@ fun <R> requireSymbol(
 }
 
 fun <R, A> Parser<R, A>.withPos(): Parser<R, Positioned<A>> = { state, succ, cErr, eErr ->
-    val succ1 = { a: A, s: ParseState -> succ(a at (state.pos until s.pos), s) }
+    val succ1 = { a: A, s: ParseState -> succ(a at state.pos..s.lastPos, s) }
     this(state, succ1, cErr, eErr)
 }
 
@@ -241,6 +241,28 @@ fun <R, A> loopingBodyParser(
             is ParseResult.Error -> return@parser cErr(res.error, res.area)
         }
     }
+}
+
+private tailrec fun <R, A> loopingBodyParserHandler(
+    endChar: Char,
+    elemParser: Parser<ParseResult<A>, A>,
+    unclosedError: PalmError,
+    succFn: SuccFn<R, List<A>>,
+    errFn: ErrFn<R>,
+    list: List<A>,
+    state: ParseState
+): R = if (state.char == endChar) {
+    succFn(list, state.next)
+} else when (val res = returnResult(state, elemParser)) {
+    is ParseResult.Success -> {
+        val symbolState = res.next.actual
+        when (symbolState.char) {
+            ',' -> loopingBodyParserHandler(endChar, elemParser, unclosedError, succFn, errFn, list + res.value, symbolState.next)
+            endChar ->  succFn(list + res.value, symbolState.next)
+            else -> errFn(unclosedError, symbolState.area)
+        }
+    }
+    is ParseResult.Error -> errFn(res.error, res.area)
 }
 
 private fun <A> parseSuccess(a: A, state: ParseState) = if (state.char == null) {
