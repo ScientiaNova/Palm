@@ -114,7 +114,7 @@ data class ReturnExpr(val expr: PExpr?) : Expression()
 fun <R> scope() = scope as Parser<R, ExprScope>
 
 private val scope: Parser<Any, ExprScope> = requireChar<Any>('{', missingScopeError).takeR { state, succ, cErr, _ ->
-    handleScopeBody(state.nextActual, emptyList(), succ, cErr)
+    handleScopeBody(state.actual, emptyList(), succ, cErr)
 }
 
 fun <R> scopeExpr() = scopeExpr as Parser<R, ScopeExpr>
@@ -124,7 +124,7 @@ private val scopeExpr: Parser<Any, ScopeExpr> =
         handleScopeBody(state.actual, emptyList(), succ, cErr)
     }.map(::ScopeExpr)
 
-fun <R> handleScopeBody(
+private tailrec fun <R> handleScopeBody(
     state: ParseState,
     statements: List<ScopeStatement>,
     succFn: SuccFn<R, ExprScope>,
@@ -132,12 +132,13 @@ fun <R> handleScopeBody(
 ): R = when (state.char) {
     null -> errFn(unclosedScopeError, state.area)
     '}' -> succFn(ExprScope(statements), state.next)
-    ';' -> handleScopeBody(state.next, statements, succFn, errFn)
+    ';' -> handleScopeBody(state.nextActual, statements, succFn, errFn)
     else -> when (val res = returnResult(state, scopeStatement())) {
         is ParseResult.Success -> {
             val sepState = res.next.actualOrBreak
             when (sepState.char) {
                 ';', '\n' -> handleScopeBody(sepState.nextActual, statements + res.value, succFn, errFn)
+                '}' -> succFn(ExprScope(statements + res.value), sepState.next)
                 else -> errFn(unclosedScopeError, sepState.area)
             }
         }
@@ -153,8 +154,7 @@ private val scopeStatement: Parser<Any, ScopeStatement> by lazy {
                 "var" -> varDeclaration
                 else -> scopedIdentExpr<Any>(ident).map(::ExprStatement)
             }
-        },
-        scopedExpr.map(::ExprStatement)
+        }, scopedExpr.map(::ExprStatement)
     )
 }
 
@@ -163,7 +163,7 @@ fun <R> scopeStatement() = scopeStatement as Parser<R, ScopeStatement>
 private val valDeclaration by lazy {
     whitespace<Any>()
         .takeR(identifier<Any>().withPos().failIf(::keywordDecNameError) { it in keywords })
-        .zipWith2(typeAnnotation<Any>().orNull(), equalsScopedExpr) { name, type, expr ->
+        .zipWith2(scopedTypeAnnotation<Any>().orNull(), equalsScopedExpr.orNull()) { name, type, expr ->
             VarDecStatement(name, false, type, expr)
         }
 }
@@ -171,7 +171,7 @@ private val valDeclaration by lazy {
 private val varDeclaration by lazy {
     whitespace<Any>()
         .takeR(identifier<Any>().withPos().failIf(::keywordDecNameError) { it in keywords })
-        .zipWith2(typeAnnotation<Any>().orNull(), equalsScopedExpr) { name, type, expr ->
+        .zipWith2(scopedTypeAnnotation<Any>().orNull(), equalsScopedExpr.orNull()) { name, type, expr ->
             VarDecStatement(name, true, type, expr)
         }
 }
@@ -180,12 +180,12 @@ private val asHandling: Parser<Any, AsHandling> = { state, succ, _, _ ->
     when (state.char) {
         '!' -> succ(AsHandling.Unsafe, state.next)
         '?' -> succ(AsHandling.Nullable, state.next)
-        else -> succ(AsHandling.Safe, state.next)
+        else -> succ(AsHandling.Safe, state)
     }
 }
 
 private fun directOp(termP: Parser<Any, Expression>): Parser<Any, (BinOpsList) -> BinOpsList> =
-    symbol<Any>().withPos().flatMap { op ->
+    symbol<Any>().withPos().failIf({ arrowOpError }) { it == "->" }.flatMap { op ->
         val symbol = op.value
         if (symbol.length == 2 && symbol.last() == '.') whitespace<Any>().takeR(termP).withPos().map { expr ->
             { list: BinOpsList -> list.appendSymbol(op, expr) }
@@ -199,7 +199,7 @@ private fun directOp(termP: Parser<Any, Expression>): Parser<Any, (BinOpsList) -
 private fun <R> prefixOp(
     termP: () -> Parser<R, Expression>
 ): Parser<R, Expression> = symbol<R>().withPos().flatMap { op ->
-    termP().withPos().map { term -> PostfixOpExpr(op, term) }.orDefault(OpRefExpr(op.value))
+    termP().withPos().map { term -> PrefixOpExpr(op, term) }.orDefault(OpRefExpr(op.value))
 }
 
 fun <R> trueConst() = trueConst as Parser<R, Expression>
@@ -218,7 +218,7 @@ fun <R> thisConst() = thisConst as Parser<R, Expression>
 private val thisConst: Parser<Any, Expression> = valueP(ThisExpr)
 
 private val list: Parser<Any, Expression> = tryChar<Any>('[').takeR { state, succ, cErr, _ ->
-    handleList(state, emptyList(), emptyList(), state.pos, succ, cErr)
+    handleList(state.actual, emptyList(), emptyList(), state.pos, succ, cErr)
 }
 
 fun <R> list() = list as Parser<R, Expression>
@@ -287,6 +287,13 @@ private fun <R> containerExpr(
     exprFn: (PExpr?) -> Expression
 ) = whitespaceP.takeR(binOpsP).orNull().map(exprFn)
 
+fun <R> parenthesizedExpr() = tryChar<R>('(')
+    .takeR(whitespace())
+    .takeRLazy { inlineExpr() }
+    .map(PExpr::value)
+    .takeL(whitespace())
+    .takeL(requireChar(')', unclosedParenthesisError))
+
 private fun <R> term(
     whitespaceP: Parser<R, Unit>,
     termP: () -> Parser<R, Expression>,
@@ -298,6 +305,7 @@ private fun <R> term(
     string(),
     prefixOp(termP),
     list(),
+    parenthesizedExpr(),
     tickedIdentifier<R>().map(::IdentExpr),
     normalIdentifier<R>().flatMap { identTerm(it, whitespaceP, binOpsP()) }
 )
@@ -438,49 +446,49 @@ fun <R> inlineIdentExpr(ident: PString): Parser<R, PExpr> = identTerm<R>(ident.v
     .flatMap { term ->
         { state, succ: SuccFn<R, PExpr>, _, _ -> succ(term at ident.area.first..state.lastPos, state) }
     }.flatMap {
-        { state, succ, cErr, _ -> handleInlineBinOpsBody(BinOpsList.Head(it), state.actual, succ, cErr, it.area.first) }
+        { state, succ, cErr, _ -> handleInlineBinOpsBody(BinOpsList.Head(it), state, succ, cErr, it.area.first) }
     }
 
 fun <R> inlineNoCurlyIdentExpr(ident: PString): Parser<R, PExpr> = identTerm<R>(ident.value, whitespace(), inlineNoCurlyExpr())
         .flatMap { term ->
             { state, succ: SuccFn<R, PExpr>, _, _ -> succ(term at ident.area.first..state.lastPos, state) }
         }.flatMap {
-            { state, succ, cErr, _ -> handleInlineNoCurlyBinOpsBody(BinOpsList.Head(it), state.actual, succ, cErr, it.area.first) }
+            { state, succ, cErr, _ -> handleInlineNoCurlyBinOpsBody(BinOpsList.Head(it), state, succ, cErr, it.area.first) }
         }
 
 fun <R> scopedIdentExpr(ident: PString): Parser<R, PExpr> = identTerm<R>(ident.value, whitespace(), scopedExpr())
     .flatMap { term ->
         { state, succ: SuccFn<R, PExpr>, _, _ -> succ(term at ident.area.first..state.lastPos, state) }
     }.flatMap {
-        { state, succ, cErr, _ -> handleScopedBinOpsBody(BinOpsList.Head(it), state.actual, succ, cErr, it.area.first) }
+        { state, succ, cErr, _ -> handleScopedBinOpsBody(BinOpsList.Head(it), state, succ, cErr, it.area.first) }
     }
 
 fun <R> inlineExpr(): Parser<R, PExpr> = inlineExpr as Parser<R, PExpr>
 private val inlineExpr: Parser<Any, PExpr> = inlineTerm.withPos().flatMap {
-    { state, succ, cErr, _ -> handleInlineBinOpsBody(BinOpsList.Head(it), state.actual, succ, cErr, it.area.first) }
+    { state, succ, cErr, _ -> handleInlineBinOpsBody(BinOpsList.Head(it), state, succ, cErr, it.area.first) }
 }
 
 fun <R> inlineNoCurlyExpr(): Parser<R, PExpr> = inlineNoCurlyExpr as Parser<R, PExpr>
 private val inlineNoCurlyExpr: Parser<Any, PExpr> = inlineNoCurlyTerm.withPos().flatMap {
-    { state, succ, cErr, _ -> handleInlineNoCurlyBinOpsBody(BinOpsList.Head(it), state.actual, succ, cErr, it.area.first) }
+    { state, succ, cErr, _ -> handleInlineNoCurlyBinOpsBody(BinOpsList.Head(it), state, succ, cErr, it.area.first) }
 }
 
 fun <R> scopedExpr(): Parser<R, PExpr> = scopedExpr as Parser<R, PExpr>
 private val scopedExpr: Parser<Any, PExpr> = scopedTerm.withPos().flatMap {
-    { state, succ, cErr, _ -> handleScopedBinOpsBody(BinOpsList.Head(it), state.actual, succ, cErr, it.area.first) }
+    { state, succ, cErr, _ -> handleScopedBinOpsBody(BinOpsList.Head(it), state, succ, cErr, it.area.first) }
 }
 
 fun <R> equalsScopedExpr() = equalsScopedExpr as Parser<R, PExpr>
 private val equalsScopedExpr: Parser<Any, PExpr> = whitespace<Any>()
     .takeR(tryChar('='))
     .takeR(whitespace())
-    .takeR(scopedExpr())
+    .takeR(elevateError(scopedExpr()))
 
 fun <R> equalsInlineExpr() = equalsInlineExpr as Parser<R, PExpr>
 private val equalsInlineExpr: Parser<Any, PExpr> = whitespace<Any>()
     .takeR(tryChar('='))
     .takeR(whitespace())
-    .takeR(scopedExpr())
+    .takeR(elevateError(scopedExpr()))
 
 private val valCond = whitespace<Any>()
     .takeR(valPatternNoExpr()).zipWith(
@@ -519,7 +527,7 @@ private val conditions: Parser<Any, List<Condition>> = parser@{ startState, succ
         when (val res = returnResult(state, condition())) {
             is ParseResult.Success -> {
                 val commaState = res.next.actual
-                if (commaState.char == ',') list + res.value to commaState.next
+                if (commaState.char == ',') list + res.value to commaState.nextActual
                 else return@parser succ(list + res.value, commaState)
             }
             is ParseResult.Error -> return@parser cErr(res.error, res.area)
@@ -570,12 +578,13 @@ private fun <R> handleWhenBody(
 ): R = when (state.char) {
     null -> errFn(unclosedWhenError, state.area)
     '}' -> succFn(branches, state.next)
-    ';' -> handleWhenBody(state.next, branches, succFn, errFn)
+    ';' -> handleWhenBody(state.nextActual, branches, succFn, errFn)
     else -> when (val res = returnResult(state, whenBranch())) {
         is ParseResult.Success -> {
             val sepState = res.next.actualOrBreak
             when (sepState.char) {
                 ';', '\n' -> handleWhenBody(sepState.nextActual, branches + res.value, succFn, errFn)
+                '}' -> succFn(branches + res.value, sepState.next)
                 else -> errFn(unclosedWhenError, sepState.area)
             }
         }
@@ -593,7 +602,7 @@ private val whenBranch: Parser<Any, WhenBranch> = pattern<Any>()
 
 private val lambda: Parser<Any, Expression> = tryChar<Any>('{')
     .takeR(whitespace())
-    .takeR parser@{ startState, succ: SuccFn<Any, LambdaParams>, cErr, _ ->
+    .takeR((parser@{ startState: ParseState, succ: SuccFn<Any, LambdaParams>, cErr: ErrFn<Any>, _: ErrFn<Any> ->
         loopValue(emptyList<Pair<PString, PType?>>() to startState.actual) { (list, state) ->
             if (state.startsWithSymbol("->")) {
                 return@parser succ(list, state.next)
@@ -601,7 +610,7 @@ private val lambda: Parser<Any, Expression> = tryChar<Any>('{')
                 is ParseResult.Success -> {
                     val symbolState = res.next.actual
                     when {
-                        symbolState.char == ',' -> list + res.value to symbolState.next
+                        symbolState.char == ',' -> list + res.value to symbolState.nextActual
                         symbolState.startsWithSymbol("->") -> return@parser succ(list + res.value, symbolState + 2)
                         else -> return@parser cErr(invalidLambdaArgumentsError, symbolState.area)
                     }
@@ -609,14 +618,13 @@ private val lambda: Parser<Any, Expression> = tryChar<Any>('{')
                 is ParseResult.Error -> return@parser cErr(res.error, res.area)
             }
         }
-    }
-    .orDefault(emptyList())
-    .zipWith({ state, succ, cErr, _ -> handleScopeBody(state, emptyList(), succ, cErr) }, ::LambdaExpr)
+    }).orDefault(emptyList()))
+    .zipWith({ state, succ, cErr, _ -> handleScopeBody(state.actual, emptyList(), succ, cErr) }, ::LambdaExpr)
 
 fun <R> lambda() = lambda as Parser<R, Expression>
 
 private val nullableTypedParam: Parser<Any, Pair<PString, PType?>> = identifier<Any>()
     .withPos()
-    .zipWith(typeAnnotation<Any>().orNull()) { name, type -> name to type }
+    .zipWith(scopedTypeAnnotation<Any>().orNull()) { name, type -> name to type }
 
 fun <R> nullableTypedParam() = nullableTypedParam as Parser<R, Pair<PString, PType?>>

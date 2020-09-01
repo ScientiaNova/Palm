@@ -217,7 +217,7 @@ fun <R, A> Parser<R, Positioned<A>>.failIf(
 ): Parser<R, Positioned<A>> =
     { state, succ, cErr, eErr ->
         val succ1 =
-            { a: Positioned<A>, s: ParseState -> if (predicate(a.value)) cErr(errFn(a.value), a.area) else succ(a, s) }
+            { a: Positioned<A>, s: ParseState -> if (predicate(a.value)) eErr(errFn(a.value), a.area) else succ(a, s) }
         this(state, succ1, cErr, eErr)
     }
 
@@ -233,7 +233,7 @@ fun <R, A> loopingBodyParser(
             is ParseResult.Success -> {
                 val symbolState = res.next.actual
                 when (symbolState.char) {
-                    ',' -> list + res.value to symbolState.next
+                    ',' -> list + res.value to symbolState.nextActual
                     endChar -> return@parser succ(list + res.value, symbolState.next)
                     else -> return@parser cErr(unclosedError, symbolState.area)
                 }
@@ -257,7 +257,9 @@ private tailrec fun <R, A> loopingBodyParserHandler(
     is ParseResult.Success -> {
         val symbolState = res.next.actual
         when (symbolState.char) {
-            ',' -> loopingBodyParserHandler(endChar, elemParser, unclosedError, succFn, errFn, list + res.value, symbolState.next)
+            ',' -> loopingBodyParserHandler(
+                endChar, elemParser, unclosedError, succFn, errFn, list + res.value, symbolState.nextActual
+            )
             endChar ->  succFn(list + res.value, symbolState.next)
             else -> errFn(unclosedError, symbolState.area)
         }

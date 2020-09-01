@@ -62,16 +62,6 @@ private tailrec fun handleUnicode(
     else -> invalidHexLiteralError errAt pos
 }
 
-fun Char.isOpenBracket() = when (this) {
-    '(', '[', '{' -> true
-    else -> false
-}
-
-fun Char.isClosedBracket() = when (this) {
-    ')', ']', '}' -> true
-    else -> false
-}
-
 fun Char.isBracket() = when (this) {
     '(', ')', '[', ']', '{', '}' -> true
     else -> false
@@ -98,5 +88,3 @@ fun Char.isIdentifierStart() = isLetter() || this == '_'
 fun Char.isIdentifierPart() = isLetterOrDigit() || this == '_'
 
 fun Char.isSymbolPart() = !(isWhitespace() || isIdentifierPart() || isBracket() || isSeparator() || isQuote())
-
-fun Char?.isAfterPostfix() = this == null || isWhitespace() || isClosedBracket() || isSeparator()

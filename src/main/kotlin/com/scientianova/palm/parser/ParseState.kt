@@ -25,7 +25,6 @@ data class ParseState(val code: String, val pos: StringPos) {
     }
 
     val nextActual get() = next.actual
-    val nextActualOrBreak get() = next.actualOrBreak
 
     fun startsWith(string: String) = code.startsWith(string, startIndex = pos)
     fun startsWithIdent(string: String) = startsWith(string)

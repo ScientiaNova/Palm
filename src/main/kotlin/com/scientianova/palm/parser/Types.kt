@@ -21,8 +21,7 @@ data class NamedType(
 
 data class FunctionType(
     val params: List<PType>,
-    val returnType: PType,
-    val implicit: Boolean
+    val returnType: PType
 ) : Type()
 
 fun <R> pathNode() = pathNode as Parser<R, PString>
@@ -61,9 +60,14 @@ private val inlineType: Parser<Any, Type> = type(whitespace()) { inlineType() }
 fun <R> scopedType(): Parser<R, Type> = scopedType as Parser<R, Type>
 private val scopedType: Parser<Any, Type> = type(whitespaceOnLine()) { scopedType() }
 
-fun <R> typeAnnotation() = typeAnnotation as Parser<R, PType>
-private val typeAnnotation: Parser<Any, PType> by lazy {
+fun <R> scopedTypeAnnotation() = scopedTypeAnnotation as Parser<R, PType>
+private val scopedTypeAnnotation: Parser<Any, PType> by lazy {
     tryChar<Any>(':').takeR(whitespace()).takeR(elevateError(scopedType())).withPos()
+}
+
+fun <R> inlineTypeAnnotation() = inlineTypeAnnotation as Parser<R, PType>
+private val inlineTypeAnnotation: Parser<Any, PType> by lazy {
+    tryChar<Any>(':').takeR(whitespace()).takeR(elevateError(inlineType())).withPos()
 }
 
 private inline fun parenthesizedType(
@@ -73,13 +77,9 @@ private inline fun parenthesizedType(
     .takeRLazy { loopingBodyParser(')', inlineType<ParseResult<PType>>().withPos(), unclosedParenthesisError) }
     .flatMap { list ->
         oneOf(
-            whitespace<Any>().takeR(
-                oneOf(
-                    tryString<Any>("->").map { false },
-                    tryString<Any>("=>").map { true },
-                )
-            ).zipWith(whitespaceP.takeR(typePFn()).withPos()) { implicit, returnType ->
-                FunctionType(list, returnType, implicit)
+            whitespace<Any>().takeR(tryString("->"))
+                .takeR(whitespaceP).takeR(typePFn()).withPos().map { returnType ->
+                FunctionType(list, returnType)
             },
             { state, succ: SuccFn<Any, Type>, cErr, _ ->
                 if (list.size == 1) succ(list.first().value, state)

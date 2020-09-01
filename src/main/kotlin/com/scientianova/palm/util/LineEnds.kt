@@ -14,7 +14,7 @@ private tailrec fun findLineEnds(string: String, index: Int, soFar: LineEnds): L
         if (string[index] == '\n')
             findLineEnds(string, index + 1, soFar + index)
         else findLineEnds(string, index + 1, soFar)
-    else soFar + (index - 1)
+    else soFar + index
 
 val String.lineEnds get() = findLineEnds(this, 0, emptyList())
 

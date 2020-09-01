@@ -18,9 +18,7 @@ fun Pattern.toCodeString(indent: Int): String = when (this) {
 
 fun Type.toCodeString(indent: Int): String = when (this) {
     is NamedType -> "${path.joinToString(".") { it.value }}[${generics.joinToString { it.toCodeString(indent) }}]"
-    is FunctionType -> "(${params.joinToString { it.toCodeString(indent) }}) ${if (implicit) "=" else '-'}> ${
-        returnType.toCodeString(indent)
-    }"
+    is FunctionType -> "(${params.joinToString { it.toCodeString(indent) }}) -> ${returnType.toCodeString(indent)}"
 }
 
 fun Condition.toCodeString(indent: Int): String = when (this) {

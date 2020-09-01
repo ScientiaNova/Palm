@@ -15,6 +15,7 @@ ${highlightError(code, area)}
 ${value.help.lines().map { it.wrap() }.joinToString("\n") { it }}
 
 -------------------------------------------------------------------------------------
+
 """.trimIndent()
 
 private fun highlightError(code: String, posRange: StringArea): String {
