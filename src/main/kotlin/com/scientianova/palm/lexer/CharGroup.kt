@@ -1,4 +1,4 @@
-package com.scientianova.palm.parser
+package com.scientianova.palm.lexer
 
 class CharGroup(private val predicate: Char.() -> Boolean) {
     operator fun contains(char: Char) = predicate(char)
@@ -6,3 +6,4 @@ class CharGroup(private val predicate: Char.() -> Boolean) {
 }
 
 val identStartChars = CharGroup(Char::isIdentifierStart)
+val identChars = CharGroup(Char::isIdentifierPart)

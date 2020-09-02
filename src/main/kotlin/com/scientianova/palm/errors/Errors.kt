@@ -2,7 +2,7 @@ package com.scientianova.palm.errors
 
 data class PalmError(val name: String, val context: String, val help: String)
 
-val missingSingleQuoteError = PalmError(
+val missingSingleQuote = PalmError(
     "MISSING SINGLE QUOTE",
     "I was expecting a single quote to closed the char literal",
     """
@@ -12,7 +12,7 @@ Note: String literals are created with double quotes and char literals are creat
     """.trimIndent()
 )
 
-val missingSingleQuoteOnQuoteError = PalmError(
+val missingSingleQuoteOnQuote = PalmError(
     "MISSING SINGLE QUOTE",
     "I was expecting a single quote to closed the char literal",
     """
@@ -22,7 +22,7 @@ Note: Backslashes are used for escape characters. If you want to get the backsla
     """.trimIndent()
 )
 
-val loneSingleQuoteError = PalmError(
+val loneSingleQuote = PalmError(
     "LONE SINGLE QUOTE",
     "I found a single quote by itself at the end of a line",
     """
@@ -30,7 +30,7 @@ Was this by mistake? Maybe you want to get the new line character? If it's the l
     """.trimIndent()
 )
 
-val malformedTabError = PalmError(
+val malformedTab = PalmError(
     "MALFORMED TAB",
     "I found a lot of spaces in between two single quotes:",
     """
@@ -38,7 +38,7 @@ This is most likely caused by your IDE automatically converting tabs into spaces
     """.trimIndent()
 )
 
-val unclosedEscapeCharacterError = PalmError(
+val unclosedEscapeCharacter = PalmError(
     "INVALID ESCAPE CHARACTER",
     "I saw a backslash, so I was expecting an escape character, but instead got:",
     """
@@ -56,7 +56,7 @@ Valid escape characters are:
     """.trimIndent()
 )
 
-val missingDoubleQuoteError = PalmError(
+val missingDoubleQuote = PalmError(
     "MISSING DOUBLE QUOTE",
     "I went to the end of this line and couldn't find the end of a single-line string:",
     """
@@ -66,85 +66,85 @@ Note: If you want to use a multi-line string, you need to enclose the string in 
     """.trimIndent()
 )
 
-val unclosedMultilineStringError = PalmError(
+val unclosedMultilineString = PalmError(
     "UNCLOSED MULTI_LINE STRING",
     "I couldn't find the end of this multi-line string:",
     "Closed it off using triple double quotes (\"\"\")."
 )
 
-val unclosedParenthesisError = PalmError(
+val unclosedParenthesis = PalmError(
     "UNCLOSED PARENTHESIS",
     "I was expecting a closed parenthesis here, but instead got:",
     "Add a ) here."
 )
 
-val unclosedSquareBacketError = PalmError(
+val unclosedSquareBracket = PalmError(
     "UNCLOSED SQUARE BRACKET",
     "I was expecting a closed square bracket here, but instead got:",
     "Add a ] here."
 )
 
-val missingBracketInUnicodeError = PalmError(
+val missingBracketInUnicode = PalmError(
     "MISSING CURLY BRACKET",
     "I saw a \\u and was expecting an open curly bracket next, but instead got:",
     "Add an { here."
 )
 
-val invalidExponentError = PalmError(
+val invalidExponent = PalmError(
     "INVALID EXPONENT",
     "I was going through a decimal literal with scientific notation and was expecting a digit next, but instead got:",
     ""
 )
 
-val invalidBinaryLiteralError = PalmError(
+val invalidBinaryLiteral = PalmError(
     "INVALID BINARY LITERAL",
     "I was going through a binary number literal and got:",
     "Binary number literals can only contain the digits 0 and 1."
 )
 
-val invalidDecimalLiteralError = PalmError(
+val invalidDecimalLiteral = PalmError(
     "INVALID DECIMAL LITERAL",
     "I was going through a decimal number literal and got:",
     "Decimal number literals can only contain the digits 0-9."
 )
 
-val invalidHexLiteralError = PalmError(
+val invalidHexLiteral = PalmError(
     "INVALID HEX LITERAL",
-    "I was going through a hexidecimal number literal and got:",
+    "I was going through a hexadecimal number literal and got:",
     "Hexadecimal number literals can only contain the digits 0-9, a-f and A-F."
 )
 
-val missingScopeError = PalmError(
+val missingScope = PalmError(
     "MISSING SCOPE",
     "I was expecting a scope next, but instead got:",
     "Start a scope here with an {."
 )
 
-val invalidImportError = PalmError(
+val invalidImport = PalmError(
     "INVALID IMPORT",
     "I was going through an import statement and found:",
     "Imports can only contain paths, that could end with ... or an operator, or could have an alias separated via 'as'."
 )
 
-val unclosedImportGroupError = PalmError(
+val unclosedImportGroup = PalmError(
     "UNCLOSED IMPORT GROUP",
     "I was going through an import group and instead of a closed curly bracket found:",
     "Add a } here."
 )
 
-val unclosedCharLiteralError = PalmError(
+val unclosedCharLiteral = PalmError(
     "UNCLOSED CHAR LITERAL",
     "I was going through a char literal, but have reached the end of the file without finding its end:",
     "Add a ' here."
 )
 
-val unclosedWhenError = PalmError(
+val unclosedWhen = PalmError(
     "UNCLOSED WHEN EXPRESSION",
     "I was going through a when expression and was expecting a closed curly bracket or expression separator, but instead got:",
     "Add a } here."
 )
 
-val unclosedScopeError = PalmError(
+val unclosedScope = PalmError(
     "UNCLOSED SCOPE",
     "I was going through a scope, but have reached the end of the file:",
     "Add a } here."
@@ -156,66 +156,66 @@ val invalidBacktickedIdentifier = PalmError(
     "Backticked identifier can use any symbol but /, \\, ., ;, :, <, >, [, ], and line separators."
 )
 
-val invalidDoubleDeclarationError = PalmError(
+val invalidDoubleDeclaration = PalmError(
     "DOUBLE DECLARATION PATTERN",
     "I was going through a backticked pattern and found another one inside it:",
     "You cannot put a var or val pattern inside another one."
 )
 
-val invalidPatternError = PalmError(
+val invalidPattern = PalmError(
     "INVALID PATTERN",
     "I was expecting a pattern, but instead got:",
     ""
 )
 
-fun unexpectedSymbolError(symbol: String) = PalmError(
+fun unexpectedSymbol(symbol: String) = PalmError(
     "UNEXPECTED SYMBOL",
     "I was expecting a $symbol, but instead got:",
     ""
 )
 
-val missingTypeReturnTypeError = PalmError(
+val missingTypeReturnType = PalmError(
     "MISSING RETURN TYPE",
     "I was going through a function type, but couldn't find a return type:",
     "Add an error and then the return type here."
 )
 
-fun keywordDecNameError(keyword: String) = PalmError(
+fun keywordDecName(keyword: String) = PalmError(
     "INVALID VARIABLE NAME",
     "I was expecting a variable name, but instead got the $keyword keyword:",
     "Variable names must not be keyword."
 )
 
-val missingDeclarationNameError = PalmError(
+val missingDeclarationName = PalmError(
     "MISSING VARIABLE NAME",
     "I was expecting a variable name, but couldn't find one:",
     ""
 )
 
-val missingInInForError = PalmError(
+val missingInInFor = PalmError(
     "MISSING IN",
     "I was going through a for loop and was expecting in next, but instead got:",
     "Add in here."
 )
 
-val invalidLambdaArgumentsError = PalmError(
+val invalidLambdaArguments = PalmError(
     "INVALID LAMBDA ARGUMENTS",
     "",
     ""
 )
 
-val postfixOperationOnTypeError = PalmError(
+val postfixOperationOnType = PalmError(
     "POSTFIX OPERATION ON TYPE",
     "I saw a postfix operation after a type:",
     "You should use parentheses, so I know what you wanted the postfix operation to be applied on."
 )
 
-fun aOrAn(nextStart: Char) = when (nextStart) {
+private fun aOrAn(nextStart: Char) = when (nextStart) {
     'a', 'e', 'i', 'o', 'u' -> "an"
     else -> "a"
 }
 
-fun missing(thing: String): PalmError {
+private fun missing(thing: String): PalmError {
     val particle = aOrAn(thing.first())
     return PalmError(
         "MISSING ${thing.toUpperCase()}",
@@ -224,44 +224,116 @@ fun missing(thing: String): PalmError {
     )
 }
 
-val missingIdentifierError = missing("identifier")
+val missingIdentifier = missing("identifier")
 
-val unknownParamModifierError = PalmError(
+val unknownParamModifier = PalmError(
     "UNKNOWN PARAMETER MODIFIER",
     "I was going through the parameters of a function and found a parameter modifier I don't recognize:",
     "If you wanted that to be a name of a parameter you need to put a colon and then its type after it."
 )
 
-val missingSymbolError = missing("symbol")
+val missingSymbol = missing("symbol")
 
-val missingCharError = missing("char")
+val missingChar = missing("char")
 
-val missingStringError = missing("string")
+val missingString = missing("string")
 
-val missingNumberError = missing("number")
+val missingNumber = missing("number")
 
-val missingTypeError = missing("type")
+val missingType = missing("type")
 
-val infixKeywordError = PalmError(
+val infixKeyword = PalmError(
     "INVALID INFIX FUNCTION",
     "I thought I saw an infix function, but it was in fact a keyword:",
     ""
 )
 
-val arrowOpError = PalmError(
+val arrowOp = PalmError(
     "INVALID OPERATOR",
     "I thought I saw an infix operator, but it was in fact an arrow:",
     ""
 )
 
-val missingPatternError = missing("pattern")
+val missingPattern = missing("pattern")
 
-val missingConditionError = missing("condition")
+val missingCondition = missing("condition")
 
-val missingExpressionError = missing("expression")
+val missingExpression = missing("expression")
 
-val notEOLError = PalmError(
+val notEOF = PalmError(
     "NOT END OF LINE",
     "I got to:",
     "I was expecting to see the end of the file next"
+)
+
+val unclosedIdentifier = PalmError(
+    "UNCLOSED BACKTICKED IDENTIFIER",
+    "I was going through a backticked identifier and have reached the end the file:",
+    "You're missing a second backtick."
+)
+
+val emptyIdent = PalmError(
+    "EMPTY BACKTICKED IDENTIFIER",
+    "I was going through a backticked identifier, but didn't find anything inside it",
+    "Put something in between the backticks."
+)
+
+val tooLongUnicode = PalmError(
+    "INVALID UNICODE",
+    "I was going through an escaped unicode, but the one given was too long:",
+    "The unicode needs to be up to 8 characters long."
+)
+
+val emptyUnicode = PalmError(
+    "EMPTY UNICODE",
+    "I was expecting a unicode, but didn't find one:",
+    "The unicode needs to be between 1 and 8 characters long."
+)
+
+val unclosedInterpolation = PalmError(
+    "UNCLOSED STRING INTERPOLATION",
+    "I have reached the end of the file while inside a string interpolation scope:",
+    "You've missed a curly bracket."
+)
+
+fun unknownPostfixOp(symbol: String) = PalmError(
+    "UNKNOWN POSTFIX OPERATOR",
+    "I saw $symbol being used as a postfix operator, but there isn't an operation that that would represent:",
+    "Add a space after it so it's treated as an infix operator"
+)
+
+fun invalidInfixOp(symbol: String) = PalmError(
+    "INVALID INFIX OPERATOR",
+    "I saw the infix operator $symbol not being used as an infix operator:",
+    "Infix operators needs to have either a space or a term on both side."
+)
+
+fun invalidPrefixOp(symbol: String) = PalmError(
+    "INVALID PREFIX OPERATOR",
+    "I saw the prefix operator $symbol not being used as an prefix operator:",
+    "Prefix operators need to have a term directly after them and whitespace before them."
+)
+
+fun invalidPostfixOp(symbol: String) = PalmError(
+    "INVALID POSTFIX OPERATOR",
+    "I saw the postfix operator $symbol not being used as an postfix operator:",
+    "Postfix operators need to have a term directly before them and whitespace after them."
+)
+
+fun unsupportedOperator(provided: String, instead: String) = PalmError(
+    "UNSUPPORTED OPERATOR",
+    "I saw $provided, which is not a supported operator:",
+    "Use `$instead` instead."
+)
+
+fun unexpectedCharacter(char: Char) = PalmError(
+    "UNEXPECTED CHARACTER",
+    "I found '$char' (U${char.toInt().toString(16)}):",
+    "That character has no use in Palm code."
+)
+
+fun unexpectedConfusableCharacter(given: Char, givenName: String, proper: Char, properName: String) = PalmError(
+    "UNEXPECTED CHARACTER",
+    "I found a '$given' ($givenName):",
+    "Did you mean to use a '$proper' ($properName?"
 )

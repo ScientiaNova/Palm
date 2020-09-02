@@ -1,6 +1,5 @@
 package com.scientianova.palm.parser
 
-import com.scientianova.palm.errors.unknownParamModifierError
 import com.scientianova.palm.util.PString
 
 enum class ParamModifier {
@@ -27,12 +26,6 @@ data class FunParam(
     val type: PType,
     val default: PExpr? = null
 )
-
-fun handleParamModifier(ident: PString, nextState: ParseState) = when (ident.value) {
-    "using" -> ParamModifier.Using succTo nextState
-    "given" -> ParamModifier.Given succTo nextState
-    else -> unknownParamModifierError errAt ident.area
-}
 
 data class FileFunctionInfo(
     val privacy: TopLevelPrivacy,

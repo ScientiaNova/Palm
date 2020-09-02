@@ -69,9 +69,6 @@ ${indent(indent)}}
     is ListExpr -> "[${components.joinToString { it.toCodeString(indent) }}]"
     is ForExpr -> "for $name in ${iterable.toCodeString(indent)} ${body.toCodeString(indent)}"
     is CallExpr -> expr.toCodeString(indent) + args.toCodeString(indent)
-    is PrefixOpExpr -> symbol.value + expr.showInBinOps(indent)
-    is BinaryOpsExpr -> list.toCodeString(indent)
-    is PostfixOpExpr -> expr.showInBinOps(indent) + symbol.value
     is OpRefExpr -> symbol
     is LambdaExpr -> if (params.isEmpty()) {
         scope.toCodeString(indent)
@@ -85,9 +82,6 @@ ${indent(indent + 1)}${scope.statements.joinToString("\n" + indent(indent + 1)) 
 ${indent(indent)}}
         """.trimIndent()
     }
-    is ContinueExpr -> "continue"
-    is BreakExpr -> "break" + (expr?.let { " " + it.toCodeString(indent) } ?: "")
-    is ReturnExpr -> "return" + (expr?.let { " " + it.toCodeString(indent) } ?: "")
 }
 
 fun Arg.toCodeString(indent: Int) = when (this) {
@@ -102,26 +96,3 @@ fun CallArgs.toCodeString(indent: Int): String {
     return if (args.isEmpty() && end.isNotBlank()) end
     else "(${args.joinToString { it.toCodeString(indent) }})$end"
 }
-
-fun BinOpsList.toCodeString(indent: Int): String = when (this) {
-    is BinOpsList.Head -> value.showInBinOps(indent)
-    is BinOpsList.Symbol -> {
-        val sep = if (symbol.value.endsWith('.')) "" else " "
-        child.toCodeString(indent) + sep + symbol.value + sep + value.showInBinOps(indent)
-    }
-    is BinOpsList.Ident -> child.toCodeString(indent) + " " + ident.value + " " + value.showInBinOps(indent)
-    is BinOpsList.Is -> "${child.toCodeString(indent)} is ${type.toCodeString(indent)}"
-    is BinOpsList.As -> {
-        val suffix = when (handling) {
-            AsHandling.Safe -> ""
-            AsHandling.Unsafe -> "!"
-            AsHandling.Nullable -> "?"
-        }
-        "${child.toCodeString(indent)} as$suffix ${type.toCodeString(indent)}"
-    }
-    is BinOpsList.Error -> "Error!!!"
-}
-
-private fun PExpr.showInBinOps(indent: Int): String = if (value is BinaryOpsExpr) {
-    "(${toCodeString(indent)})"
-} else toCodeString(indent)

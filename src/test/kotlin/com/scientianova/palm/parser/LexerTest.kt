@@ -1,21 +1,19 @@
 package com.scientianova.palm.parser
 
-import com.scientianova.palm.errors.PError
 import com.scientianova.palm.errors.messageFor
-import com.scientianova.palm.util.Either
+import com.scientianova.palm.lexer.lex
 import com.scientianova.palm.util.Left
 import com.scientianova.palm.util.Right
 
-fun testParse(
-    parser: Parser<Either<PError, String>, String>,
-    code: String
-): String = when (val either = parse(ParseState(code, 0), parser)) {
-    is Right -> either.right
+fun testLex(code: String) = lex(code, 0, emptyList(), false)
+
+fun testLexString(code: String) = when (val either = lex(code, 0, emptyList(), false)) {
+    is Right -> either.right.joinToString("\n") { it.value.toCodeString() }
     is Left -> either.left.messageFor(code, "REPL")
 }
 
-fun testExpr() = testParse(
-    scopedExpr<Either<PError, String>>().map { it.toCodeString(0) }, """
+fun testExprLex() = testLex(
+    """
     if state.char?.isSymbolPart() == true {
         val op = handleSymbol(state)
         if op.value.isPostfixOp(afterOp) {
