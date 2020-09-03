@@ -3,10 +3,10 @@ package com.scientianova.palm.util
 typealias StringPos = Int
 typealias StringArea = IntRange
 
-data class Positioned<out T>(val value: T, val pos: StringPos) {
+data class Positioned<out T>(val value: T, val area: StringArea) {
     override fun toString() = value.toString()
 }
 
-infix fun <T> T.at(pos: StringPos) = Positioned(this, pos)
+fun <T> T.at(start: StringPos, end: StringPos = start) = Positioned(this, start..end)
 
 typealias PString = Positioned<String>

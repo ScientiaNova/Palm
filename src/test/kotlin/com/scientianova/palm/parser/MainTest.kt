@@ -3,7 +3,9 @@ package com.scientianova.palm.parser
 import kotlin.system.measureTimeMillis
 
 fun main() {
-    
+    benchmark(1_000_000) {
+        testExprLex()
+    }
 }
 
 inline fun benchmark(times: Int, block: () -> Unit) {

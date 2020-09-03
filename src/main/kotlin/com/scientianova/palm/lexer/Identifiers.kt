@@ -88,8 +88,8 @@ internal tailrec fun lexTickedIdent(
     pos: StringPos,
     builder: StringBuilder
 ): LexResult<Token> = when (val char = code.getOrNull(pos)) {
-    null -> unclosedIdentifier errAt pos
-    '/', '\\', '.', ';', ':', '<', '>', '[', ']' -> invalidBacktickedIdentifier errAt pos
+    null -> unclosedIdentifier.errAt(pos)
+    '/', '\\', '.', ';', ':', '<', '>', '[', ']' -> invalidBacktickedIdentifier.errAt(pos)
     '`' -> {
         val ident = builder.toString()
         val nextPos = pos + 1

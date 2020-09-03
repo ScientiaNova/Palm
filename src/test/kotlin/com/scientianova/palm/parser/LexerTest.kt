@@ -1,16 +1,11 @@
 package com.scientianova.palm.parser
 
-import com.scientianova.palm.errors.messageFor
-import com.scientianova.palm.lexer.lex
-import com.scientianova.palm.util.Left
-import com.scientianova.palm.util.Right
+import com.scientianova.palm.lexer.TokenIterator
+import com.scientianova.palm.lexer.toList
 
-fun testLex(code: String) = lex(code, 0, emptyList(), false)
+fun testLex(code: String) = TokenIterator(code).toList()
 
-fun testLexString(code: String) = when (val either = lex(code, 0, emptyList(), false)) {
-    is Right -> either.right.joinToString("\n") { it.value.toCodeString() }
-    is Left -> either.left.messageFor(code, "REPL")
-}
+fun testLexString(code: String) = testLex(code).joinToString("\n") { it.token.toCodeString() }
 
 fun testExprLex() = testLex(
     """

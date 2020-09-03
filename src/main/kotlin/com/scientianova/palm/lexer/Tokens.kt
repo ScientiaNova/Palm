@@ -1,6 +1,8 @@
 package com.scientianova.palm.lexer
 
+import com.scientianova.palm.errors.PalmError
 import com.scientianova.palm.util.Positioned
+import com.scientianova.palm.util.StringPos
 
 sealed class StringPart {
     data class Regular(val string: String) : StringPart()
@@ -215,11 +217,16 @@ sealed class Token {
 
     object EOL : Token()
     object EOF : Token()
+
+    data class Error(val error: PalmError) : Token()
 }
 
 val trueToken = Token.Bool(true)
 val falseToken = Token.Bool(false)
 val emptyStr = Token.Str(listOf(StringPart.Regular("")))
+
+fun PalmError.token(startPos: StringPos, nextPos: StringPos = startPos + 1) =
+    TokenData(Token.Error(this), startPos, nextPos)
 
 typealias PToken = Positioned<Token>
 typealias TokenList = List<PToken>
