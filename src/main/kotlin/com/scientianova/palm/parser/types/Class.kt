@@ -1,0 +1,55 @@
+package com.scientianova.palm.parser.types
+
+import com.scientianova.palm.parser.expressions.CallArgs
+import com.scientianova.palm.parser.expressions.ExprScope
+import com.scientianova.palm.parser.expressions.PExpr
+import com.scientianova.palm.parser.top.FunParam
+import com.scientianova.palm.parser.top.Function
+import com.scientianova.palm.parser.top.Property
+import com.scientianova.palm.util.PString
+
+enum class ClassLevelPrivacy {
+    Public, Protected, Private
+}
+
+enum class ClassImplementation {
+    Leaf, Full, Abstract
+}
+
+data class SuperClass(val type: PType, val args: CallArgs, val mixins: List<PType>)
+
+data class Class(
+    val name: PString,
+    val implementation: ClassImplementation,
+    val primaryConstructor: List<FunParam>,
+    val typeParams: List<PString>,
+    val superClass: SuperClass?,
+    val implements: List<PType>,
+    val statements: List<ClassStatement>
+)
+
+data class ClassPropertyInfo(
+    val override: Boolean,
+    val lateInit: Boolean,
+    val given: Boolean,
+    val using: Boolean
+)
+
+data class MethodInfo(
+    val privacy: ClassLevelPrivacy,
+    val operator: Boolean,
+    val override: Boolean,
+    val tailRec: Boolean,
+    val given: Boolean,
+    val using: Boolean
+)
+
+sealed class ClassStatement {
+    data class Constructor(val params: List<FunParam>, val primaryCall: CallArgs, val body: PExpr) : ClassStatement()
+    data class Initializer(val scope: ExprScope) : ClassStatement()
+    data class Method(val function: Function, val info: MethodInfo) : ClassStatement()
+    data class VProperty(val property: Property<ClassLevelPrivacy>, val info: ClassPropertyInfo) : ClassStatement()
+    data class AssociatedType(val type: Alias) : ClassStatement()
+    data class InnerClass(val clazz: Class) : ClassStatement()
+    data class Extensions(val extension: Extension<ClassLevelPrivacy>) : ClassStatement()
+}

@@ -2,60 +2,61 @@ package com.scientianova.palm.lexer
 
 import com.scientianova.palm.errors.*
 import com.scientianova.palm.util.StringPos
+import com.scientianova.palm.util.at
 
 tailrec fun lex(
     code: String,
     pos: StringPos
-): TokenData = when (val char = code.getOrNull(pos)) {
-    null -> Token.EOF.data(pos)
-    '\n' -> Token.EOL.data(pos)
+): PToken = when (val char = code.getOrNull(pos)) {
+    null -> Token.EOF.at(pos)
+    '\n' -> Token.EOL.at(pos)
     '\t', ' ', '\r' -> lex(code, pos + 1)
-    '(' -> Token.LParen.data(pos)
-    '[' -> Token.LBracket.data(pos)
-    '{' -> Token.LBrace.data(pos)
-    ')' -> Token.RParen.data(pos)
-    ']' -> Token.RBracket.data(pos)
-    '}' -> Token.RBrace.data(pos)
-    ',' -> Token.Comma.data(pos)
-    ';' -> Token.Semicolon.data(pos)
-    '@' -> Token.At.data(pos)
+    '(' -> Token.LParen.at(pos)
+    '[' -> Token.LBracket.at(pos)
+    '{' -> Token.LBrace.at(pos)
+    ')' -> Token.RParen.at(pos)
+    ']' -> Token.RBracket.at(pos)
+    '}' -> Token.RBrace.at(pos)
+    ',' -> Token.Comma.at(pos)
+    ';' -> Token.Semicolon.at(pos)
+    '@' -> Token.At.at(pos)
     ':' -> if (code.getOrNull(pos + 1) == ':') {
-        Token.DoubleColon.data(pos, pos + 2)
+        Token.DoubleColon.at(pos, pos + 2)
     } else {
-        Token.Colon.data(pos)
+        Token.Colon.at(pos)
     }
     '.' -> if (code.getOrNull(pos + 1) == '.') {
         val isPostfix = code.getOrNull(pos - 1).isBeforePostfix()
         val isPrefix = code.getOrNull(pos + 2).isAfterPrefix()
         when {
-            isPostfix == isPrefix -> Token.RangeTo.data(pos, pos + 2)
-            isPrefix -> Token.RangeFrom.data(pos, pos + 2)
-            else -> Token.RangeUntil.data(pos, pos + 2)
+            isPostfix == isPrefix -> Token.RangeTo.at(pos, pos + 2)
+            isPrefix -> Token.RangeFrom.at(pos, pos + 2)
+            else -> Token.RangeUntil.at(pos, pos + 2)
         }
     } else {
-        Token.Dot.data(pos)
+        Token.Dot.at(pos)
     }
     '0' -> when (code.getOrNull(pos + 1)) {
         'b', 'B' -> lexBinaryNumber(code, pos + 2, StringBuilder())
         'x', 'X' -> lexHexNumber(code, pos + 2, StringBuilder())
         else -> lexNumber(code, pos + 1, StringBuilder("0"))
-    }.tokenData(pos)
-    in '1'..'9' -> lexNumber(code, pos + 1, StringBuilder().append(char)).tokenData(pos)
-    '\'' -> lexChar(code, pos + 1).tokenData(pos)
+    }.toPToken(pos)
+    in '1'..'9' -> lexNumber(code, pos + 1, StringBuilder().append(char)).toPToken(pos)
+    '\'' -> lexChar(code, pos + 1).toPToken(pos)
     '\"' -> if (code.getOrNull(pos + 1) == '\"') {
         if (code.getOrNull(pos + 2) == '\"') {
-            lexMultiLineString(code, pos + 3, emptyList(), StringBuilder()).tokenData(pos)
+            lexMultiLineString(code, pos + 3, emptyList(), StringBuilder()).toPToken(pos)
         } else {
-            emptyStr.data(pos, pos + 2)
+            emptyStr.at(pos, pos + 2)
         }
     } else {
-        lexSingleLineString(code, pos + 1, emptyList(), StringBuilder()).tokenData(pos)
+        lexSingleLineString(code, pos + 1, emptyList(), StringBuilder()).toPToken(pos)
     }
     in identStartChars -> {
         val (token, nextPos) = lexNormalIdent(code, pos + 1, StringBuilder().append(char))
-        token.data(pos, nextPos)
+        token.at(pos, nextPos)
     }
-    '`' -> lexTickedIdent(code, pos + 1, StringBuilder()).tokenData(pos)
+    '`' -> lexTickedIdent(code, pos + 1, StringBuilder()).toPToken(pos)
     '+' -> {
         val nextPos = pos + 1
         when (val nextChar = code.getOrNull(nextPos)) {
@@ -65,8 +66,8 @@ tailrec fun lex(
                 val isPrefix = nextChar.isAfterPrefix()
                 val isPostfix = code.getOrNull(pos - 1).isBeforePostfix()
                 when {
-                    isPostfix == isPrefix -> Token.Plus.data(pos)
-                    isPrefix -> Token.UnaryPlus.data(pos)
+                    isPostfix == isPrefix -> Token.Plus.at(pos)
+                    isPrefix -> Token.UnaryPlus.at(pos)
                     else -> unknownPostfixOp("+").token(pos)
                 }
             }
@@ -75,15 +76,15 @@ tailrec fun lex(
     '-' -> {
         val nextPos = pos + 1
         when (val nextChar = code.getOrNull(nextPos)) {
-            '>' -> Token.Arrow.data(pos, pos + 2)
+            '>' -> Token.Arrow.at(pos, pos + 2)
             '-' -> unsupportedOperator("--", "-= 1").token(pos, pos + 2)
             '=' -> infixOp(code, pos, nextPos + 1, Token.MinusAssign, "-=")
             else -> {
                 val isPrefix = nextChar.isAfterPrefix()
                 val isPostfix = code.getOrNull(pos - 1).isBeforePostfix()
                 when {
-                    isPostfix == isPrefix -> Token.Minus.data(pos)
-                    isPrefix -> Token.UnaryMinus.data(pos)
+                    isPostfix == isPrefix -> Token.Minus.at(pos)
+                    isPrefix -> Token.UnaryMinus.at(pos)
                     else -> unknownPostfixOp("-").token(pos)
                 }
             }
@@ -98,8 +99,8 @@ tailrec fun lex(
                 val isPrefix = nextChar.isAfterPrefix()
                 val isPostfix = code.getOrNull(pos - 1).isBeforePostfix()
                 when {
-                    isPostfix == isPrefix -> Token.Times.data(pos)
-                    isPrefix -> Token.Spread.data(pos)
+                    isPostfix == isPrefix -> Token.Times.at(pos)
+                    isPrefix -> Token.Spread.at(pos)
                     else -> unknownPostfixOp("*").token(pos)
                 }
             }
@@ -124,9 +125,9 @@ tailrec fun lex(
     '?' -> {
         val nextPos = pos + 1
         when (code.getOrNull(nextPos)) {
-            '.' -> Token.SafeAccess.data(pos)
+            '.' -> Token.SafeAccess.at(pos)
             ':' -> postfixOp(code, pos, nextPos + 1, Token.Elvis, "?:")
-            else -> Token.QuestionMark.data(pos)
+            else -> Token.QuestionMark.at(pos)
         }
     }
     '&' -> if (code.getOrNull(pos + 1) == '&') {
@@ -195,7 +196,7 @@ fun infixOp(code: String, start: StringPos, next: StringPos, op: Token, symbol: 
         op
     } else {
         Token.Error(invalidInfixOp(symbol))
-    }.data(start, next)
+    }.at(start, next)
 
 fun isOpPrefix(code: String, prev: StringPos, next: StringPos) =
     code.getOrNull(next).isAfterPrefix() && !code.getOrNull(prev).isBeforePostfix()
@@ -205,7 +206,7 @@ fun prefixOp(code: String, start: StringPos, next: StringPos, op: Token, symbol:
         op
     } else {
         Token.Error(invalidInfixOp(symbol))
-    }.data(start, next)
+    }.at(start, next)
 
 fun isOpPostfix(code: String, prev: StringPos, next: StringPos) =
     code.getOrNull(prev).isBeforePostfix() && !code.getOrNull(next).isAfterPrefix()
@@ -215,7 +216,7 @@ fun postfixOp(code: String, start: StringPos, next: StringPos, op: Token, symbol
         op
     } else {
         Token.Error(invalidInfixOp(symbol))
-    }.data(start, next)
+    }.at(start, next)
 
 internal tailrec fun lexNumber(
     code: String,

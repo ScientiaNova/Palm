@@ -1,5 +1,11 @@
 package com.scientianova.palm.parser
 
+import com.scientianova.palm.parser.expressions.*
+import com.scientianova.palm.parser.types.FunctionType
+import com.scientianova.palm.parser.types.NamedType
+import com.scientianova.palm.parser.types.PType
+import com.scientianova.palm.parser.types.Type
+
 fun PExpr.toCodeString(indent: Int) = value.toCodeString(indent)
 
 @JvmName("typeToCodeString")
@@ -11,7 +17,7 @@ fun PPattern.toCodeString(indent: Int) = value.toCodeString(indent)
 fun Pattern.toCodeString(indent: Int): String = when (this) {
     is WildcardPattern -> "_"
     is ExprPattern -> expr.toCodeString(indent)
-    is DecPattern -> "${if (mutable) "var" else "val"} $name"
+    is VarPattern -> "${if (mutable) "var" else "val"} $name"
     is TypePattern -> "is ${type.toCodeString(indent)}"
     is EnumPattern -> ".$name(${params.joinToString { it.toCodeString(indent) }})"
 }
@@ -28,7 +34,7 @@ fun Condition.toCodeString(indent: Int): String = when (this) {
 
 fun ScopeStatement.toCodeString(indent: Int): String = when (this) {
     is ExprStatement -> expr.toCodeString(indent)
-    is VarDecStatement -> "${if (mutable) "val" else "var"} $name" +
+    is DecStatement -> "${if (mutable) "val" else "var"} $name" +
             (type?.let { ": ${it.toCodeString(indent)}" } ?: "") +
             (expr?.let { " = ${it.toCodeString(indent)}" } ?: "")
 }
@@ -41,7 +47,7 @@ ${indent(indent)}}
 
 private fun indent(count: Int) = "    ".repeat(count)
 
-fun Expression.toCodeString(indent: Int): String = when (this) {
+fun Expr.toCodeString(indent: Int): String = when (this) {
     is IdentExpr -> name
     is BoolExpr -> value.toString()
     is NullExpr -> "null"

@@ -6,8 +6,7 @@ import com.scientianova.palm.util.StringPos
 
 sealed class StringPart {
     data class Regular(val string: String) : StringPart()
-    data class SingleToken(val token: PToken) : StringPart()
-    data class List(val list: TokenList) : StringPart()
+    data class SingleToken(val token: Any /*TODO*/) : StringPart()
 }
 
 sealed class Token {
@@ -215,18 +214,21 @@ sealed class Token {
         override fun identString() = "constructor"
     }
 
+    object Operator : Token() {
+        override fun identString() = "operator"
+    }
+
     object EOL : Token()
     object EOF : Token()
 
     data class Error(val error: PalmError) : Token()
 }
 
+typealias PToken = Positioned<Token>
+
 val trueToken = Token.Bool(true)
 val falseToken = Token.Bool(false)
 val emptyStr = Token.Str(listOf(StringPart.Regular("")))
 
 fun PalmError.token(startPos: StringPos, nextPos: StringPos = startPos + 1) =
-    TokenData(Token.Error(this), startPos, nextPos)
-
-typealias PToken = Positioned<Token>
-typealias TokenList = List<PToken>
+    PToken(Token.Error(this), startPos, nextPos)

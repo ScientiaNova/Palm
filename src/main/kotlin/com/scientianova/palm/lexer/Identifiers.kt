@@ -76,6 +76,7 @@ private fun matchIdentToken(ident: String, code: String, nextPos: StringPos) = w
     "with" -> Token.With to nextPos
     "init" -> Token.Init to nextPos
     "constructor" -> Token.Constructor to nextPos
+    "operator" -> Token.Operator to nextPos
     else -> if (ident.all { it == '_' }) {
         Token.Wildcard to nextPos
     } else {
