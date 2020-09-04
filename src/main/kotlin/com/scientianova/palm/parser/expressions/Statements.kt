@@ -6,7 +6,7 @@ import com.scientianova.palm.util.PString
 sealed class ScopeStatement
 
 data class DecStatement(
-    val name: PString,
+    val pattern: PDecPattern,
     val mutable: Boolean,
     val type: PType?,
     val expr: PExpr?
@@ -19,7 +19,7 @@ data class AssignStatement(
 ) : ScopeStatement()
 
 data class GuardStatement(
-    val conditions: List<Condition>,
+    val cond: List<Condition>,
     val body: ExprScope
 ) : ScopeStatement()
 

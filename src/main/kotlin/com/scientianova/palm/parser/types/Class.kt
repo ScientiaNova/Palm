@@ -6,6 +6,7 @@ import com.scientianova.palm.parser.expressions.PExpr
 import com.scientianova.palm.parser.top.FunParam
 import com.scientianova.palm.parser.top.Function
 import com.scientianova.palm.parser.top.Property
+import com.scientianova.palm.parser.top.TopLevelPrivacy
 import com.scientianova.palm.util.PString
 
 enum class ClassLevelPrivacy {
@@ -20,6 +21,7 @@ data class SuperClass(val type: PType, val args: CallArgs, val mixins: List<PTyp
 
 data class Class(
     val name: PString,
+    val privacy: TopLevelPrivacy,
     val implementation: ClassImplementation,
     val primaryConstructor: List<FunParam>,
     val typeParams: List<PString>,
@@ -29,6 +31,7 @@ data class Class(
 )
 
 data class ClassPropertyInfo(
+    val privacy: ClassLevelPrivacy,
     val override: Boolean,
     val lateInit: Boolean,
     val given: Boolean,

@@ -18,7 +18,7 @@ enum class VarianceMod {
     None, In, Out
 }
 
-data class TypeParam(val name: PString, val lowerBounds: List<PType>, val variance: VarianceMod)
+data class TypeParam(val name: PString, val lowerBound: PType?, val variance: VarianceMod)
 typealias PTypeParam = Positioned<TypeParam>
 
 data class TypeArg(val type: PType, val variance: VarianceMod)

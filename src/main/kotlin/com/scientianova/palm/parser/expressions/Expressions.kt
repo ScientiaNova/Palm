@@ -17,13 +17,13 @@ sealed class Expr {
     data class If(val cond: List<Condition>, val ifTrue: ExprScope, val ifFalse: ExprScope?) : Expr()
     data class When(val comparing: PExpr?, val branches: List<WhenBranch>) : Expr()
 
-    data class For(val name: PString, val iterable: PExpr, val body: ExprScope, val noBreak: ExprScope?) : Expr()
-    data class While(val cond: List<Condition>, val body: ExprScope) : Expr()
+    data class For(val name: PDecPattern, val iterable: PExpr, val body: ExprScope, val noBreak: ExprScope?) : Expr()
+    data class While(val cond: List<Condition>, val body: ExprScope, val noBreak: ExprScope?) : Expr()
     data class Loop(val body: ExprScope) : Expr()
 
-    data class Continue(val label: PString?)
-    data class Break(val label: PString?, val expr: PExpr?)
-    data class Return(val label: PString?, val expr: PExpr?)
+    data class Continue(val label: PString?) : Expr()
+    data class Break(val label: PString?, val expr: PExpr?) : Expr()
+    data class Return(val label: PString?, val expr: PExpr?) : Expr()
 
     data class Scope(val scope: ExprScope) : Expr()
 
@@ -87,7 +87,7 @@ sealed class Arg {
 
 data class CallArgs(val args: List<Arg> = emptyList(), val last: PExpr? = null)
 
-typealias LambdaParams = List<Pair<PString, PType?>>
+typealias LambdaParams = List<Pair<PDecPattern, PType?>>
 
 sealed class Condition {
     data class Expr(val expr: PExpr) : Condition()

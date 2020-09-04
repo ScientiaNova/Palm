@@ -21,6 +21,6 @@ data class ExtensionMethodInfo<P>(
 
 sealed class ExtensionStatement<P> {
     data class Method<P>(val function: Function, val info: ExtensionMethodInfo<P>) : ExtensionStatement<P>()
-    data class VProperty<P>(val property: Property, val info: ExtensionPropertyInfo<P>) : ExtensionStatement<P>()
+    data class VProperty<P>(val property: Property<P>, val info: ExtensionPropertyInfo<P>) : ExtensionStatement<P>()
     data class Extensions<P>(val extension: Extension<P>) : ExtensionStatement<P>()
 }
