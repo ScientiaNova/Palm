@@ -1,6 +1,6 @@
-package com.scientianova.palm.parser.top
+package com.scientianova.palm.parser.data.top
 
-import com.scientianova.palm.parser.types.Path
+import com.scientianova.palm.parser.data.types.Path
 import com.scientianova.palm.util.PString
 
 sealed class Import {

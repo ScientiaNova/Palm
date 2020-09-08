@@ -1,4 +1,4 @@
-package com.scientianova.palm.parser.types
+package com.scientianova.palm.parser.data.types
 
 import com.scientianova.palm.util.PString
 import com.scientianova.palm.util.Positioned
@@ -21,7 +21,10 @@ enum class VarianceMod {
 data class TypeParam(val name: PString, val lowerBound: PType?, val variance: VarianceMod)
 typealias PTypeParam = Positioned<TypeParam>
 
-data class TypeArg(val type: PType, val variance: VarianceMod)
+sealed class TypeArg {
+    data class Normal(val type: PType, val variance: VarianceMod) : TypeArg()
+    object Wildcard : TypeArg()
+}
 typealias PTypeArg = Positioned<TypeArg>
 
 data class FunTypeArg(val type: PType, val using: Boolean)

@@ -1,7 +1,6 @@
-package com.scientianova.palm.parser.expressions
+package com.scientianova.palm.parser.data.expressions
 
-import com.scientianova.palm.parser.types.PType
-import com.scientianova.palm.util.PString
+import com.scientianova.palm.parser.data.types.PType
 
 sealed class ScopeStatement
 

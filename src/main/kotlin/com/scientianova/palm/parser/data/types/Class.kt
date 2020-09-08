@@ -1,12 +1,12 @@
-package com.scientianova.palm.parser.types
+package com.scientianova.palm.parser.data.types
 
-import com.scientianova.palm.parser.expressions.CallArgs
-import com.scientianova.palm.parser.expressions.ExprScope
-import com.scientianova.palm.parser.expressions.PExpr
-import com.scientianova.palm.parser.top.FunParam
-import com.scientianova.palm.parser.top.Function
-import com.scientianova.palm.parser.top.Property
-import com.scientianova.palm.parser.top.TopLevelPrivacy
+import com.scientianova.palm.parser.data.expressions.CallArgs
+import com.scientianova.palm.parser.data.expressions.ExprScope
+import com.scientianova.palm.parser.data.expressions.PExpr
+import com.scientianova.palm.parser.data.top.FunParam
+import com.scientianova.palm.parser.data.top.Function
+import com.scientianova.palm.parser.data.top.Property
+import com.scientianova.palm.parser.data.top.TopLevelPrivacy
 import com.scientianova.palm.util.PString
 
 enum class ClassLevelPrivacy {

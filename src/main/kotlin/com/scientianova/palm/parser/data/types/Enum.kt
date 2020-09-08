@@ -1,4 +1,4 @@
-package com.scientianova.palm.parser.types
+package com.scientianova.palm.parser.data.types
 
 import com.scientianova.palm.util.PString
 import com.scientianova.palm.util.Positioned

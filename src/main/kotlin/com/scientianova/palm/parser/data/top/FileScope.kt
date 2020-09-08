@@ -1,7 +1,7 @@
-package com.scientianova.palm.parser.top
+package com.scientianova.palm.parser.data.top
 
-import com.scientianova.palm.parser.types.*
-import com.scientianova.palm.parser.types.Enum
+import com.scientianova.palm.parser.data.types.*
+import com.scientianova.palm.parser.data.types.Enum
 
 enum class TopLevelPrivacy {
     Public, Internal, Private

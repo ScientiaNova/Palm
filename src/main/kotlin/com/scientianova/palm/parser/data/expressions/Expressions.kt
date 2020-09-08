@@ -1,8 +1,8 @@
-package com.scientianova.palm.parser.expressions
+package com.scientianova.palm.parser.data.expressions
 
-import com.scientianova.palm.parser.types.ObjectStatement
-import com.scientianova.palm.parser.types.PType
-import com.scientianova.palm.parser.types.SuperClass
+import com.scientianova.palm.parser.data.types.ObjectStatement
+import com.scientianova.palm.parser.data.types.PType
+import com.scientianova.palm.parser.data.types.SuperClass
 import com.scientianova.palm.util.PInt
 import com.scientianova.palm.util.PString
 import com.scientianova.palm.util.Positioned
@@ -10,16 +10,29 @@ import com.scientianova.palm.util.Positioned
 typealias PExpr = Positioned<Expr>
 
 sealed class Expr {
-    data class Ident(val name: kotlin.String) : Expr()
+    data class Ident(val name: String) : Expr()
     data class Call(val expr: PExpr, val args: CallArgs) : Expr()
-    data class Lambda(val params: LambdaParams, val scope: ExprScope) : Expr()
+    data class Lambda(val label: PString?, val params: LambdaParams, val scope: ExprScope) : Expr()
 
     data class If(val cond: List<Condition>, val ifTrue: ExprScope, val ifFalse: ExprScope?) : Expr()
     data class When(val comparing: PExpr?, val branches: List<WhenBranch>) : Expr()
 
-    data class For(val name: PDecPattern, val iterable: PExpr, val body: ExprScope, val noBreak: ExprScope?) : Expr()
-    data class While(val cond: List<Condition>, val body: ExprScope, val noBreak: ExprScope?) : Expr()
-    data class Loop(val body: ExprScope) : Expr()
+    data class For(
+        val label: PString?,
+        val dec: PDecPattern,
+        val iterable: PExpr,
+        val body: ExprScope,
+        val noBreak: ExprScope?
+    ) : Expr()
+
+    data class While(
+        val label: PString?,
+        val cond: List<Condition>,
+        val body: ExprScope,
+        val noBreak: ExprScope?
+    ) : Expr()
+
+    data class Loop(val label: PString?, val body: ExprScope) : Expr()
 
     data class Continue(val label: PString?) : Expr()
     data class Break(val label: PString?, val expr: PExpr?) : Expr()
@@ -34,7 +47,7 @@ sealed class Expr {
     data class Float(val value: kotlin.Float) : Expr()
     data class Double(val value: kotlin.Double) : Expr()
     data class Char(val value: kotlin.Char) : Expr()
-    data class String(val string: kotlin.String) : Expr()
+    data class Str(val string: String) : Expr()
     data class Bool(val value: Boolean) : Expr()
 
     object Null : Expr()
@@ -95,8 +108,3 @@ sealed class Condition {
 }
 
 typealias WhenBranch = Pair<PPattern, PExpr>
-
-val trueExpr = Expr.Bool(true)
-val falseExpr = Expr.Bool(false)
-
-val emptyString = Expr.String("")

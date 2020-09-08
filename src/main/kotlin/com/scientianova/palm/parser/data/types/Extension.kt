@@ -1,7 +1,7 @@
-package com.scientianova.palm.parser.types
+package com.scientianova.palm.parser.data.types
 
-import com.scientianova.palm.parser.top.Function
-import com.scientianova.palm.parser.top.Property
+import com.scientianova.palm.parser.data.top.Function
+import com.scientianova.palm.parser.data.top.Property
 
 data class Extension<P>(val typeParams: TypeParam, val on: PType, val statements: List<ExtensionStatement<P>>)
 
