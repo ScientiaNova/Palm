@@ -4,101 +4,102 @@ import com.scientianova.palm.errors.emptyIdent
 import com.scientianova.palm.errors.invalidBacktickedIdentifier
 import com.scientianova.palm.errors.unclosedIdentifier
 import com.scientianova.palm.util.StringPos
+import com.scientianova.palm.util.at
 
 internal tailrec fun lexNormalIdent(
     code: String,
+    start: StringPos,
     pos: StringPos,
     builder: StringBuilder,
-): Pair<Token, StringPos> = when (val char = code.getOrNull(pos)) {
-    in identChars -> lexNormalIdent(code, pos + 1, builder.append(char))
-    '@' -> Token.Label(builder.toString()) to pos + 1
-    else -> matchIdentToken(builder.toString(), code, pos)
+): PToken = when (val char = code.getOrNull(pos)) {
+    in identChars -> lexNormalIdent(code, start, pos + 1, builder.append(char))
+    else -> matchIdentToken(builder.toString(), code, start, pos)
 }
 
-private fun matchIdentToken(ident: String, code: String, nextPos: StringPos) = when (ident) {
-    "class" -> Token.Class to nextPos
-    "object" -> Token.Object to nextPos
-    "record" -> Token.Record to nextPos
-    "enum" -> Token.Enum to nextPos
-    "abstract" -> Token.Abstract to nextPos
-    "leaf" -> Token.Leaf to nextPos
-    "using" -> Token.Using to nextPos
-    "given" -> Token.Given to nextPos
-    "override" -> Token.Override to nextPos
-    "val" -> Token.Val to nextPos
-    "var" -> Token.Var to nextPos
-    "inline" -> Token.Inline to nextPos
-    "by" -> Token.By to nextPos
-    "get" -> Token.Get to nextPos
-    "set" -> Token.Set to nextPos
-    "lateinit" -> Token.Lateinit to nextPos
-    "noinline" -> Token.Noinline to nextPos
-    "crossinline" -> Token.Crossinline to nextPos
-    "where" -> Token.Where to nextPos
-    "fun" -> Token.Fun to nextPos
-    "when" -> Token.When to nextPos
-    "if" -> Token.If to nextPos
-    "else" -> Token.Else to nextPos
-    "loop" -> Token.Loop to nextPos
-    "while" -> Token.While to nextPos
-    "for" -> Token.For to nextPos
-    "break" -> Token.Break to nextPos
-    "continue" -> Token.Continue to nextPos
-    "return" -> Token.Return to nextPos
-    "throw" -> Token.Throw to nextPos
-    "nobreak" -> Token.Nobreak to nextPos
-    "guard" -> Token.Guard to nextPos
-    "do" -> Token.Do to nextPos
-    "import" -> Token.Import to nextPos
-    "package" -> Token.Package to nextPos
-    "is" -> Token.Is to nextPos
+private fun matchIdentToken(ident: String, code: String, start: StringPos, nextPos: StringPos) = when (ident) {
+    "class" -> Token.Class.at(start, nextPos)
+    "object" -> Token.Object.at(start, nextPos)
+    "record" -> Token.Record.at(start, nextPos)
+    "enum" -> Token.Enum.at(start, nextPos)
+    "abstract" -> Token.Abstract.at(start, nextPos)
+    "leaf" -> Token.Leaf.at(start, nextPos)
+    "using" -> Token.Using.at(start, nextPos)
+    "given" -> Token.Given.at(start, nextPos)
+    "override" -> Token.Override.at(start, nextPos)
+    "val" -> Token.Val.at(start, nextPos)
+    "var" -> Token.Var.at(start, nextPos)
+    "inline" -> Token.Inline.at(start, nextPos)
+    "by" -> Token.By.at(start, nextPos)
+    "get" -> Token.Get.at(start, nextPos)
+    "set" -> Token.Set.at(start, nextPos)
+    "lateinit" -> Token.Lateinit.at(start, nextPos)
+    "noinline" -> Token.Noinline.at(start, nextPos)
+    "crossinline" -> Token.Crossinline.at(start, nextPos)
+    "where" -> Token.Where.at(start, nextPos)
+    "fun" -> Token.Fun.at(start, nextPos)
+    "when" -> Token.When.at(start, nextPos)
+    "if" -> Token.If.at(start, nextPos)
+    "else" -> Token.Else.at(start, nextPos)
+    "loop" -> Token.Loop.at(start, nextPos)
+    "while" -> Token.While.at(start, nextPos)
+    "for" -> Token.For.at(start, nextPos)
+    "break" -> Token.Break.at(start, nextPos)
+    "continue" -> Token.Continue.at(start, nextPos)
+    "return" -> Token.Return.at(start, nextPos)
+    "throw" -> Token.Throw.at(start, nextPos)
+    "nobreak" -> Token.Nobreak.at(start, nextPos)
+    "guard" -> Token.Guard.at(start, nextPos)
+    "do" -> Token.Do.at(start, nextPos)
+    "import" -> Token.Import.at(start, nextPos)
+    "package" -> Token.Package.at(start, nextPos)
+    "is" -> Token.Is.at(start, nextPos)
     "as" -> when (code.getOrNull(nextPos)) {
-        '!' -> Token.UnsafeAs to nextPos + 1
-        '?' -> Token.NullableAs to nextPos + 1
-        else -> Token.As to nextPos
+        '!' -> Token.UnsafeAs.at(start, nextPos + 1)
+        '?' -> Token.NullableAs.at(start, nextPos + 1)
+        else -> Token.As.at(start, nextPos)
     }
-    "null" -> Token.Null to nextPos
-    "this" -> Token.This to nextPos
-    "super" -> Token.Super to nextPos
-    "true" -> trueToken to nextPos
-    "false" -> falseToken to nextPos
-    "type" -> Token.Type to nextPos
-    "extend" -> Token.Extend to nextPos
-    "public" -> Token.Public to nextPos
-    "private" -> Token.Private to nextPos
-    "protected" -> Token.Protected to nextPos
-    "internal" -> Token.Internal to nextPos
-    "fallthrough" -> Token.Fallthrough to nextPos
-    "in" -> Token.In to nextPos
-    "out" -> Token.Out to nextPos
-    "tailrec" -> Token.Tailrec to nextPos
-    "suspend" -> Token.Suspend to nextPos
-    "with" -> Token.With to nextPos
-    "init" -> Token.Init to nextPos
-    "constructor" -> Token.Constructor to nextPos
-    "operator" -> Token.Operator to nextPos
+    "null" -> Token.Null.at(start, nextPos)
+    "this" -> Token.This.at(start, nextPos)
+    "super" -> Token.Super.at(start, nextPos)
+    "true" -> trueToken.at(start, nextPos)
+    "false" -> falseToken.at(start, nextPos)
+    "type" -> Token.Type.at(start, nextPos)
+    "extend" -> Token.Extend.at(start, nextPos)
+    "public" -> Token.Public.at(start, nextPos)
+    "private" -> Token.Private.at(start, nextPos)
+    "protected" -> Token.Protected.at(start, nextPos)
+    "internal" -> Token.Internal.at(start, nextPos)
+    "fallthrough" -> Token.Fallthrough.at(start, nextPos)
+    "in" -> Token.In.at(start, nextPos)
+    "out" -> Token.Out.at(start, nextPos)
+    "tailrec" -> Token.Tailrec.at(start, nextPos)
+    "suspend" -> Token.Suspend.at(start, nextPos)
+    "with" -> Token.With.at(start, nextPos)
+    "init" -> Token.Init.at(start, nextPos)
+    "constructor" -> Token.Constructor.at(start, nextPos)
+    "operator" -> Token.Operator.at(start, nextPos)
     else -> if (ident.all { it == '_' }) {
-        Token.Wildcard to nextPos
+        Token.Wildcard.at(start, nextPos)
     } else {
-        Token.Ident(ident) to nextPos
+        Token.Ident(ident).at(start, nextPos)
     }
 }
 
 internal tailrec fun lexTickedIdent(
     code: String,
+    start: StringPos,
     pos: StringPos,
     builder: StringBuilder
-): LexResult<Token> = when (val char = code.getOrNull(pos)) {
-    null -> unclosedIdentifier.errAt(pos)
-    '/', '\\', '.', ';', ':', '<', '>', '[', ']' -> invalidBacktickedIdentifier.errAt(pos)
+): PToken = when (val char = code.getOrNull(pos)) {
+    null -> unclosedIdentifier.token(pos)
+    '/', '\\', '.', ';', ':', '<', '>', '[', ']' -> invalidBacktickedIdentifier.token(pos)
     '`' -> {
         val ident = builder.toString()
         val nextPos = pos + 1
         when {
-            ident.isEmpty() -> emptyIdent.errAt(pos - 1, pos)
-            code.getOrNull(nextPos) == '@' -> Token.Label(ident) succTo nextPos + 1
-            else -> Token.Ident(ident) succTo nextPos
+            ident.isEmpty() -> emptyIdent.token(start, pos)
+            else -> Token.Ident(ident).at(start, nextPos)
         }
     }
-    else -> lexTickedIdent(code, pos + 1, builder.append(char))
+    else -> lexTickedIdent(code, start, pos + 1, builder.append(char))
 }

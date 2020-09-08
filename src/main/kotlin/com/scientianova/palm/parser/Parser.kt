@@ -1,36 +1,52 @@
 package com.scientianova.palm.parser
 
-import com.scientianova.palm.lexer.PToken
 import com.scientianova.palm.lexer.Token
 import com.scientianova.palm.lexer.TokenStream
 
-class Parser(private val stream: TokenStream, index: Int) {
-    var current = stream[index]
-        private set
+class Parser(private val stream: TokenStream, private var index: Int) {
+    private var trackNewline: Boolean = true
 
-    var index = index
-        private set
+    val current get() = stream[index]
 
-    fun atIndex(index: Int) = Parser(stream, index)
+    val next get() = stream[index + 1]
 
-    fun copy() = Parser(stream, index)
+    fun advance(): Parser = this.also { advance(index + 1) }
 
-    fun moveWithEOL(): PToken {
-        index += 1
-        current = stream[index]
-        return current
+    private tailrec fun advance(newIndex: Int): Unit = if (stream[newIndex].value.canIgnore()) {
+        advance(newIndex + 1)
+    } else {
+        index = newIndex
     }
 
-    fun move() = move(index + 1)
+    fun lastNewline() = trackNewline && lastNewLine(index - 1)
 
-    private tailrec fun move(newIndex: Int): PToken {
-        val token = stream[newIndex]
-        return if (token.value is Token.EOL) {
-            move(newIndex + 1)
-        } else {
-            current = token
-            index = newIndex
-            token
+    private tailrec fun lastNewLine(index: Int): Boolean {
+        val token = stream[index].value
+        return when {
+            token == Token.EOL -> true
+            token.canIgnore() -> lastNewLine(index - 1)
+            else -> false
+        }
+    }
+
+    fun disableNewline() {
+        trackNewline = false
+    }
+
+    fun rawLookup(offset: Int) = stream[index + offset]
+
+    inner class Marker {
+        private val index = this@Parser.index
+        private val trackNewline = this@Parser.trackNewline
+
+        fun revertIndex() {
+            this@Parser.index = index
+        }
+
+        fun revertNewline() {
+            this@Parser.trackNewline = trackNewline
         }
     }
 }
+
+fun <T> T.alsoAdvance(parser: Parser) = this.also { parser.advance() }

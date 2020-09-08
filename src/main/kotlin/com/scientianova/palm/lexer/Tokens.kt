@@ -1,6 +1,8 @@
 package com.scientianova.palm.lexer
 
 import com.scientianova.palm.errors.PalmError
+import com.scientianova.palm.parser.data.expressions.AssignmentType
+import com.scientianova.palm.parser.data.expressions.UnaryOp
 import com.scientianova.palm.util.Positioned
 import com.scientianova.palm.util.StringPos
 
@@ -11,6 +13,12 @@ sealed class StringPart {
 
 sealed class Token {
     open fun identString() = ""
+    open fun canIgnore() = false
+    open fun isPostfix() = false
+    open fun isPrefix() = false
+    open fun unaryOp(): UnaryOp = error("$this is not a unary operator.")
+    open fun isBinary() = false
+    open fun assignment(): AssignmentType? = null
 
     data class Ident(val name: String) : Token() {
         override fun identString() = name
@@ -26,8 +34,7 @@ sealed class Token {
     data class Double(val value: kotlin.Double) : Token()
     data class Str(val parts: List<StringPart>) : Token()
 
-    data class Label(val name: String) : Token()
-
+    object At : Token()
     object LParen : Token()
     object RParen : Token()
     object LBrace : Token()
@@ -35,55 +42,152 @@ sealed class Token {
     object LBracket : Token()
     object RBracket : Token()
     object Dot : Token()
-    object RangeTo : Token()
-    object RangeFrom : Token()
-    object RangeUntil : Token()
+
+    object RangeTo : Token() {
+        override fun isBinary() = true
+    }
+
+    object RangeFrom : Token() {
+        override fun unaryOp() = UnaryOp.RangeFrom
+        override fun isPostfix() = true
+    }
+
+    object RangeUntil : Token() {
+        override fun unaryOp() = UnaryOp.RangeUntil
+        override fun isPrefix() = true
+    }
+
     object SafeAccess : Token()
     object Colon : Token()
     object DoubleColon : Token()
     object Semicolon : Token()
-    object And : Token()
-    object Or : Token()
-    object Less : Token()
-    object Greater : Token()
-    object LessOrEq : Token()
-    object GreaterOrEq : Token()
-    object Elvis : Token()
-    object Plus : Token()
-    object Minus : Token()
-    object Times : Token()
-    object Div : Token()
-    object Rem : Token()
-    object Eq : Token()
-    object NotEq : Token()
-    object RefEq : Token()
-    object NotRefEq : Token()
-    object Assign : Token()
-    object PlusAssign : Token()
-    object MinusAssign : Token()
-    object TimesAssign : Token()
-    object DivAssign : Token()
-    object RemAssign : Token()
+
+    object And : Token() {
+        override fun isBinary() = true
+    }
+
+    object Or : Token() {
+        override fun isBinary() = true
+    }
+
+    object Less : Token() {
+        override fun isBinary() = true
+    }
+
+    object Greater : Token() {
+        override fun isBinary() = true
+    }
+
+    object LessOrEq : Token() {
+        override fun isBinary() = true
+    }
+
+    object GreaterOrEq : Token() {
+        override fun isBinary() = true
+    }
+
+    object Elvis : Token() {
+        override fun isBinary() = true
+    }
+
+    object Plus : Token() {
+        override fun isBinary() = true
+    }
+
+    object Minus : Token() {
+        override fun isBinary() = true
+    }
+
+    object Times : Token() {
+        override fun isBinary() = true
+    }
+
+    object Div : Token() {
+        override fun isBinary() = true
+    }
+
+    object Rem : Token() {
+        override fun isBinary() = true
+    }
+
+    object Eq : Token() {
+        override fun isBinary() = true
+    }
+
+    object NotEq : Token() {
+        override fun isBinary() = true
+    }
+
+    object RefEq : Token() {
+        override fun isBinary() = true
+    }
+
+    object NotRefEq : Token() {
+        override fun isBinary() = true
+    }
+
+    object Assign : Token() {
+        override fun assignment() = AssignmentType.Normal
+    }
+
+    object PlusAssign : Token() {
+        override fun assignment() = AssignmentType.Plus
+    }
+
+    object MinusAssign : Token() {
+        override fun assignment() = AssignmentType.Minus
+    }
+
+    object TimesAssign : Token() {
+        override fun assignment() = AssignmentType.Times
+    }
+
+    object DivAssign : Token() {
+        override fun assignment() = AssignmentType.Div
+    }
+
+    object RemAssign : Token() {
+        override fun assignment() = AssignmentType.Rem
+    }
+
     object QuestionMark : Token()
-    object DoubleExclamation : Token()
-    object UnaryPlus : Token()
-    object UnaryMinus : Token()
-    object Not : Token()
+
+    object NonNull : Token() {
+        override fun unaryOp() = UnaryOp.NonNull
+        override fun isPostfix() = true
+    }
+
+    object UnaryPlus : Token() {
+        override fun unaryOp() = UnaryOp.Plus
+        override fun isPrefix() = true
+    }
+
+    object UnaryMinus : Token() {
+        override fun unaryOp() = UnaryOp.Minus
+        override fun isPrefix() = true
+    }
+
+    object Not : Token() {
+        override fun unaryOp() = UnaryOp.Not
+        override fun isPrefix() = true
+    }
+
     object In : Token()
     object Out : Token()
     object Arrow : Token()
     object Spread : Token()
     object Wildcard : Token()
     object Comma : Token()
-    object At : Token()
     object Fun : Token()
     object Val : Token()
     object Var : Token()
+
     object Class : Token() {
         override fun identString() = "class"
     }
 
     object Object : Token()
+
     object Enum : Token() {
         override fun identString() = "enum"
     }
@@ -182,10 +286,23 @@ sealed class Token {
     object Using : Token()
     object Nobreak : Token()
     object Fallthrough : Token()
-    object As : Token()
-    object NullableAs : Token()
-    object UnsafeAs : Token()
-    object Is : Token()
+
+    object As : Token() {
+        override fun isBinary() = true
+    }
+
+    object NullableAs : Token() {
+        override fun isBinary() = true
+    }
+
+    object UnsafeAs : Token() {
+        override fun isBinary() = true
+    }
+
+    object Is : Token() {
+        override fun isBinary() = true
+    }
+
     object Import : Token() {
         override fun identString() = "import"
     }
@@ -218,11 +335,24 @@ sealed class Token {
         override fun identString() = "operator"
     }
 
-    object EOL : Token()
+    object Whitespace : Token() {
+        override fun canIgnore() = true
+    }
+
+    object Comment : Token() {
+        override fun canIgnore() = true
+    }
+
+    object EOL : Token() {
+        override fun canIgnore() = true
+    }
+
     object EOF : Token()
 
     data class Error(val error: PalmError) : Token()
 }
+
+fun Token.isIdentifier() = identString().isNotEmpty()
 
 typealias PToken = Positioned<Token>
 

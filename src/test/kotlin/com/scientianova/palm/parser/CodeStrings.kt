@@ -1,10 +1,10 @@
 package com.scientianova.palm.parser
 
-import com.scientianova.palm.parser.expressions.*
-import com.scientianova.palm.parser.top.*
-import com.scientianova.palm.parser.top.Function
-import com.scientianova.palm.parser.types.*
-import com.scientianova.palm.parser.types.Enum
+import com.scientianova.palm.parser.data.expressions.*
+import com.scientianova.palm.parser.data.top.*
+import com.scientianova.palm.parser.data.top.Function
+import com.scientianova.palm.parser.data.types.*
+import com.scientianova.palm.parser.data.types.Enum
 
 fun <T> T?.mapTo(fn: (T) -> String) = if (this == null) "" else fn(this)
 
@@ -57,7 +57,10 @@ fun VarianceMod.toCodeString() = when (this) {
     VarianceMod.None -> ""
 }
 
-fun TypeArg.toCodeString() = variance.toCodeString() + type.toCodeString()
+fun TypeArg.toCodeString() = when (this) {
+    is TypeArg.Normal -> variance.toCodeString() + type.toCodeString()
+    is TypeArg.Wildcard -> "_"
+}
 
 fun FunTypeArg.toCodeString() = (if (using) "using " else "") + type.toCodeString()
 
@@ -214,7 +217,7 @@ fun Expr.toCodeString(indent: Int): String = when (this) {
     is Expr.Float -> value.toString()
     is Expr.Double -> value.toString()
     is Expr.Char -> "'$value'"
-    is Expr.String -> "\"$string\""
+    is Expr.Str -> "\"$string\""
     is Expr.If -> "if ${cond.toCodeString(indent)} ${ifTrue.toCodeString(indent)}" +
             ifFalse.mapTo { " else ${it.toCodeString(indent)}" }
     is Expr.Scope -> scope.toCodeString(indent)
@@ -233,7 +236,7 @@ ${indent(indent)}}
             "${it.first}: ${it.second.toCodeString(indent)}"
         }
     }]"
-    is Expr.For -> "for $name in ${iterable.toCodeString(indent)} ${body.toCodeString(indent)}" +
+    is Expr.For -> "for $dec in ${iterable.toCodeString(indent)} ${body.toCodeString(indent)}" +
             noBreak.mapTo { " nobreak ${it.toCodeString(indent)}" }
     is Expr.While -> "if ${cond.toCodeString(indent)} ${body.toCodeString(indent)}" +
             noBreak.mapTo { " nobreak ${it.toCodeString(indent)}" }

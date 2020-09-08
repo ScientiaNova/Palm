@@ -5,7 +5,7 @@ import com.scientianova.palm.lexer.toList
 
 fun testLex(code: String) = TokenIterator(code).toList()
 
-fun testLexString(code: String) = testLex(code).joinToString("\n") { it.token.toCodeString() }
+fun testLexString(code: String) = testLex(code).joinToString("\n") { it.value.toCodeString() }
 
 fun testExprLex() = testLex(
     """

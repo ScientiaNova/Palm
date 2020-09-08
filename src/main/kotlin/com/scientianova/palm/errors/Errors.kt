@@ -337,3 +337,15 @@ fun unexpectedConfusableCharacter(given: Char, givenName: String, proper: Char, 
     "I found a '$given' ($givenName):",
     "Did you mean to use a '$proper' ($properName?"
 )
+
+val missingLabelName = PalmError(
+    "MISSING LABEL NAME",
+    "I saw an @, but didn't see its name afterwards:",
+    "The name of the label needs to go directly after the @.."
+)
+
+val unclosedMultilineComment = PalmError(
+    "UNCLOSED MULTILINE COMMENT",
+    "I was going through a multiline comment and have reached the end of the file:",
+    "Closed it via *\\."
+)

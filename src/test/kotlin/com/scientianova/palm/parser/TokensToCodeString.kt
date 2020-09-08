@@ -40,7 +40,7 @@ fun Token.toCodeString() = when (this) {
     Token.DivAssign -> "/="
     Token.RemAssign -> "%="
     Token.QuestionMark -> "?"
-    Token.DoubleExclamation -> "!!"
+    Token.NonNull -> "!!"
     Token.UnaryPlus -> "+"
     Token.UnaryMinus -> "-"
     Token.Not -> "!"
@@ -73,5 +73,5 @@ fun Token.toCodeString() = when (this) {
     Token.As -> "as"
     Token.EOL -> "EOL"
     Token.EOF -> "EOF"
-    else -> this.identString()?.let { if (it.isEmpty()) toString() else it }
+    else -> this.identString().ifEmpty { toString() }
 }

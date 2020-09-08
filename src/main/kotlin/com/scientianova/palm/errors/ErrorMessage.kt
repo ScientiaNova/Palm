@@ -2,19 +2,17 @@ package com.scientianova.palm.errors
 
 import com.scientianova.palm.util.*
 
-data class PError(val error: PalmError, val area: StringArea)
-infix fun PalmError.at(pos :StringPos) = PError(this, pos..pos)
-infix fun PalmError.at(area: StringArea) = PError(this, area)
+typealias PError = Positioned<PalmError>
 
 fun PError.messageFor(code: String, fileName: String) =
     """
 
--- ${error.name} ${"-".repeat(80 - error.name.length - fileName.length)} $fileName
+-- ${value.name} ${"-".repeat(80 - value.name.length - fileName.length)} $fileName
 
-${error.context.wrap()}
+${value.context.wrap()}
 
-${highlightError(code, area.first, area.last)}
-${error.help.lines().map { it.wrap() }.joinToString("\n") { it }}
+${highlightError(code, start, end)}
+${value.help.lines().map { it.wrap() }.joinToString("\n") { it }}
 
 -------------------------------------------------------------------------------------
 

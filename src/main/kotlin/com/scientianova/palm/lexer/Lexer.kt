@@ -1,16 +1,17 @@
 package com.scientianova.palm.lexer
 
 import com.scientianova.palm.errors.*
+import com.scientianova.palm.util.Positioned
 import com.scientianova.palm.util.StringPos
 import com.scientianova.palm.util.at
 
-tailrec fun lex(
+fun lex(
     code: String,
     pos: StringPos
 ): PToken = when (val char = code.getOrNull(pos)) {
     null -> Token.EOF.at(pos)
     '\n' -> Token.EOL.at(pos)
-    '\t', ' ', '\r' -> lex(code, pos + 1)
+    '\t', ' ', '\r' -> lexWhitespace(code, pos, pos + 1)
     '(' -> Token.LParen.at(pos)
     '[' -> Token.LBracket.at(pos)
     '{' -> Token.LBrace.at(pos)
@@ -37,26 +38,23 @@ tailrec fun lex(
         Token.Dot.at(pos)
     }
     '0' -> when (code.getOrNull(pos + 1)) {
-        'b', 'B' -> lexBinaryNumber(code, pos + 2, StringBuilder())
-        'x', 'X' -> lexHexNumber(code, pos + 2, StringBuilder())
-        else -> lexNumber(code, pos + 1, StringBuilder("0"))
-    }.toPToken(pos)
-    in '1'..'9' -> lexNumber(code, pos + 1, StringBuilder().append(char)).toPToken(pos)
-    '\'' -> lexChar(code, pos + 1).toPToken(pos)
+        'b', 'B' -> lexBinaryNumber(code, pos, pos + 2, StringBuilder())
+        'x', 'X' -> lexHexNumber(code, pos, pos + 2, StringBuilder())
+        else -> lexNumber(code, pos, pos + 1, StringBuilder("0"))
+    }
+    in '1'..'9' -> lexNumber(code, pos, pos + 1, StringBuilder().append(char))
+    '\'' -> lexChar(code, pos, pos + 1)
     '\"' -> if (code.getOrNull(pos + 1) == '\"') {
         if (code.getOrNull(pos + 2) == '\"') {
-            lexMultiLineString(code, pos + 3, emptyList(), StringBuilder()).toPToken(pos)
+            lexMultiLineString(code, pos, pos + 3, emptyList(), StringBuilder())
         } else {
             emptyStr.at(pos, pos + 2)
         }
     } else {
-        lexSingleLineString(code, pos + 1, emptyList(), StringBuilder()).toPToken(pos)
+        lexSingleLineString(code, pos, pos + 1, emptyList(), StringBuilder())
     }
-    in identStartChars -> {
-        val (token, nextPos) = lexNormalIdent(code, pos + 1, StringBuilder().append(char))
-        token.at(pos, nextPos)
-    }
-    '`' -> lexTickedIdent(code, pos + 1, StringBuilder()).toPToken(pos)
+    in identStartChars -> lexNormalIdent(code, pos, pos + 1, StringBuilder().append(char))
+    '`' -> lexTickedIdent(code, pos, pos + 1, StringBuilder())
     '+' -> {
         val nextPos = pos + 1
         when (val nextChar = code.getOrNull(nextPos)) {
@@ -109,8 +107,8 @@ tailrec fun lex(
     '/' -> {
         val nextPos = pos + 1
         when (code.getOrNull(nextPos)) {
-            '/' -> lex(code, lexSingleLineComment(code, pos + 1))
-            '*' -> lex(code, lexMultiLineComment(code, pos + 1))
+            '/' -> lexSingleLineComment(code, nextPos + 1)
+            '*' -> lexMultiLineComment(code, pos, pos + 1)
             '=' -> infixOp(code, pos, nextPos + 1, Token.DivAssign, "/=")
             else -> infixOp(code, pos, nextPos, Token.Div, "/")
         }
@@ -163,7 +161,7 @@ tailrec fun lex(
                 '=' -> infixOp(code, pos, nextPos + 2, Token.NotRefEq, "!==")
                 else -> infixOp(code, pos, nextPos + 1, Token.NotEq, "!=")
             }
-            '!' -> postfixOp(code, pos, nextPos + 1, Token.DoubleExclamation, "!!")
+            '!' -> postfixOp(code, pos, nextPos + 1, Token.NonNull, "!!")
             else -> prefixOp(code, pos, nextPos, Token.Not, "!")
         }
     }
@@ -188,31 +186,22 @@ fun errorSymbol(char: Char) = when (char) {
     } ?: unexpectedCharacter(char)
 }
 
-fun isOpInfix(code: String, prev: StringPos, next: StringPos) =
-    code.getOrNull(prev).isBeforePostfix() == code.getOrNull(next).isAfterPrefix()
-
 fun infixOp(code: String, start: StringPos, next: StringPos, op: Token, symbol: String) =
-    if (isOpInfix(code, start - 1, next)) {
+    if (code.getOrNull(start - 1).isBeforePostfix() == code.getOrNull(next).isAfterPrefix()) {
         op
     } else {
         Token.Error(invalidInfixOp(symbol))
     }.at(start, next)
-
-fun isOpPrefix(code: String, prev: StringPos, next: StringPos) =
-    code.getOrNull(next).isAfterPrefix() && !code.getOrNull(prev).isBeforePostfix()
 
 fun prefixOp(code: String, start: StringPos, next: StringPos, op: Token, symbol: String) =
-    if (isOpPrefix(code, start - 1, next)) {
+    if (code.getOrNull(next).isAfterPrefix() && !code.getOrNull(start - 1).isBeforePostfix()) {
         op
     } else {
         Token.Error(invalidInfixOp(symbol))
     }.at(start, next)
 
-fun isOpPostfix(code: String, prev: StringPos, next: StringPos) =
-    code.getOrNull(prev).isBeforePostfix() && !code.getOrNull(next).isAfterPrefix()
-
 fun postfixOp(code: String, start: StringPos, next: StringPos, op: Token, symbol: String) =
-    if (isOpPostfix(code, start - 1, next)) {
+    if (code.getOrNull(start - 1).isBeforePostfix() && !code.getOrNull(next).isAfterPrefix()) {
         op
     } else {
         Token.Error(invalidInfixOp(symbol))
@@ -220,30 +209,31 @@ fun postfixOp(code: String, start: StringPos, next: StringPos, op: Token, symbol
 
 internal tailrec fun lexNumber(
     code: String,
+    start: StringPos,
     pos: StringPos,
     builder: StringBuilder
-): LexResult<Token> = when (val char = code.getOrNull(pos)) {
+): PToken = when (val char = code.getOrNull(pos)) {
     in '0'..'9' ->
-        lexNumber(code, pos + 1, builder.append(char))
+        lexNumber(code, pos + 1, start, builder.append(char))
     '_' ->
-        lexNumber(code, pos + 1, builder)
+        lexNumber(code, pos + 1, start, builder)
     '.' -> {
         val next = code.getOrNull(pos + 1)
-        if (next in '0'..'9') lexDecimalNumber(code, pos + 2, builder.append(char).append(next))
-        else convertIntString(builder) succTo pos
+        if (next in '0'..'9') lexDecimalNumber(code, start, pos + 2, builder.append(char).append(next))
+        else convertIntString(builder).at(start, pos)
     }
     'b', 'B' ->
-        Token.Byte(builder.toString().toByte()) succTo pos + 1
+        Token.Byte(builder.toString().toByte()).at(start, pos + 1)
     's', 'S' ->
-        Token.Short(builder.toString().toShort()) succTo pos + 1
+        Token.Short(builder.toString().toShort()).at(start, pos + 1)
     'l', 'L' ->
-        Token.Long(builder.toString().toLong()) succTo pos + 1
+        Token.Long(builder.toString().toLong()).at(start, pos + 1)
     'f', 'F' ->
-        Token.Float(builder.toString().toFloat()) succTo pos + 1
+        Token.Float(builder.toString().toFloat()).at(start, pos + 1)
     in identStartChars ->
-        invalidDecimalLiteral.errAt(pos)
+        invalidDecimalLiteral.token(pos)
     else ->
-        convertIntString(builder) succTo pos
+        convertIntString(builder).at(start, pos)
 }
 
 private fun convertIntString(builder: StringBuilder): Token = when {
@@ -254,70 +244,74 @@ private fun convertIntString(builder: StringBuilder): Token = when {
 
 private tailrec fun lexDecimalNumber(
     code: String,
+    start: StringPos,
     pos: StringPos,
     builder: StringBuilder
-): LexResult<Token> = when (val char = code.getOrNull(pos)) {
-    in '0'..'9' -> lexDecimalNumber(code, pos + 1, builder.append(char))
-    '_' -> lexDecimalNumber(code, pos + 1, builder)
+): PToken = when (val char = code.getOrNull(pos)) {
+    in '0'..'9' -> lexDecimalNumber(code, start, pos + 1, builder.append(char))
+    '_' -> lexDecimalNumber(code, start, pos + 1, builder)
     'e' -> when (val exponentStart = code.getOrNull(pos + 1)) {
         '+', '-' -> {
             val digit = code.getOrNull(pos + 2)
             if (digit?.isDigit() == true)
-                lexDecimalExponent(code, pos + 3, builder.append(exponentStart).append(digit))
-            else invalidExponent.errAt(pos + 2)
+                lexDecimalExponent(code, start, pos + 3, builder.append(exponentStart).append(digit))
+            else invalidExponent.token(pos + 2)
         }
-        in '0'..'9' -> lexDecimalExponent(code, pos + 2, builder.append(exponentStart))
-        else -> invalidExponent.errAt(pos + 1)
+        in '0'..'9' -> lexDecimalExponent(code, start, pos + 2, builder.append(exponentStart))
+        else -> invalidExponent.token(pos + 1)
     }
-    'f', 'F' -> Token.Float(builder.toString().toFloat()) succTo pos + 1
-    in identStartChars -> invalidDecimalLiteral.errAt(pos)
-    else -> Token.Double(builder.toString().toDouble()) succTo pos
+    'f', 'F' -> Token.Float(builder.toString().toFloat()).at(start, pos + 1)
+    in identStartChars -> invalidDecimalLiteral.token( pos)
+    else -> Token.Double(builder.toString().toDouble()).at(start, pos + 1)
 }
 
 private tailrec fun lexDecimalExponent(
     code: String,
+    start: StringPos,
     pos: StringPos,
     builder: StringBuilder,
-): LexResult<Token> = when (val char = code.getOrNull(pos)) {
-    in '0'..'9' -> lexDecimalExponent(code, pos + 1, builder.append(char))
-    '_' -> lexDecimalExponent(code, pos + 1, builder)
-    in identStartChars -> invalidDecimalLiteral.errAt(pos)
-    else -> Token.Double(builder.toString().toDouble()) succTo pos
+): PToken = when (val char = code.getOrNull(pos)) {
+    in '0'..'9' -> lexDecimalExponent(code, start, pos + 1, builder.append(char))
+    '_' -> lexDecimalExponent(code, start, pos + 1, builder)
+    in identStartChars -> invalidDecimalLiteral.token(pos)
+    else -> Token.Double(builder.toString().toDouble()).at(start, pos)
 }
 
 internal tailrec fun lexBinaryNumber(
     code: String,
+    start: StringPos,
     pos: StringPos,
     builder: StringBuilder,
-): LexResult<Token> = when (val char = code.getOrNull(pos)) {
+): PToken = when (val char = code.getOrNull(pos)) {
     '0', '1' ->
-        lexBinaryNumber(code, pos + 1, builder.append(char))
+        lexBinaryNumber(code, start, pos + 1, builder.append(char))
     '_' ->
-        lexBinaryNumber(code, pos + 1, builder)
+        lexBinaryNumber(code, start, pos + 1, builder)
     'b', 'B' ->
-        Token.Byte(builder.toString().toByte(radix = 2)) succTo pos + 1
+        Token.Byte(builder.toString().toByte(radix = 2)).at(start, pos + 1)
     's', 'S' ->
-        Token.Short(builder.toString().toShort(radix = 2)) succTo pos + 1
+        Token.Short(builder.toString().toShort(radix = 2)).at(start, pos + 1)
     'l', 'L' ->
-        Token.Long(builder.toString().toLong(radix = 2)) succTo pos + 1
-    in identStartChars -> invalidBinaryLiteral.errAt(pos)
-    else -> LexResult.Success(
+        Token.Long(builder.toString().toLong(radix = 2)).at(start, pos + 1)
+    in identStartChars -> invalidBinaryLiteral.token(pos)
+    else -> Positioned(
         if (builder.length <= 32) Token.Int(builder.toString().toInt(radix = 2))
-        else Token.Long(builder.toString().toLong(radix = 2)), pos
+        else Token.Long(builder.toString().toLong(radix = 2)), start, pos
     )
 }
 
 internal tailrec fun lexHexNumber(
     code: String,
+    start: StringPos,
     pos: StringPos,
     builder: StringBuilder,
-): LexResult<Token> = when (val char = code.getOrNull(pos)) {
-    in '0'..'9', in 'a'..'f', in 'A'..'F' -> lexHexNumber(code, pos + 1, builder.append(char))
-    '_' -> lexHexNumber(code, pos + 1, builder)
-    in identStartChars -> invalidHexLiteral.errAt(pos)
-    else -> LexResult.Success(
+): PToken = when (val char = code.getOrNull(pos)) {
+    in '0'..'9', in 'a'..'f', in 'A'..'F' -> lexHexNumber(code, start, pos + 1, builder.append(char))
+    '_' -> lexHexNumber(code, start, pos + 1, builder)
+    in identStartChars -> invalidHexLiteral.token(pos)
+    else -> Positioned(
         if (builder.length <= 8) Token.Int(builder.toString().toInt(radix = 16))
-        else Token.Long(builder.toString().toLong(radix = 16)), pos
+        else Token.Long(builder.toString().toLong(radix = 16)), start, pos
     )
 }
 
@@ -355,25 +349,25 @@ private tailrec fun handleUnicode(
     else -> invalidHexLiteral.errAt(pos)
 }
 
-internal fun lexChar(code: String, pos: StringPos): LexResult<Token> = when (val char = code.getOrNull(pos)) {
-    null, '\n' -> loneSingleQuote.errAt(pos)
+internal fun lexChar(code: String, start: StringPos, pos: StringPos): PToken = when (val char = code.getOrNull(pos)) {
+    null, '\n' -> loneSingleQuote.token(pos)
     '\\' -> when (val res = handleEscaped(code, pos + 1)) {
         is LexResult.Success -> when (code.getOrNull(res.next)) {
-            '\'' -> Token.Char(res.value) succTo res.next + 1
-            null -> unclosedCharLiteral.errAt(res.next)
-            else -> (if (res.value == '\'') missingSingleQuoteOnQuote else missingSingleQuote).errAt(res.next)
+            '\'' -> Token.Char(res.value).at(start, res.next + 1)
+            null -> unclosedCharLiteral.token(res.next)
+            else -> (if (res.value == '\'') missingSingleQuoteOnQuote else missingSingleQuote).token(res.next)
         }
-        is LexResult.Error -> res
+        is LexResult.Error -> res.error.token(res.start, res.next)
     }
     else -> {
         val endChar = code.getOrNull(pos + 1)
         when {
-            endChar == '\'' -> Token.Char(char) succTo pos + 2
-            endChar == null -> unclosedCharLiteral.errAt(pos + 1)
+            endChar == '\'' -> Token.Char(char).at(start, pos + 2)
+            endChar == null -> unclosedCharLiteral.token(pos + 1)
             endChar == ' ' && char == ' ' -> isMalformedTab(code, pos + 2)?.let {
-                malformedTab.errAt(pos - 1, it)
-            } ?: missingSingleQuote.errAt(pos + 1)
-            else -> missingSingleQuote.errAt(pos + 1)
+                malformedTab.token(pos - 1, it)
+            } ?: missingSingleQuote.token(pos + 1)
+            else -> missingSingleQuote.token(pos + 1)
         }
     }
 }
