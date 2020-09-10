@@ -25,4 +25,4 @@ data class GuardStatement(
 data class UsingStatement(val expr: PExpr) : ScopeStatement()
 data class ExprStatement(val expr: PExpr) : ScopeStatement()
 
-data class ExprScope(val statements: List<ScopeStatement>)
+typealias ExprScope = List<ScopeStatement>

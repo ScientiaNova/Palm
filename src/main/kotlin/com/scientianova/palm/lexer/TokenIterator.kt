@@ -6,9 +6,9 @@ class TokenIterator(private val code: String) : Iterator<PToken> {
     override fun hasNext() = pos <= code.length
 
     override fun next(): PToken {
-        val data = lex(code, pos)
-        pos = data.next
-        return data
+        val token = lex(code, pos)
+        pos = token.second
+        return token
     }
 }
 

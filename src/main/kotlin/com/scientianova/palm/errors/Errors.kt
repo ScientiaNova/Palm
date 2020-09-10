@@ -198,6 +198,18 @@ val missingInInFor = PalmError(
     "Add in here."
 )
 
+val missingElseInGuard = PalmError(
+    "MISSING ELSE",
+    "I was going through a guard statement and was expecting else, but instead got:",
+    "You need to put an else after the expression."
+)
+
+val missingArrowOnBranch = PalmError(
+    "MISSING ARROW",
+    "I was going through a when branch and was expecting an arrow next, but instead got:",
+    "Add an -> here."
+)
+
 val invalidLambdaArguments = PalmError(
     "INVALID LAMBDA ARGUMENTS",
     "",
@@ -241,18 +253,6 @@ val missingString = missing("string")
 val missingNumber = missing("number")
 
 val missingType = missing("type")
-
-val infixKeyword = PalmError(
-    "INVALID INFIX FUNCTION",
-    "I thought I saw an infix function, but it was in fact a keyword:",
-    ""
-)
-
-val arrowOp = PalmError(
-    "INVALID OPERATOR",
-    "I thought I saw an infix operator, but it was in fact an arrow:",
-    ""
-)
 
 val missingPattern = missing("pattern")
 
@@ -348,4 +348,22 @@ val unclosedMultilineComment = PalmError(
     "UNCLOSED MULTILINE COMMENT",
     "I was going through a multiline comment and have reached the end of the file:",
     "Closed it via *\\."
+)
+
+val invalidAccessOperand = PalmError(
+    "INVALID ACCESS OPERAND",
+    "I saw a dot and was expecting an identifier or integer next, but instead got:",
+    "You use identifiers to access named members and digits to access unnamed tuple type elements."
+)
+
+val invalidFunctionReference = PalmError(
+    "INVALID FUNCTION REFERENCE",
+    "I saw a double colon and was expecting an identifier next, but instead got:",
+    "Double colons are used to reference functions, such that the function name goes after it."
+)
+
+val emptyGetBody = PalmError(
+    "EMPTY GET",
+    "I saw a postfix get, but I couldn't find any parameters:",
+    "A get needs to have at least one parameter."
 )

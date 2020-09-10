@@ -59,6 +59,8 @@ sealed class Expr {
     data class Lis(val elements: List<PExpr>) : Expr()
     data class Map(val elements: List<Pair<PExpr, PExpr>>) : Expr()
 
+    data class Get(val expr: PExpr, val args: List<PExpr>) : Expr()
+
     data class TypeCheck(val expr: PExpr, val type: PType) : Expr()
     data class SafeCast(val expr: PExpr, val type: PType) : Expr()
     data class NullableCast(val expr: PExpr, val type: PType) : Expr()
@@ -67,7 +69,7 @@ sealed class Expr {
     data class MemberAccess(val expr: PExpr, val value: PString) : Expr()
     data class SafeMemberAccess(val expr: PExpr, val value: PString) : Expr()
 
-    data class SafeComponent(val expr: PExpr, val value: PInt) : Expr()
+    data class ComponentAccess(val expr: PExpr, val value: PInt) : Expr()
     data class SafeComponentAccess(val expr: PExpr, val value: PInt) : Expr()
 
     data class FunRef(val on: PExpr?, val value: PString) : Expr()
@@ -104,7 +106,7 @@ typealias LambdaParams = List<Pair<PDecPattern, PType?>>
 
 sealed class Condition {
     data class Expr(val expr: PExpr) : Condition()
-    data class Dec(val pattern: PPattern, val expr: PExpr) : Condition()
+    data class Pattern(val pattern: PPattern, val expr: PExpr) : Condition()
 }
 
 typealias WhenBranch = Pair<PPattern, PExpr>

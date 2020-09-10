@@ -99,7 +99,7 @@ fun Enum.toCodeString(indent: Int) = "enum $name${typeParams.toCodeString()} " +
 
 fun Condition.toCodeString(indent: Int): String = when (this) {
     is Condition.Expr -> expr.toCodeString(indent)
-    is Condition.Dec -> "${pattern.toCodeString(indent)} = ${expr.toCodeString(indent)}"
+    is Condition.Pattern -> "${pattern.toCodeString(indent)} = ${expr.toCodeString(indent)}"
 }
 
 fun ScopeStatement.toCodeString(indent: Int): String = when (this) {
@@ -262,7 +262,7 @@ ${indent(indent)}}
     is Expr.UnsafeCast -> "${expr.toCodeString(indent)} as! ${type.toCodeString()}"
     is Expr.MemberAccess -> "${expr.toCodeString(indent)}.$value"
     is Expr.SafeMemberAccess -> "${expr.toCodeString(indent)}?.$value"
-    is Expr.SafeComponent -> "${expr.toCodeString(indent)}.$value"
+    is Expr.ComponentAccess -> "${expr.toCodeString(indent)}.$value"
     is Expr.SafeComponentAccess -> "${expr.toCodeString(indent)}?.$value"
     is Expr.FunRef -> on.mapTo { it.toCodeString(indent) } + "::$value"
     is Expr.Spread -> "*${expr.toCodeString(indent)}"

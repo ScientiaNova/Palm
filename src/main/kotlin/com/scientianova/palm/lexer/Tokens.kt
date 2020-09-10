@@ -1,10 +1,14 @@
 package com.scientianova.palm.lexer
 
+import com.scientianova.palm.errors.PError
 import com.scientianova.palm.errors.PalmError
-import com.scientianova.palm.parser.data.expressions.AssignmentType
-import com.scientianova.palm.parser.data.expressions.UnaryOp
-import com.scientianova.palm.util.Positioned
+import com.scientianova.palm.parser.Parser
+import com.scientianova.palm.parser.data.expressions.*
+import com.scientianova.palm.parser.parsing.parseType
+import com.scientianova.palm.parser.parsing.requireSubExpr
 import com.scientianova.palm.util.StringPos
+import com.scientianova.palm.util.at
+import java.util.*
 
 sealed class StringPart {
     data class Regular(val string: String) : StringPart()
@@ -17,8 +21,13 @@ sealed class Token {
     open fun isPostfix() = false
     open fun isPrefix() = false
     open fun unaryOp(): UnaryOp = error("$this is not a unary operator.")
-    open fun isBinary() = false
     open fun assignment(): AssignmentType? = null
+    open fun handleBinary(second: PExpr, first: PExpr): PExpr = error("!??")
+    open fun handleBinaryAppend(parser: Parser, opStack: Stack<Token>, operandStack: Stack<PExpr>) {
+        opStack.push(this)
+        operandStack.push(requireSubExpr(parser))
+    }
+    open val precedence = -1
 
     data class Ident(val name: String) : Token() {
         override fun identString() = name
@@ -43,10 +52,6 @@ sealed class Token {
     object RBracket : Token()
     object Dot : Token()
 
-    object RangeTo : Token() {
-        override fun isBinary() = true
-    }
-
     object RangeFrom : Token() {
         override fun unaryOp() = UnaryOp.RangeFrom
         override fun isPostfix() = true
@@ -62,68 +67,125 @@ sealed class Token {
     object DoubleColon : Token()
     object Semicolon : Token()
 
-    object And : Token() {
-        override fun isBinary() = true
-    }
-
     object Or : Token() {
-        override fun isBinary() = true
+        override val precedence = 1
+        override fun handleBinary(second: PExpr, first: PExpr) = Expr.Or(first, second).at(first.start, second.next)
     }
 
-    object Less : Token() {
-        override fun isBinary() = true
-    }
-
-    object Greater : Token() {
-        override fun isBinary() = true
-    }
-
-    object LessOrEq : Token() {
-        override fun isBinary() = true
-    }
-
-    object GreaterOrEq : Token() {
-        override fun isBinary() = true
-    }
-
-    object Elvis : Token() {
-        override fun isBinary() = true
-    }
-
-    object Plus : Token() {
-        override fun isBinary() = true
-    }
-
-    object Minus : Token() {
-        override fun isBinary() = true
-    }
-
-    object Times : Token() {
-        override fun isBinary() = true
-    }
-
-    object Div : Token() {
-        override fun isBinary() = true
-    }
-
-    object Rem : Token() {
-        override fun isBinary() = true
+    object And : Token() {
+        override val precedence = 2
+        override fun handleBinary(second: PExpr, first: PExpr) = Expr.And(first, second).at(first.start, second.next)
     }
 
     object Eq : Token() {
-        override fun isBinary() = true
+        override val precedence = 3
+        override fun handleBinary(second: PExpr, first: PExpr) = Expr.Eq(first, second).at(first.start, second.next)
     }
 
     object NotEq : Token() {
-        override fun isBinary() = true
+        override val precedence = 3
+        override fun handleBinary(second: PExpr, first: PExpr) = Expr.NotEq(first, second).at(first.start, second.next)
     }
 
     object RefEq : Token() {
-        override fun isBinary() = true
+        override val precedence = 3
+        override fun handleBinary(second: PExpr, first: PExpr) = Expr.RefEq(first, second).at(first.start, second.next)
     }
 
     object NotRefEq : Token() {
-        override fun isBinary() = true
+        override val precedence = 3
+        override fun handleBinary(second: PExpr, first: PExpr) = Expr.NotRefEq(first, second).at(first.start, second.next)
+    }
+
+    object Less : Token() {
+        override val precedence = 4
+        override fun handleBinary(second: PExpr, first: PExpr) = Expr.Binary(first, BinaryOp.LT, second).at(first.start, second.next)
+    }
+
+    object Greater : Token() {
+        override val precedence = 4
+        override fun handleBinary(second: PExpr, first: PExpr) = Expr.Binary(first, BinaryOp.GT, second).at(first.start, second.next)
+    }
+
+    object LessOrEq : Token() {
+        override val precedence = 4
+        override fun handleBinary(second: PExpr, first: PExpr) = Expr.Binary(first, BinaryOp.LTEq, second).at(first.start, second.next)
+    }
+
+    object GreaterOrEq : Token() {
+        override val precedence = 4
+        override fun handleBinary(second: PExpr, first: PExpr) = Expr.Binary(first, BinaryOp.GTEq, second).at(first.start, second.next)
+    }
+
+    object Is : Token() {
+        override val precedence = 5
+        override fun handleBinaryAppend(parser: Parser, opStack: Stack<Token>, operandStack: Stack<PExpr>) {
+            val left = operandStack.pop()
+            val type = parseType(parser)
+            operandStack.push(Expr.TypeCheck(left, type).at(left.start, type.next))
+        }
+    }
+
+    object Elvis : Token() {
+        override val precedence = 6
+        override fun handleBinary(second: PExpr, first: PExpr) = Expr.Elvis(first, second).at(first.start, second.next)
+    }
+
+    object RangeTo : Token() {
+        override val precedence = 7
+        override fun handleBinary(second: PExpr, first: PExpr) = Expr.Binary(first, BinaryOp.RangeTo, second).at(first.start, second.next)
+    }
+
+    object Plus : Token() {
+        override val precedence = 8
+        override fun handleBinary(second: PExpr, first: PExpr) = Expr.Binary(first, BinaryOp.Plus, second).at(first.start, second.next)
+    }
+
+    object Minus : Token() {
+        override val precedence = 8
+        override fun handleBinary(second: PExpr, first: PExpr) = Expr.Binary(first, BinaryOp.Minus, second).at(first.start, second.next)
+    }
+
+    object Times : Token() {
+        override val precedence = 9
+        override fun handleBinary(second: PExpr, first: PExpr) = Expr.Binary(first, BinaryOp.Times, second).at(first.start, second.next)
+    }
+
+    object Div : Token() {
+        override val precedence = 9
+        override fun handleBinary(second: PExpr, first: PExpr) = Expr.Binary(first, BinaryOp.Div, second).at(first.start, second.next)
+    }
+
+    object Rem : Token() {
+        override val precedence = 9
+        override fun handleBinary(second: PExpr, first: PExpr) = Expr.Binary(first, BinaryOp.Rem, second).at(first.start, second.next)
+    }
+
+    object As : Token() {
+        override val precedence = 10
+        override fun handleBinaryAppend(parser: Parser, opStack: Stack<Token>, operandStack: Stack<PExpr>) {
+            val left = operandStack.pop()
+            val type = parseType(parser)
+            operandStack.push(Expr.SafeCast(left, type).at(left.start, type.next))
+        }
+    }
+
+    object NullableAs : Token() {
+        override val precedence = 10
+        override fun handleBinaryAppend(parser: Parser, opStack: Stack<Token>, operandStack: Stack<PExpr>) {
+            val left = operandStack.pop()
+            val type = parseType(parser)
+            operandStack.push(Expr.NullableCast(left, type).at(left.start, type.next))
+        }
+    }
+
+    object UnsafeAs : Token() {
+        override val precedence = 10
+        override fun handleBinaryAppend(parser: Parser, opStack: Stack<Token>, operandStack: Stack<PExpr>) {
+            val left = operandStack.pop()
+            val type = parseType(parser)
+            operandStack.push(Expr.UnsafeCast(left, type).at(left.start, type.next))
+        }
     }
 
     object Assign : Token() {
@@ -287,22 +349,6 @@ sealed class Token {
     object Nobreak : Token()
     object Fallthrough : Token()
 
-    object As : Token() {
-        override fun isBinary() = true
-    }
-
-    object NullableAs : Token() {
-        override fun isBinary() = true
-    }
-
-    object UnsafeAs : Token() {
-        override fun isBinary() = true
-    }
-
-    object Is : Token() {
-        override fun isBinary() = true
-    }
-
     object Import : Token() {
         override fun identString() = "import"
     }
@@ -349,16 +395,16 @@ sealed class Token {
 
     object EOF : Token()
 
-    data class Error(val error: PalmError) : Token()
+    data class Error(val error: PError) : Token()
 }
 
 fun Token.isIdentifier() = identString().isNotEmpty()
 
-typealias PToken = Positioned<Token>
+typealias PToken = Pair<Token, StringPos>
 
 val trueToken = Token.Bool(true)
 val falseToken = Token.Bool(false)
 val emptyStr = Token.Str(listOf(StringPart.Regular("")))
 
 fun PalmError.token(startPos: StringPos, nextPos: StringPos = startPos + 1) =
-    PToken(Token.Error(this), startPos, nextPos)
+    PToken(Token.Error(this.at(startPos, nextPos)), nextPos)
