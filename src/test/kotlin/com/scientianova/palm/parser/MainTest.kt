@@ -1,10 +1,11 @@
 package com.scientianova.palm.parser
 
+import com.scientianova.palm.parser.parsing.requireBinOps
 import kotlin.system.measureTimeMillis
 
 fun main() {
-    benchmark(1_000_000) {
-        testExprLex()
+    benchmark(100_000) {
+        testParse(oldExample, ::requireBinOps)
     }
 }
 

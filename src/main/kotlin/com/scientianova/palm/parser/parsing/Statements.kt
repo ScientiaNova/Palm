@@ -5,17 +5,30 @@ import com.scientianova.palm.errors.missingScope
 import com.scientianova.palm.errors.unclosedScope
 import com.scientianova.palm.lexer.Token
 import com.scientianova.palm.parser.Parser
-import com.scientianova.palm.parser.data.expressions.ExprScope
-import com.scientianova.palm.parser.data.expressions.GuardStatement
-import com.scientianova.palm.parser.data.expressions.ScopeStatement
+import com.scientianova.palm.parser.data.expressions.*
 import com.scientianova.palm.parser.recBuildList
 
 fun parseStatement(parser: Parser): ScopeStatement = when (parser.current) {
-    Token.Val -> TODO()
-    Token.Var -> TODO()
-    Token.Using -> TODO()
+    Token.Val -> parseDecStatement(parser, false)
+    Token.Var -> parseDecStatement(parser, true)
+    Token.Using -> UsingStatement(requireBinOps(parser.advance()))
     Token.Guard -> parseGuard(parser)
-    else -> TODO()
+    else -> {
+        val subExpr = requireSubExpr(parser)
+        val assignment = parser.current.assignment()
+        if (assignment == null) {
+            ExprStatement(parseBinOps(parser, subExpr))
+        } else {
+            AssignStatement(subExpr, assignment, requireBinOps(parser.advance()))
+        }
+    }
+}
+
+fun parseDecStatement(parser: Parser, mutable: Boolean): ScopeStatement {
+    val pattern = requireDecPattern(parser.advance())
+    val type = parseTypeAnnotation(parser)
+    val expr = parseEqExpr(parser)
+    return DecStatement(pattern, mutable, type, expr)
 }
 
 fun parseGuard(parser: Parser): ScopeStatement {

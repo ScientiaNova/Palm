@@ -121,9 +121,9 @@ fun lex(
     '?' -> {
         val nextPos = pos + 1
         when (code.getOrNull(nextPos)) {
-            '.' -> Token.SafeAccess.to(pos + 1)
+            '.' -> Token.SafeAccess.to(nextPos + 1)
             ':' -> postfixOp(code, pos, nextPos + 1, Token.Elvis, "?:")
-            else -> Token.QuestionMark.to(pos + 1)
+            else -> Token.QuestionMark.to(nextPos)
         }
     }
     '&' -> if (code.getOrNull(pos + 1) == '&') {

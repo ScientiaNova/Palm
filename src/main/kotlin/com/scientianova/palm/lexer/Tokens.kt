@@ -11,8 +11,8 @@ import com.scientianova.palm.util.at
 import java.util.*
 
 sealed class StringPart {
-    data class Regular(val string: String) : StringPart()
-    data class SingleToken(val token: Any /*TODO*/) : StringPart()
+    data class String(val string: kotlin.String) : StringPart()
+    data class Expr(val token: PExpr) : StringPart()
 }
 
 sealed class Token {
@@ -395,6 +395,10 @@ sealed class Token {
 
     object EOF : Token()
 
+    object PlaceHolder : Token() {
+        override val precedence = -100
+    }
+
     data class Error(val error: PError) : Token()
 }
 
@@ -404,7 +408,7 @@ typealias PToken = Pair<Token, StringPos>
 
 val trueToken = Token.Bool(true)
 val falseToken = Token.Bool(false)
-val emptyStr = Token.Str(listOf(StringPart.Regular("")))
+val emptyStr = Token.Str(listOf(StringPart.String("")))
 
 fun PalmError.token(startPos: StringPos, nextPos: StringPos = startPos + 1) =
     PToken(Token.Error(this.at(startPos, nextPos)), nextPos)

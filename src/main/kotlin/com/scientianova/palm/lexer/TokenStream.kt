@@ -1,12 +1,14 @@
 package com.scientianova.palm.lexer
 
-class TokenStream(code: String) {
-    private val iterator = TokenIterator(code)
+import com.scientianova.palm.util.StringPos
+
+class TokenStream(code: String, startPos: StringPos = 0) {
+    private val iterator = TokenIterator(code, startPos)
     private val tokens = mutableListOf<Token>()
-    private val positions = mutableListOf(0)
+    private val positions = mutableListOf(startPos)
 
     fun getToken(index: Int): Token {
-        while (index <= tokens.size) {
+        while (index >= tokens.size) {
             if (!iterator.hasNext()) return tokens.last()
             val (token, nextPos) = iterator.next()
             tokens.add(token)
@@ -16,7 +18,7 @@ class TokenStream(code: String) {
     }
 
     fun getPos(index: Int): Int {
-        while (index <= tokens.size) {
+        while (index >= tokens.size) {
             if (!iterator.hasNext()) return positions.last()
             val (token, nextPos) = iterator.next()
             tokens.add(token)

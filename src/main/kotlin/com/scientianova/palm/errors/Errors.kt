@@ -146,7 +146,7 @@ val unclosedWhen = PalmError(
 
 val unclosedScope = PalmError(
     "UNCLOSED SCOPE",
-    "I was going through a scope, but have reached the end of the file:",
+    "I was going through a scope and was expecting a curly bracket next, but instead got:",
     "Add a } here."
 )
 
@@ -210,6 +210,12 @@ val missingArrowOnBranch = PalmError(
     "Add an -> here."
 )
 
+val missingColonInMap = PalmError(
+    "MISSING COLON",
+    "I was going through a map literal and was expecting a colon, but instead got:",
+    "Add a colon here."
+)
+
 val invalidLambdaArguments = PalmError(
     "INVALID LAMBDA ARGUMENTS",
     "",
@@ -260,6 +266,8 @@ val missingCondition = missing("condition")
 
 val missingExpression = missing("expression")
 
+val missingLambda = missing("lambda")
+
 val notEOF = PalmError(
     "NOT END OF LINE",
     "I got to:",
@@ -290,10 +298,10 @@ val emptyUnicode = PalmError(
     "The unicode needs to be between 1 and 8 characters long."
 )
 
-val unclosedInterpolation = PalmError(
-    "UNCLOSED STRING INTERPOLATION",
-    "I have reached the end of the file while inside a string interpolation scope:",
-    "You've missed a curly bracket."
+val invalidInterpolation = PalmError(
+    "INVALID STRING INTERPOLATION",
+    "I was expecting either an identifier or a this, but instead got:",
+    ""
 )
 
 fun unknownPostfixOp(symbol: String) = PalmError(

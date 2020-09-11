@@ -1,10 +1,13 @@
 package com.scientianova.palm.lexer
 
+import com.scientianova.palm.errors.invalidInterpolation
 import com.scientianova.palm.errors.missingDoubleQuote
 import com.scientianova.palm.errors.unclosedMultilineString
+import com.scientianova.palm.parser.Parser
+import com.scientianova.palm.parser.data.expressions.Expr
+import com.scientianova.palm.parser.parsing.parseStatements
 import com.scientianova.palm.util.StringPos
 import com.scientianova.palm.util.at
-import com.scientianova.palm.util.map
 import com.scientianova.palm.util.mapFirst
 
 internal tailrec fun lexSingleLineString(
@@ -14,14 +17,32 @@ internal tailrec fun lexSingleLineString(
     builder: StringBuilder
 ): PToken = when (val char = code.getOrNull(pos)) {
     null, '\n' -> missingDoubleQuote.token(pos)
-    '"' -> Token.Str(parts + StringPart.Regular(builder.toString())).to(pos + 1)
+    '"' -> Token.Str(parts + StringPart.String(builder.toString())).to(pos + 1)
     '$' -> {
         val interPos = pos + 1
         when (val interChar = code.getOrNull(interPos)) {
-            '{' ->
-                TODO()
-            '`' ->
-                lexTickedIdent(code, interPos + 1, StringBuilder()).mapFirst { TODO() }
+            '{' -> {
+                val parser = Parser(TokenStream(code, interPos))
+                val scope = parseStatements(parser)
+                val next = parser.nextPos
+                lexSingleLineString(
+                    code, next,
+                    parts + StringPart.Expr(Expr.Scope(scope).at(interPos, next)),
+                    builder.clear()
+                )
+            }
+            '`' -> {
+                val (ident, afterIdent) = lexTickedIdent(code, interPos + 1, StringBuilder())
+                when (ident) {
+                    is Token.Error -> ident to afterIdent
+                    is Token.Ident -> lexSingleLineString(
+                        code, afterIdent,
+                        parts + StringPart.Expr(Expr.Ident(ident.identString()).at(interPos, afterIdent)),
+                        builder.clear()
+                    )
+                    else -> error("!??")
+                }
+            }
             in identStartChars ->
                 lexNormalIdent(code, interPos + 1, StringBuilder().append(interChar)).mapFirst { TODO() }
             else ->
@@ -44,17 +65,49 @@ internal tailrec fun lexMultiLineString(
 ): PToken = when (val char = code.getOrNull(pos)) {
     null -> unclosedMultilineString.token(pos)
     '"' -> if (code.startsWith("\"\"", pos + 1)) {
-        Token.Str(parts + StringPart.Regular(builder.toString())).to(pos + 1)
+        Token.Str(parts + StringPart.String(builder.toString())).to(pos + 1)
     } else lexMultiLineString(code, pos + 1, parts, builder.append('"'))
     '$' -> {
         val interPos = pos + 1
         when (val interChar = code.getOrNull(interPos)) {
-            '{' ->
-                TODO()
-            '`' ->
-                lexTickedIdent(code, interPos + 1, StringBuilder()).mapFirst { TODO() }
-            in identStartChars ->
-                lexNormalIdent(code, interPos + 1, StringBuilder().append(interChar)).mapFirst { TODO() }
+            '{' -> {
+                val parser = Parser(TokenStream(code, interPos))
+                val scope = parseStatements(parser)
+                val next = parser.nextPos
+                lexMultiLineString(
+                    code, next,
+                    parts + StringPart.Expr(Expr.Scope(scope).at(interPos, next)),
+                    builder.clear()
+                )
+            }
+            '`' -> {
+                val (ident, afterIdent) = lexTickedIdent(code, interPos + 1, StringBuilder())
+                when (ident) {
+                    is Token.Error -> ident to afterIdent
+                    is Token.Ident -> lexMultiLineString(
+                        code, afterIdent,
+                        parts + StringPart.Expr(Expr.Ident(ident.identString()).at(interPos, afterIdent)),
+                        builder.clear()
+                    )
+                    else -> error("!??")
+                }
+            }
+            in identStartChars -> {
+                val (token, afterToken) = lexNormalIdent(code, interPos + 1, StringBuilder().append(interChar))
+                when (token) {
+                    in identTokens -> lexMultiLineString(
+                        code, afterToken,
+                        parts + StringPart.Expr(Expr.Ident(token.identString()).at(interPos, afterToken)),
+                        builder.clear()
+                    )
+                    Token.This -> lexMultiLineString(
+                        code, afterToken,
+                        parts + StringPart.Expr(Expr.This(null).at(interPos, afterToken)),
+                        builder.clear()
+                    )
+                    else -> invalidInterpolation.token(interPos, afterToken)
+                }
+            }
             else ->
                 lexMultiLineString(code, pos + 1, parts, builder.append('$'))
         }

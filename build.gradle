@@ -1,19 +1,7 @@
-buildscript {
-    repositories {
-        mavenCentral()
-        gradlePluginPortal()
-        maven { url "https://dl.bintray.com/kotlin/kotlin-eap" }
-    }
-
-    dependencies {
-        classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:1.4.0-rc"
-    }
-}
-
 plugins {
     id 'java'
     id 'maven-publish'
-    id 'org.jetbrains.kotlin.jvm' version '1.4.0'
+    id 'org.jetbrains.kotlin.jvm' version '1.4.10'
 }
 
 group =  'com.scientianova.palm'

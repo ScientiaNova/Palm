@@ -1,5 +1,6 @@
 package com.scientianova.palm.parser.data.expressions
 
+import com.scientianova.palm.lexer.StringPart
 import com.scientianova.palm.parser.data.types.ObjectStatement
 import com.scientianova.palm.parser.data.types.PType
 import com.scientianova.palm.parser.data.types.SuperClass
@@ -47,7 +48,7 @@ sealed class Expr {
     data class Float(val value: kotlin.Float) : Expr()
     data class Double(val value: kotlin.Double) : Expr()
     data class Char(val value: kotlin.Char) : Expr()
-    data class Str(val string: String) : Expr()
+    data class Str(val parts: List<StringPart>) : Expr()
     data class Bool(val value: Boolean) : Expr()
 
     object Null : Expr()

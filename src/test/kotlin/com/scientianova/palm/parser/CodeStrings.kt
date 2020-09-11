@@ -1,5 +1,6 @@
 package com.scientianova.palm.parser
 
+import com.scientianova.palm.lexer.StringPart
 import com.scientianova.palm.parser.data.expressions.*
 import com.scientianova.palm.parser.data.top.*
 import com.scientianova.palm.parser.data.top.Function
@@ -198,11 +199,17 @@ ${indent(indent + 1)}${list.joinToString("$separator\n" + indent(indent + 1)) { 
 ${indent(indent)}}
 """.trimIndent()
 
-fun ExprScope.toCodeString(indent: Int) = scopeCodeString(statements, indent) { it.toCodeString(indent + 1) }
+@JvmName("scopeToCodeString")
+fun ExprScope.toCodeString(indent: Int) = scopeCodeString(this, indent) { it.toCodeString(indent + 1) }
 
 private fun indent(count: Int) = "    ".repeat(count)
 
 fun List<Condition>.toCodeString(indent: Int) = joinToString { it.toCodeString(indent) }
+
+fun StringPart.toCodeString(indent: Int) = when (this) {
+    is StringPart.String -> string
+    is StringPart.Expr -> "$${token.toCodeString(indent)}"
+}
 
 fun Expr.toCodeString(indent: Int): String = when (this) {
     is Expr.Ident -> name
@@ -217,7 +224,7 @@ fun Expr.toCodeString(indent: Int): String = when (this) {
     is Expr.Float -> value.toString()
     is Expr.Double -> value.toString()
     is Expr.Char -> "'$value'"
-    is Expr.Str -> "\"$string\""
+    is Expr.Str -> "\"${parts.joinToString("") { it.toCodeString(indent) }}\""
     is Expr.If -> "if ${cond.toCodeString(indent)} ${ifTrue.toCodeString(indent)}" +
             ifFalse.mapTo { " else ${it.toCodeString(indent)}" }
     is Expr.Scope -> scope.toCodeString(indent)
@@ -251,7 +258,7 @@ ${indent(indent)}}
         val paramsString = params.joinToString { it.first.toCodeString() + typeAnn(it.second) }
         """
 { $paramsString ->
-${indent(indent + 1)}${scope.statements.joinToString("\n" + indent(indent + 1)) { it.toCodeString(indent + 1) }}
+${indent(indent + 1)}${scope.joinToString("\n" + indent(indent + 1)) { it.toCodeString(indent + 1) }}
 ${indent(indent)}}
         """.trimIndent()
     }
@@ -269,9 +276,9 @@ ${indent(indent)}}
     is Expr.Unary -> {
         val opS = op.toCodeString()
         val exprS = expr.toCodeString(indent)
-        if (op.isPrefix()) "$opS$exprS" else "$exprS$opS"
+        if (op.isPrefix()) "$opS($exprS)" else "($exprS)$opS"
     }
-    is Expr.Binary -> "${first.toCodeString(indent)} ${op.toCodeString()} ${second.toCodeString(indent)}"
+    is Expr.Binary -> "(${first.toCodeString(indent)} ${op.toCodeString()} ${second.toCodeString(indent)})"
     is Expr.And -> "${first.toCodeString(indent)} && ${second.toCodeString(indent)}"
     is Expr.Or -> "${first.toCodeString(indent)} || ${second.toCodeString(indent)}"
     is Expr.Elvis -> "${first.toCodeString(indent)} ?: ${second.toCodeString(indent)}"
@@ -280,6 +287,7 @@ ${indent(indent)}}
     is Expr.RefEq -> "${first.toCodeString(indent)} === ${second.toCodeString(indent)}"
     is Expr.NotRefEq -> "${first.toCodeString(indent)} !== ${second.toCodeString(indent)}"
     is Expr.Object -> TODO()
+    is Expr.Get -> expr.toCodeString(indent) + "[${args.joinToString { it.toCodeString(indent) }}]"
 }
 
 fun BinaryOp.toCodeString() = when (this) {

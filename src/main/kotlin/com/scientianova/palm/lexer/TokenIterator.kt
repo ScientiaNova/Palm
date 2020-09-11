@@ -1,8 +1,8 @@
 package com.scientianova.palm.lexer
 
-class TokenIterator(private val code: String) : Iterator<PToken> {
-    private var pos = 0
+import com.scientianova.palm.util.StringPos
 
+class TokenIterator(private val code: String, private var pos: StringPos = 0) : Iterator<PToken> {
     override fun hasNext() = pos <= code.length
 
     override fun next(): PToken {

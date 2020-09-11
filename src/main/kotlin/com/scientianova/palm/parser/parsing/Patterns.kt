@@ -1,12 +1,19 @@
 package com.scientianova.palm.parser.parsing
 
+import com.scientianova.palm.errors.invalidDoubleDeclaration
 import com.scientianova.palm.errors.invalidPattern
+import com.scientianova.palm.errors.missingIdentifier
 import com.scientianova.palm.errors.unclosedParenthesis
 import com.scientianova.palm.lexer.Token
 import com.scientianova.palm.parser.Parser
+import com.scientianova.palm.parser.data.expressions.Expr
 import com.scientianova.palm.parser.data.expressions.PPattern
 import com.scientianova.palm.parser.data.expressions.Pattern
+import com.scientianova.palm.parser.parseIdent
 import com.scientianova.palm.parser.recBuildList
+import com.scientianova.palm.util.PString
+import com.scientianova.palm.util.at
+import com.scientianova.palm.util.map
 
 enum class DecHandling {
     None, Val, Var
@@ -15,19 +22,48 @@ enum class DecHandling {
 fun parsePattern(parser: Parser, handling: DecHandling): PPattern = when (parser.current) {
     Token.Wildcard -> parser.advance().end(Pattern.Wildcard)
     Token.LParen -> parseTuplePattern(parser, handling)
-    Token.LBrace -> TODO()
-    Token.Dot -> TODO()
-    Token.Var -> TODO()
-    Token.Val -> TODO()
-    else -> TODO()
+    Token.LBrace -> parseRecordPattern(parser, handling)
+    Token.Dot -> parseEnumPattern(parser, handling)
+    Token.Is -> parseTypePattern(parser)
+    Token.Var -> if (handling == DecHandling.None) {
+        parsePattern(parser.advance(), DecHandling.Var)
+    } else {
+        parser.err(invalidDoubleDeclaration)
+    }
+    Token.Val -> if (handling == DecHandling.None) {
+        parsePattern(parser.advance(), DecHandling.Var)
+    } else {
+        parser.err(invalidDoubleDeclaration)
+    }
+    else -> {
+        val expr = requireSubExpr(parser)
+        val value = expr.value
+        if (value is Expr.Ident) when (handling) {
+            DecHandling.Var -> Pattern.Dec(value.name, true).at(expr.start, expr.next)
+            DecHandling.Val -> Pattern.Dec(value.name, false).at(expr.start, expr.next)
+            DecHandling.None -> expr.map(Pattern::Expr)
+        } else {
+            expr.map(Pattern::Expr)
+        }
+    }
 }
 
 fun parsePatternNoExpr(parser: Parser, handling: DecHandling): PPattern = when (parser.current) {
     Token.Wildcard -> parser.advance().end(Pattern.Wildcard)
     Token.LParen -> parseTuplePattern(parser, handling)
-    Token.LBrace -> TODO()
-    Token.Dot -> TODO()
+    Token.LBrace -> parseRecordPattern(parser, handling)
+    Token.Dot -> parseEnumPattern(parser, handling)
+    Token.Is -> parseTypePattern(parser)
     else -> parser.err(invalidPattern)
+}
+
+fun parseTypePattern(parser: Parser): PPattern {
+    val start = parser.Marker()
+    parser.advance()
+
+    val type = parseType(parser)
+
+    return start.end(Pattern.Type(type))
 }
 
 private fun parseTuplePatternBody(parser: Parser, handling: DecHandling): List<PPattern> = recBuildList<PPattern> {
@@ -60,4 +96,78 @@ fun parseTuplePattern(parser: Parser, handling: DecHandling): PPattern {
     } else {
         marker.end(Pattern.Tuple(list))
     }
+}
+
+fun parseEnumPattern(parser: Parser, handling: DecHandling): PPattern {
+    val start = parser.Marker()
+    parser.advance()
+
+    val ident = parser.current.identString()
+    if (ident.isEmpty()) parser.err(missingIdentifier)
+    parser.advance()
+
+    val name = parser.end(ident)
+
+    val params = if (parser.current == Token.LParen) {
+        parser.advance()
+        parser.trackNewline = false
+        parser.excludeCurly = false
+
+        val list = parseTuplePatternBody(parser, handling)
+
+        parser.advance()
+        start.revertFlags()
+
+        list
+    } else emptyList()
+
+    return start.end(Pattern.Enum(name, params))
+}
+
+private fun convertName(name: PString, handling: DecHandling) = when (handling) {
+    DecHandling.None -> Pattern.Wildcard.at(name.start, name.next)
+    DecHandling.Var -> Pattern.Dec(name.value, true).at(name.start, name.next)
+    DecHandling.Val -> Pattern.Dec(name.value, false).at(name.start, name.next)
+}
+
+private fun parseRecordPatternBody(parser: Parser, handling: DecHandling): List<Pair<PString, PPattern>> =
+    recBuildList<Pair<PString, PPattern>> {
+        if (parser.current == Token.RBrace) {
+            return this
+        } else {
+            val name = parseIdent(parser)
+            when (parser.current) {
+                Token.Comma -> {
+                    add(name to convertName(name, handling))
+                    parser.advance()
+                }
+                Token.RBrace -> {
+                    add(name to convertName(name, handling))
+                    return this
+                }
+                Token.Colon -> {
+                    val pattern = parsePattern(parser.advance(), handling)
+                    add(name to pattern)
+
+                    when (parser.current) {
+                        Token.Comma -> parser.advance()
+                        Token.RBrace -> return this
+                        else -> parser.err(unclosedParenthesis)
+                    }
+                }
+                else -> parser.err(unclosedParenthesis)
+            }
+        }
+    }
+
+
+fun parseRecordPattern(parser: Parser, handling: DecHandling): PPattern {
+    val marker = parser.Marker()
+    parser.advance()
+
+    val list = parseRecordPatternBody(parser, handling)
+
+    parser.advance()
+
+    return marker.end(Pattern.Record(list))
 }
