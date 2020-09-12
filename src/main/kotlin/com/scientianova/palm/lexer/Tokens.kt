@@ -4,8 +4,8 @@ import com.scientianova.palm.errors.PError
 import com.scientianova.palm.errors.PalmError
 import com.scientianova.palm.parser.Parser
 import com.scientianova.palm.parser.data.expressions.*
-import com.scientianova.palm.parser.parsing.parseType
-import com.scientianova.palm.parser.parsing.requireSubExpr
+import com.scientianova.palm.parser.parsing.expressions.parseType
+import com.scientianova.palm.parser.parsing.expressions.requireSubExpr
 import com.scientianova.palm.util.StringPos
 import com.scientianova.palm.util.at
 import java.util.*

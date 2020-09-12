@@ -20,9 +20,6 @@ fun PPattern.toCodeString(indent: Int) = value.toCodeString(indent)
 @JvmName("decPatternToCodeString")
 fun PDecPattern.toCodeString() = value.toCodeString()
 
-@JvmName("typeParamToCodeString")
-fun PTypeParam.toCodeString() = value.toCodeString()
-
 @JvmName("typeArgToCodeString")
 fun PTypeArg.toCodeString() = value.toCodeString()
 
@@ -31,7 +28,8 @@ fun Pattern.toCodeString(indent: Int): String = when (this) {
     is Pattern.Expr -> expr.toCodeString(indent)
     is Pattern.Dec -> "${if (mutable) "var" else "val"} $name"
     is Pattern.Type -> "is ${type.toCodeString()}"
-    is Pattern.Enum -> ".$name(${params.joinToString { it.toCodeString(indent) }})"
+    is Pattern.EnumTuple -> ".$name(${params.joinToString { it.toCodeString(indent) }})"
+    is Pattern.Enum -> ".$name(${params.joinToString { "${it.first.value}: ${it.second.value.toCodeString(indent)}" }})"
     is Pattern.Tuple -> "(${elements.joinToString { it.toCodeString(indent) }})"
     is Pattern.Record -> "{${pairs.joinToString { "${it.first.value}: ${it.second.value.toCodeString(indent)}" }}}"
 }
@@ -65,11 +63,10 @@ fun TypeArg.toCodeString() = when (this) {
 
 fun FunTypeArg.toCodeString() = (if (using) "using " else "") + type.toCodeString()
 
-fun TypeParam.toCodeString() =
-    variance.toCodeString() + name + typeAnn(lowerBound)
+fun TypeParam.toCodeString() = name.value
 
 @JvmName("typeParamsToCodeString")
-fun List<PTypeParam>.toCodeString() = if (isEmpty()) "" else joinToString { it.toCodeString() }
+fun List<TypeParam>.toCodeString() = if (isEmpty()) "" else joinToString { it.toCodeString() }
 
 @JvmName("pathToCodeString")
 fun Path.toCodeString() = joinToString(".") { it.value }
@@ -162,18 +159,28 @@ fun SuperClass.toCodeString(indent: Int) = type.toCodeString() + args.toCodeStri
 
 fun Class.toCodeString(indent: Int): String {
     val implementsNothing = implements.isEmpty()
-    return privacy.toCodeString() + "" + implementation.toCodeString() + "class " + name.value + typeParams.toCodeString() +
+    return privacy.toCodeString() + "" + implementation.toCodeString() + "class " + name.value +
+            typeParams.joinToString { it.value.toCodeString() } +
             primaryConstructor.mapTo { "(${it.toCodeString(indent)})" } + (if (superClass == null && implementsNothing) "" else " : ") +
             superClass.mapTo { it.toCodeString(indent) + (if (implementsNothing) ", " else "") } +
             implements.joinToString { it.toCodeString() } + " "
 }
 
-fun ParamModifier.toCodeString() = when (this) {
-    ParamModifier.Given -> "given"
-    ParamModifier.Using -> "using"
-}
 
-fun FunParam.toCodeString(indent: Int) = modifier.joinToString(" ", postfix = "") { it.toCodeString() } +
+fun ClassTypeParam.toCodeString() = variance.toCodeString() + type.toCodeString()
+
+fun ParamInfo.toCodeString() = StringBuilder().apply {
+    if (using) append(" using")
+    if (given) append(" given")
+    when (inlineHandling) {
+        InlineHandling.NoInline -> append(" noinline")
+        InlineHandling.CrossInline -> append(" crossinline")
+        InlineHandling.None -> {
+        }
+    }
+}.toString()
+
+fun FunParam.toCodeString(indent: Int) = info.toCodeString() +
         "${pattern.toCodeString()}: ${type.toCodeString()}" + default.mapTo { " = ${it.toCodeString(indent)}" }
 
 @JvmName("funParamsToCodeString")

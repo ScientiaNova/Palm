@@ -1,4 +1,4 @@
-package com.scientianova.palm.parser.parsing
+package com.scientianova.palm.parser.parsing.expressions
 
 import com.scientianova.palm.errors.missingElseInGuard
 import com.scientianova.palm.errors.missingScope
@@ -26,7 +26,7 @@ fun parseStatement(parser: Parser): ScopeStatement = when (parser.current) {
 
 fun parseDecStatement(parser: Parser, mutable: Boolean): ScopeStatement {
     val pattern = requireDecPattern(parser.advance())
-    val type = parseTypeAnnotation(parser)
+    val type = parseTypeAnn(parser)
     val expr = parseEqExpr(parser)
     return DecStatement(pattern, mutable, type, expr)
 }

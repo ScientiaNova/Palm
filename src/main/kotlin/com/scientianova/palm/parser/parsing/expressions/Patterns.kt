@@ -1,8 +1,7 @@
-package com.scientianova.palm.parser.parsing
+package com.scientianova.palm.parser.parsing.expressions
 
 import com.scientianova.palm.errors.invalidDoubleDeclaration
 import com.scientianova.palm.errors.invalidPattern
-import com.scientianova.palm.errors.missingIdentifier
 import com.scientianova.palm.errors.unclosedParenthesis
 import com.scientianova.palm.lexer.Token
 import com.scientianova.palm.parser.Parser
@@ -102,26 +101,35 @@ fun parseEnumPattern(parser: Parser, handling: DecHandling): PPattern {
     val start = parser.Marker()
     parser.advance()
 
-    val ident = parser.current.identString()
-    if (ident.isEmpty()) parser.err(missingIdentifier)
-    parser.advance()
+    val name = parseIdent(parser)
 
-    val name = parser.end(ident)
+    return when (parser.current) {
+        Token.LParen -> {
+            parser.advance()
+            parser.trackNewline = false
+            parser.excludeCurly = false
 
-    val params = if (parser.current == Token.LParen) {
-        parser.advance()
-        parser.trackNewline = false
-        parser.excludeCurly = false
+            val list = parseTuplePatternBody(parser, handling)
 
-        val list = parseTuplePatternBody(parser, handling)
+            parser.advance()
+            start.revertFlags()
 
-        parser.advance()
-        start.revertFlags()
+            start.end(Pattern.EnumTuple(name, list))
+        }
+        Token.LBrace -> {
+            parser.advance()
+            parser.excludeCurly = false
+            parser.trackNewline = false
 
-        list
-    } else emptyList()
+            val list = parseRecordPatternBody(parser, handling)
 
-    return start.end(Pattern.Enum(name, params))
+            start.revertFlags()
+            parser.advance()
+
+            start.end(Pattern.Enum(name, list))
+        }
+        else -> start.end(Pattern.EnumTuple(name, emptyList()))
+    }
 }
 
 private fun convertName(name: PString, handling: DecHandling) = when (handling) {
@@ -163,10 +171,14 @@ private fun parseRecordPatternBody(parser: Parser, handling: DecHandling): List<
 
 fun parseRecordPattern(parser: Parser, handling: DecHandling): PPattern {
     val marker = parser.Marker()
+
     parser.advance()
+    parser.excludeCurly = false
+    parser.trackNewline = false
 
     val list = parseRecordPatternBody(parser, handling)
 
+    marker.revertFlags()
     parser.advance()
 
     return marker.end(Pattern.Record(list))

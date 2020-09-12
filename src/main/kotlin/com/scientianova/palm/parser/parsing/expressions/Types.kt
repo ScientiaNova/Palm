@@ -1,14 +1,13 @@
-package com.scientianova.palm.parser.parsing
+package com.scientianova.palm.parser.parsing.expressions
 
 import com.scientianova.palm.errors.*
 import com.scientianova.palm.lexer.Token
 import com.scientianova.palm.lexer.identTokens
 import com.scientianova.palm.parser.Parser
-import com.scientianova.palm.parser.data.types.*
+import com.scientianova.palm.parser.data.expressions.*
 import com.scientianova.palm.parser.recBuildList
 import com.scientianova.palm.util.PString
 import com.scientianova.palm.util.at
-import com.scientianova.palm.util.end
 
 fun parseType(parser: Parser): PType = parseTypeNullability(
     parser, when (parser.current) {
@@ -18,11 +17,13 @@ fun parseType(parser: Parser): PType = parseTypeNullability(
     }
 )
 
-fun parseTypeAnnotation(parser: Parser) = if (parser.current == Token.Colon) {
-    parseType(parser.advance())
+fun parseTypeAnn(parser: Parser) = if (parser.current == Token.Colon) {
+    parseTypeBinOps(parser.advance())
 } else {
     null
 }
+
+fun requireTypeAnn(parser: Parser) = parseTypeAnn(parser) ?: parser.err(missingTypeAnn)
 
 fun parseTypePath(parser: Parser): List<PString> = recBuildList<PString> {
     val ident = parser.current.identString()
@@ -149,7 +150,7 @@ fun parseTypeArg(parser: Parser): PTypeArg = when (parser.current) {
     Token.Out -> parseNormalTypeArg(parser, VarianceMod.Out)
     else -> {
         val type = parseTypeBinOps(parser)
-        TypeArg.Normal(type, VarianceMod.None).at(type.start, type.end)
+        TypeArg.Normal(type, VarianceMod.None).at(type.start, type.next)
     }
 }
 

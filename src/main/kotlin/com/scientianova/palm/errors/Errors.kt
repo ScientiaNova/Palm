@@ -260,6 +260,8 @@ val missingNumber = missing("number")
 
 val missingType = missing("type")
 
+val missingTypeAnn = missing("type annotation")
+
 val missingPattern = missing("pattern")
 
 val missingCondition = missing("condition")
@@ -267,6 +269,8 @@ val missingCondition = missing("condition")
 val missingExpression = missing("expression")
 
 val missingLambda = missing("lambda")
+
+val missingWildcard = missing("wildcard")
 
 val notEOF = PalmError(
     "NOT END OF LINE",
@@ -374,4 +378,25 @@ val emptyGetBody = PalmError(
     "EMPTY GET",
     "I saw a postfix get, but I couldn't find any parameters:",
     "A get needs to have at least one parameter."
+)
+
+fun doubleModifier(about: String) = PalmError(
+    "DOUBLE ${about.capitalize()}",
+    "I saw ${aOrAn(about.first())} $about modifier on this function parameter, but its $about was already set:",
+    "Remove either this or the first $about modifier."
+)
+
+val doubleInlineHandling = doubleModifier("inline handling")
+val doublePrivacy = doubleModifier("privacy")
+
+val missingFunParams = PalmError(
+    "MISSING FUNCTION PARAMETERS",
+    "I was expecting to see the start of the function parameters, but instead got:",
+    "Functions need to have parameters inside parentheses after their name."
+)
+
+val missingConstructorParams = PalmError(
+    "MISSING CONSTRUCTOR PARAMETERS",
+    "I was expecting to see the start of the contructor parameters, but instead got:",
+    "Constructors need to have parameters inside parentheses after the kwyword."
 )

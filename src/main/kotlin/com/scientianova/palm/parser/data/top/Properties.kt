@@ -1,14 +1,14 @@
 package com.scientianova.palm.parser.data.top
 
 import com.scientianova.palm.parser.data.expressions.PExpr
-import com.scientianova.palm.parser.data.types.PType
-import com.scientianova.palm.parser.data.types.PTypeParam
+import com.scientianova.palm.parser.data.expressions.PType
+import com.scientianova.palm.parser.data.types.TypeParam
 import com.scientianova.palm.util.PString
 
 sealed class Property<P> {
     data class Normal<P>(
         val name: PString,
-        val typeParams: List<PTypeParam>,
+        val typeParams: List<TypeParam>,
         val mutable: Boolean,
         val type: PType?,
         val expr: PExpr?,
@@ -18,7 +18,7 @@ sealed class Property<P> {
 
     data class Delegated<P>(
         val name: PString,
-        val typeParams: List<PTypeParam>,
+        val typeParams: List<TypeParam>,
         val mutable: Boolean,
         val type: PType?,
         val delegate: PExpr

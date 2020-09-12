@@ -1,7 +1,5 @@
 package com.scientianova.palm.parser.data.expressions
 
-import com.scientianova.palm.parser.data.types.PType
-
 sealed class ScopeStatement
 
 data class DecStatement(

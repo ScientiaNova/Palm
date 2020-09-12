@@ -1,4 +1,4 @@
-package com.scientianova.palm.parser.parsing
+package com.scientianova.palm.parser.parsing.expressions
 
 import com.scientianova.palm.errors.invalidPattern
 import com.scientianova.palm.errors.unclosedParenthesis

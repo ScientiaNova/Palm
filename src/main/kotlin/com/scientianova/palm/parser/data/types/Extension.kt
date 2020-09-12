@@ -1,12 +1,19 @@
 package com.scientianova.palm.parser.data.types
 
+import com.scientianova.palm.parser.data.expressions.PType
 import com.scientianova.palm.parser.data.top.Function
 import com.scientianova.palm.parser.data.top.Property
 
-data class Extension<P>(val typeParams: TypeParam, val on: PType, val statements: List<ExtensionStatement<P>>)
+data class Extension<P>(
+    val typeParams: TypeParam,
+    val on: PType,
+    val typeConstraints: TypeConstraints,
+    val statements: List<ExtensionStatement<P>>
+)
 
 data class ExtensionPropertyInfo<P>(
     val privacy: P,
+    val inline: Boolean,
     val given: Boolean,
     val using: Boolean
 )
@@ -15,6 +22,7 @@ data class ExtensionMethodInfo<P>(
     val privacy: P,
     val operator: Boolean,
     val tailRec: Boolean,
+    val inline: Boolean,
     val given: Boolean,
     val using: Boolean
 )

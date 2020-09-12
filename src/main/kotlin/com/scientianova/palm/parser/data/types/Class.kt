@@ -3,6 +3,7 @@ package com.scientianova.palm.parser.data.types
 import com.scientianova.palm.parser.data.expressions.CallArgs
 import com.scientianova.palm.parser.data.expressions.ExprScope
 import com.scientianova.palm.parser.data.expressions.PExpr
+import com.scientianova.palm.parser.data.expressions.PType
 import com.scientianova.palm.parser.data.top.FunParam
 import com.scientianova.palm.parser.data.top.Function
 import com.scientianova.palm.parser.data.top.Property
@@ -24,7 +25,8 @@ data class Class(
     val privacy: TopLevelPrivacy,
     val implementation: ClassImplementation,
     val primaryConstructor: List<FunParam>,
-    val typeParams: List<PString>,
+    val typeParams: List<PClassTypeParam>,
+    val typeConstraints: TypeConstraints,
     val superClass: SuperClass?,
     val implements: List<PType>,
     val statements: List<ClassStatement>

@@ -1,6 +1,6 @@
 package com.scientianova.palm.parser
 
-import com.scientianova.palm.parser.parsing.requireBinOps
+import com.scientianova.palm.parser.parsing.expressions.requireBinOps
 import kotlin.system.measureTimeMillis
 
 fun main() {

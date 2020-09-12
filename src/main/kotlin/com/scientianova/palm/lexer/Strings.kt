@@ -5,7 +5,7 @@ import com.scientianova.palm.errors.missingDoubleQuote
 import com.scientianova.palm.errors.unclosedMultilineString
 import com.scientianova.palm.parser.Parser
 import com.scientianova.palm.parser.data.expressions.Expr
-import com.scientianova.palm.parser.parsing.parseStatements
+import com.scientianova.palm.parser.parsing.expressions.parseStatements
 import com.scientianova.palm.util.StringPos
 import com.scientianova.palm.util.at
 import com.scientianova.palm.util.mapFirst

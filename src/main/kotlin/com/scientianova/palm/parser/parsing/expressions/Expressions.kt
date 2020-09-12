@@ -1,4 +1,4 @@
-package com.scientianova.palm.parser.parsing
+package com.scientianova.palm.parser.parsing.expressions
 
 import com.scientianova.palm.errors.*
 import com.scientianova.palm.lexer.Token
@@ -7,7 +7,6 @@ import com.scientianova.palm.lexer.isIdentifier
 import com.scientianova.palm.lexer.prefixTokens
 import com.scientianova.palm.parser.Parser
 import com.scientianova.palm.parser.data.expressions.*
-import com.scientianova.palm.parser.data.types.PType
 import com.scientianova.palm.parser.recBuildList
 import com.scientianova.palm.util.PString
 import com.scientianova.palm.util.at
@@ -494,7 +493,7 @@ fun parseGet(parser: Parser, on: PExpr): PExpr {
 
 fun parseLambdaParams(parser: Parser): LambdaParams = recBuildList<Pair<PDecPattern, PType?>> {
     val pattern = parseDecPattern(parser) ?: return emptyList()
-    val type = parseTypeAnnotation(parser)
+    val type = parseTypeAnn(parser)
     add(pattern to type)
     when (parser.current) {
         Token.Comma -> parser.advance()

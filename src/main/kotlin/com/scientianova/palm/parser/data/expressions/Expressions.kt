@@ -2,7 +2,6 @@ package com.scientianova.palm.parser.data.expressions
 
 import com.scientianova.palm.lexer.StringPart
 import com.scientianova.palm.parser.data.types.ObjectStatement
-import com.scientianova.palm.parser.data.types.PType
 import com.scientianova.palm.parser.data.types.SuperClass
 import com.scientianova.palm.util.PInt
 import com.scientianova.palm.util.PString
