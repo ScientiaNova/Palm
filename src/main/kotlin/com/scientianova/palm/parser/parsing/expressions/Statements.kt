@@ -8,11 +8,12 @@ import com.scientianova.palm.parser.Parser
 import com.scientianova.palm.parser.data.expressions.*
 import com.scientianova.palm.parser.recBuildList
 
-fun parseStatement(parser: Parser): ScopeStatement = when (parser.current) {
+private fun parseStatement(parser: Parser): ScopeStatement = when (parser.current) {
     Token.Val -> parseDecStatement(parser, false)
     Token.Var -> parseDecStatement(parser, true)
     Token.Using -> UsingStatement(requireBinOps(parser.advance()))
     Token.Guard -> parseGuard(parser)
+    Token.Defer -> DeferStatement(requireScope(parser.advance()))
     else -> {
         val subExpr = requireSubExpr(parser)
         val assignment = parser.current.assignment()
@@ -24,14 +25,14 @@ fun parseStatement(parser: Parser): ScopeStatement = when (parser.current) {
     }
 }
 
-fun parseDecStatement(parser: Parser, mutable: Boolean): ScopeStatement {
+private fun parseDecStatement(parser: Parser, mutable: Boolean): ScopeStatement {
     val pattern = requireDecPattern(parser.advance())
     val type = parseTypeAnn(parser)
     val expr = parseEqExpr(parser)
     return DecStatement(pattern, mutable, type, expr)
 }
 
-fun parseGuard(parser: Parser): ScopeStatement {
+private fun parseGuard(parser: Parser): ScopeStatement {
     parser.advance()
 
     val conditions = parseConditions(parser)
@@ -41,7 +42,7 @@ fun parseGuard(parser: Parser): ScopeStatement {
     return GuardStatement(conditions, scope)
 }
 
-fun parseStatements(parser: Parser): ExprScope = recBuildList<ScopeStatement> {
+fun parseStatements(parser: Parser): ExprScope = recBuildList {
     when (parser.current) {
         Token.RBrace -> return this
         Token.Semicolon -> parser.advance()

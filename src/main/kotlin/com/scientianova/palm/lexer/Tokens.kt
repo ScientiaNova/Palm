@@ -52,16 +52,6 @@ sealed class Token {
     object RBracket : Token()
     object Dot : Token()
 
-    object RangeFrom : Token() {
-        override fun unaryOp() = UnaryOp.RangeFrom
-        override fun isPostfix() = true
-    }
-
-    object RangeUntil : Token() {
-        override fun unaryOp() = UnaryOp.RangeUntil
-        override fun isPrefix() = true
-    }
-
     object SafeAccess : Token()
     object Colon : Token()
     object DoubleColon : Token()
@@ -330,6 +320,34 @@ sealed class Token {
         override fun identString() = "set"
     }
 
+    object File : Token() {
+        override fun identString() = "file"
+    }
+
+    object Field : Token() {
+        override fun identString() = "field"
+    }
+
+    object Delegate : Token() {
+        override fun identString() = "delegate"
+    }
+
+    object Property : Token() {
+        override fun identString() = "property"
+    }
+
+    object Param : Token() {
+        override fun identString() = "param"
+    }
+
+    object Setparam : Token() {
+        override fun identString() = "setparam"
+    }
+
+    object Blank : Token() {
+        override fun identString() = "blank"
+    }
+
     object This : Token()
     object Super : Token()
     object Null : Token()
@@ -339,6 +357,9 @@ sealed class Token {
     object For : Token()
     object While : Token()
     object Do : Token()
+    object Catch : Token()
+    object With : Token()
+    object Defer : Token()
     object Loop : Token()
     object Break : Token()
     object Continue : Token()
@@ -359,10 +380,6 @@ sealed class Token {
 
     object By : Token() {
         override fun identString() = "by"
-    }
-
-    object With : Token() {
-        override fun identString() = "with"
     }
 
     object Where : Token() {

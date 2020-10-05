@@ -3,8 +3,13 @@ package com.scientianova.palm.parser.data.types
 import com.scientianova.palm.parser.data.expressions.PType
 import com.scientianova.palm.util.PString
 
+enum class RecordType {
+    Normal, Inline, Annotation
+}
+
 sealed class Record {
     data class Tuple(
+        val type: RecordType,
         val name: PString,
         val typeParams: List<TypeParam>,
         val typeConstraints: TypeConstraints,
@@ -12,6 +17,7 @@ sealed class Record {
     ) : Record()
 
     data class Normal(
+        val type: RecordType,
         val name: PString,
         val typeParams: List<TypeParam>,
         val typeConstraints: TypeConstraints,

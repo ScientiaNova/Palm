@@ -6,4 +6,3 @@ data class TokenGroup(val predicate: (Token) -> Boolean) {
 
 val identTokens = TokenGroup { it.identString().isNotEmpty() }
 val prefixTokens = TokenGroup(Token::isPrefix)
-val postfixTokens = TokenGroup(Token::isPostfix)

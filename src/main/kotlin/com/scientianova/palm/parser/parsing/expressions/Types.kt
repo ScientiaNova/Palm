@@ -25,7 +25,7 @@ fun parseTypeAnn(parser: Parser) = if (parser.current == Token.Colon) {
 
 fun requireTypeAnn(parser: Parser) = parseTypeAnn(parser) ?: parser.err(missingTypeAnn)
 
-fun parseTypePath(parser: Parser): List<PString> = recBuildList<PString> {
+private fun parseTypePath(parser: Parser): List<PString> = recBuildList {
     val ident = parser.current.identString()
 
     if (ident.isEmpty()) parser.err(missingIdentifier)
@@ -35,10 +35,12 @@ fun parseTypePath(parser: Parser): List<PString> = recBuildList<PString> {
 
     if (parser.current == Token.Dot) {
         parser.advance()
-    } else return this
+    } else {
+        return this
+    }
 }
 
-fun parseTypeArgs(parser: Parser): List<PTypeArg> = recBuildList<PTypeArg> {
+private fun parseTypeArgs(parser: Parser): List<PTypeArg> = recBuildList {
     if (parser.current == Token.RBracket) {
         return this
     } else {
@@ -51,7 +53,7 @@ fun parseTypeArgs(parser: Parser): List<PTypeArg> = recBuildList<PTypeArg> {
     }
 }
 
-fun parseNamedType(parser: Parser): PType {
+private fun parseNamedType(parser: Parser): PType {
     val start = parser.Marker()
 
     val path = parseTypePath(parser)
@@ -73,7 +75,7 @@ fun parseNamedType(parser: Parser): PType {
     return start.end(Type.Named(path, args))
 }
 
-tailrec fun parseTypeNullability(parser: Parser, type: PType): PType = if (parser.current == Token.QuestionMark) {
+private tailrec fun parseTypeNullability(parser: Parser, type: PType): PType = if (parser.current == Token.QuestionMark) {
     parseTypeNullability(
         parser.advance(),
         if (type.value !is Type.Nullable) {
@@ -86,7 +88,7 @@ tailrec fun parseTypeNullability(parser: Parser, type: PType): PType = if (parse
     type
 }
 
-fun parseInterTypeBody(parser: Parser, first: PType): List<PType> = recBuildList(mutableListOf(first)) {
+private fun parseInterTypeBody(parser: Parser, first: PType) = recBuildList(mutableListOf(first)) {
     add(parseType(parser))
     if (parser.current == Token.Plus) {
         parser.advance()
@@ -105,7 +107,7 @@ fun parseTypeBinOps(parser: Parser): PType {
     }
 }
 
-private fun parseTypeTupleBody(parser: Parser): List<FunTypeArg> = recBuildList<FunTypeArg> {
+private fun parseTypeTupleBody(parser: Parser): List<FunTypeArg> = recBuildList {
     if (parser.current == Token.RParen) {
         return this
     } else {
@@ -122,7 +124,7 @@ private fun parseTypeTupleBody(parser: Parser): List<FunTypeArg> = recBuildList<
     }
 }
 
-fun parseTypeTuple(parser: Parser): PType {
+private fun parseTypeTuple(parser: Parser): PType {
     val marker = parser.Marker()
 
     parser.advance()
@@ -144,7 +146,7 @@ fun parseTypeTuple(parser: Parser): PType {
     }
 }
 
-fun parseTypeArg(parser: Parser): PTypeArg = when (parser.current) {
+private fun parseTypeArg(parser: Parser): PTypeArg = when (parser.current) {
     Token.Wildcard -> parser.advance().end(TypeArg.Wildcard)
     Token.In -> parseNormalTypeArg(parser, VarianceMod.In)
     Token.Out -> parseNormalTypeArg(parser, VarianceMod.Out)
@@ -154,7 +156,7 @@ fun parseTypeArg(parser: Parser): PTypeArg = when (parser.current) {
     }
 }
 
-fun parseNormalTypeArg(parser: Parser, variance: VarianceMod): PTypeArg {
+private fun parseNormalTypeArg(parser: Parser, variance: VarianceMod): PTypeArg {
     val start = parser.Marker()
 
     val type = parseType(parser.advance())

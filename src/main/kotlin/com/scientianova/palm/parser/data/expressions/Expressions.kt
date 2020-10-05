@@ -38,6 +38,12 @@ sealed class Expr {
     data class Break(val label: PString?, val expr: PExpr?) : Expr()
     data class Return(val label: PString?, val expr: PExpr?) : Expr()
 
+    data class Throw(val expr: PExpr) : Expr()
+
+    data class Do(val scope: ExprScope, val catches: List<Catch>) : Expr()
+
+    data class With(val declarations: List<WithDec>, val body: ExprScope) : Expr()
+
     data class Scope(val scope: ExprScope) : Expr()
 
     data class Byte(val value: kotlin.Byte) : Expr()
@@ -101,6 +107,10 @@ sealed class Arg {
 }
 
 data class CallArgs(val args: List<Arg> = emptyList(), val last: PExpr? = null)
+
+data class Catch(val dec: PDecPattern, val type: PType, val body: ExprScope)
+
+data class WithDec(val dec: PDecPattern, val type: PType?, val expr: PExpr)
 
 typealias LambdaParams = List<Pair<PDecPattern, PType?>>
 

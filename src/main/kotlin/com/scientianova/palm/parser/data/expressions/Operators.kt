@@ -5,13 +5,10 @@ enum class BinaryOp {
 }
 
 enum class UnaryOp {
-    Plus, Minus, Not, NonNull, RangeFrom, RangeUntil
+    Plus, Minus, Not, NonNull
 }
 
-fun UnaryOp.isPrefix() = when (this) {
-    UnaryOp.NonNull, UnaryOp.RangeFrom -> false
-    else -> true
-}
+fun UnaryOp.isPrefix() = this != UnaryOp.NonNull
 
 enum class AssignmentType {
     Normal, Plus, Minus, Times, Div, Rem

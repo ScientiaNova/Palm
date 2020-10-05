@@ -21,6 +21,7 @@ data class ExtensionPropertyInfo<P>(
 data class ExtensionMethodInfo<P>(
     val privacy: P,
     val operator: Boolean,
+    val blank: Boolean,
     val tailRec: Boolean,
     val inline: Boolean,
     val given: Boolean,

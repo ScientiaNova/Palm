@@ -69,7 +69,7 @@ class Parser(private val stream: TokenStream) {
     }
 }
 
-inline fun <T> recBuildList(list: MutableList<T> = mutableListOf(), builder: MutableList<T>.() -> Unit): Nothing {
+inline fun <T> recBuildList(list: MutableList<T> = mutableListOf(), builder: MutableList<T>.() -> Any): List<T> {
     while (true) builder(list)
 }
 

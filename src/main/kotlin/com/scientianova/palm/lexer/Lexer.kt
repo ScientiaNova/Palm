@@ -7,33 +7,27 @@ fun lex(
     code: String,
     pos: StringPos
 ): PToken = when (val char = code.getOrNull(pos)) {
-    null -> Token.EOF.to(pos + 1)
-    '\n' -> Token.EOL.to(pos + 1)
+    null -> Token.EOF to pos + 1
+    '\n' -> Token.EOL to pos + 1
     '\t', ' ', '\r' -> lexWhitespace(code, pos + 1)
-    '(' -> Token.LParen.to(pos + 1)
-    '[' -> Token.LBracket.to(pos + 1)
-    '{' -> Token.LBrace.to(pos + 1)
-    ')' -> Token.RParen.to(pos + 1)
-    ']' -> Token.RBracket.to(pos + 1)
-    '}' -> Token.RBrace.to(pos + 1)
-    ',' -> Token.Comma.to(pos + 1)
-    ';' -> Token.Semicolon.to(pos + 1)
-    '@' -> Token.At.to(pos + 1)
+    '(' -> Token.LParen to pos + 1
+    '[' -> Token.LBracket to pos + 1
+    '{' -> Token.LBrace to pos + 1
+    ')' -> Token.RParen to pos + 1
+    ']' -> Token.RBracket to pos + 1
+    '}' -> Token.RBrace to pos + 1
+    ',' -> Token.Comma to pos + 1
+    ';' -> Token.Semicolon to pos + 1
+    '@' -> Token.At to pos + 1
     ':' -> if (code.getOrNull(pos + 1) == ':') {
-        Token.DoubleColon.to(pos + 2)
+        Token.DoubleColon to pos + 2
     } else {
-        Token.Colon.to(pos + 1)
+        Token.Colon to pos + 1
     }
     '.' -> if (code.getOrNull(pos + 1) == '.') {
-        val isPostfix = code.getOrNull(pos - 1).isBeforePostfix()
-        val isPrefix = code.getOrNull(pos + 2).isAfterPrefix()
-        when {
-            isPostfix == isPrefix -> Token.RangeTo.to(pos + 2)
-            isPrefix -> Token.RangeFrom.to(pos + 2)
-            else -> Token.RangeUntil.to(pos + 2)
-        }
+        infixOp(code, pos, pos + 2, Token.RangeTo, "..")
     } else {
-        Token.Dot.to(pos + 1)
+        Token.Dot to pos + 1
     }
     '0' -> when (code.getOrNull(pos + 1)) {
         'b', 'B' -> lexBinaryNumber(code, pos + 2, StringBuilder())
@@ -46,7 +40,7 @@ fun lex(
         if (code.getOrNull(pos + 2) == '\"') {
             lexMultiLineString(code, pos + 3, emptyList(), StringBuilder())
         } else {
-            emptyStr.to(pos + 2)
+            emptyStr to pos + 2
         }
     } else {
         lexSingleLineString(code, pos + 1, emptyList(), StringBuilder())
@@ -62,8 +56,8 @@ fun lex(
                 val isPrefix = nextChar.isAfterPrefix()
                 val isPostfix = code.getOrNull(pos - 1).isBeforePostfix()
                 when {
-                    isPostfix == isPrefix -> Token.Plus.to(pos + 1)
-                    isPrefix -> Token.UnaryPlus.to(pos + 1)
+                    isPostfix == isPrefix -> Token.Plus to pos + 1
+                    isPrefix -> Token.UnaryPlus to pos + 1
                     else -> unknownPostfixOp("+").token(pos)
                 }
             }
@@ -72,15 +66,15 @@ fun lex(
     '-' -> {
         val nextPos = pos + 1
         when (val nextChar = code.getOrNull(nextPos)) {
-            '>' -> Token.Arrow.to(pos + 2)
+            '>' -> Token.Arrow to pos + 2
             '-' -> unsupportedOperator("--", "-= 1").token(pos, pos + 2)
             '=' -> infixOp(code, pos, nextPos + 1, Token.MinusAssign, "-=")
             else -> {
                 val isPrefix = nextChar.isAfterPrefix()
                 val isPostfix = code.getOrNull(pos - 1).isBeforePostfix()
                 when {
-                    isPostfix == isPrefix -> Token.Minus.to(pos + 1)
-                    isPrefix -> Token.UnaryMinus.to(pos + 1)
+                    isPostfix == isPrefix -> Token.Minus to pos + 1
+                    isPrefix -> Token.UnaryMinus to pos + 1
                     else -> unknownPostfixOp("-").token(pos)
                 }
             }
@@ -95,8 +89,8 @@ fun lex(
                 val isPrefix = nextChar.isAfterPrefix()
                 val isPostfix = code.getOrNull(pos - 1).isBeforePostfix()
                 when {
-                    isPostfix == isPrefix -> Token.Times.to(pos + 1)
-                    isPrefix -> Token.Spread.to(pos + 1)
+                    isPostfix == isPrefix -> Token.Times to pos + 1
+                    isPrefix -> Token.Spread to pos + 1
                     else -> unknownPostfixOp("*").token(pos)
                 }
             }
@@ -121,9 +115,9 @@ fun lex(
     '?' -> {
         val nextPos = pos + 1
         when (code.getOrNull(nextPos)) {
-            '.' -> Token.SafeAccess.to(nextPos + 1)
+            '.' -> Token.SafeAccess to nextPos + 1
             ':' -> postfixOp(code, pos, nextPos + 1, Token.Elvis, "?:")
-            else -> Token.QuestionMark.to(nextPos)
+            else -> Token.QuestionMark to nextPos
         }
     }
     '&' -> if (code.getOrNull(pos + 1) == '&') {
@@ -217,20 +211,20 @@ internal tailrec fun lexNumber(
     '.' -> {
         val next = code.getOrNull(pos + 1)
         if (next in '0'..'9') lexDecimalNumber(code, pos + 2, builder.append(char).append(next))
-        else convertIntString(builder).to(pos)
+        else convertIntString(builder) to pos
     }
     'b', 'B' ->
-        Token.Byte(builder.toString().toByte()).to(pos + 1)
+        Token.Byte(builder.toString().toByte()) to pos + 1
     's', 'S' ->
-        Token.Short(builder.toString().toShort()).to(pos + 1)
+        Token.Short(builder.toString().toShort()) to pos + 1
     'l', 'L' ->
-        Token.Long(builder.toString().toLong()).to(pos + 1)
+        Token.Long(builder.toString().toLong()) to pos + 1
     'f', 'F' ->
-        Token.Float(builder.toString().toFloat()).to(pos + 1)
+        Token.Float(builder.toString().toFloat()) to pos + 1
     in identStartChars ->
         invalidDecimalLiteral.token(pos)
     else ->
-        convertIntString(builder).to(pos)
+        convertIntString(builder) to pos
 }
 
 private fun convertIntString(builder: StringBuilder): Token = when {
@@ -256,9 +250,9 @@ private tailrec fun lexDecimalNumber(
         in '0'..'9' -> lexDecimalExponent(code, pos + 2, builder.append(exponentStart))
         else -> invalidExponent.token(pos + 1)
     }
-    'f', 'F' -> Token.Float(builder.toString().toFloat()).to(pos + 1)
+    'f', 'F' -> Token.Float(builder.toString().toFloat()) to pos + 1
     in identStartChars -> invalidDecimalLiteral.token(pos)
-    else -> Token.Double(builder.toString().toDouble()).to(pos + 1)
+    else -> Token.Double(builder.toString().toDouble()) to pos + 1
 }
 
 private tailrec fun lexDecimalExponent(
@@ -269,7 +263,7 @@ private tailrec fun lexDecimalExponent(
     in '0'..'9' -> lexDecimalExponent(code, pos + 1, builder.append(char))
     '_' -> lexDecimalExponent(code, pos + 1, builder)
     in identStartChars -> invalidDecimalLiteral.token(pos)
-    else -> Token.Double(builder.toString().toDouble()).to(pos)
+    else -> Token.Double(builder.toString().toDouble()) to pos
 }
 
 internal tailrec fun lexBinaryNumber(
@@ -282,11 +276,11 @@ internal tailrec fun lexBinaryNumber(
     '_' ->
         lexBinaryNumber(code, pos + 1, builder)
     'b', 'B' ->
-        Token.Byte(builder.toString().toByte(radix = 2)).to(pos + 1)
+        Token.Byte(builder.toString().toByte(radix = 2)) to pos + 1
     's', 'S' ->
-        Token.Short(builder.toString().toShort(radix = 2)).to(pos + 1)
+        Token.Short(builder.toString().toShort(radix = 2)) to pos + 1
     'l', 'L' ->
-        Token.Long(builder.toString().toLong(radix = 2)).to(pos + 1)
+        Token.Long(builder.toString().toLong(radix = 2)) to pos + 1
     in identStartChars -> invalidBinaryLiteral.token(pos)
     else -> (
             if (builder.length <= 32) Token.Int(builder.toString().toInt(radix = 2))
@@ -303,7 +297,7 @@ internal tailrec fun lexHexNumber(
     in identStartChars -> invalidHexLiteral.token(pos)
     else -> (
             if (builder.length <= 8) Token.Int(builder.toString().toInt(radix = 16))
-            else Token.Long(builder.toString().toLong(radix = 16))).to(pos)
+            else Token.Long(builder.toString().toLong(radix = 16))) to pos
 }
 
 internal fun handleEscaped(code: String, pos: StringPos): LexResult<Char> = when (code.getOrNull(pos)) {
@@ -344,7 +338,7 @@ internal fun lexChar(code: String, pos: StringPos): PToken = when (val char = co
     null, '\n' -> loneSingleQuote.token(pos)
     '\\' -> when (val res = handleEscaped(code, pos + 1)) {
         is LexResult.Success -> when (code.getOrNull(res.next)) {
-            '\'' -> Token.Char(res.value).to(res.next + 1)
+            '\'' -> Token.Char(res.value) to res.next + 1
             null -> unclosedCharLiteral.token(res.next)
             else -> (if (res.value == '\'') missingSingleQuoteOnQuote else missingSingleQuote).token(res.next)
         }
@@ -353,7 +347,7 @@ internal fun lexChar(code: String, pos: StringPos): PToken = when (val char = co
     else -> {
         val endChar = code.getOrNull(pos + 1)
         when {
-            endChar == '\'' -> Token.Char(char).to(pos + 2)
+            endChar == '\'' -> Token.Char(char) to pos + 2
             endChar == null -> unclosedCharLiteral.token(pos + 1)
             endChar == ' ' && char == ' ' -> isMalformedTab(code, pos + 2)?.let {
                 malformedTab.token(pos - 1, it)

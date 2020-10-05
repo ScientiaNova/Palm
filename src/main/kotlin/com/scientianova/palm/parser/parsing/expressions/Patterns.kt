@@ -56,7 +56,7 @@ fun parsePatternNoExpr(parser: Parser, handling: DecHandling): PPattern = when (
     else -> parser.err(invalidPattern)
 }
 
-fun parseTypePattern(parser: Parser): PPattern {
+private fun parseTypePattern(parser: Parser): PPattern {
     val start = parser.Marker()
     parser.advance()
 
@@ -65,7 +65,7 @@ fun parseTypePattern(parser: Parser): PPattern {
     return start.end(Pattern.Type(type))
 }
 
-private fun parseTuplePatternBody(parser: Parser, handling: DecHandling): List<PPattern> = recBuildList<PPattern> {
+private fun parseTuplePatternBody(parser: Parser, handling: DecHandling): List<PPattern> = recBuildList {
     if (parser.current == Token.RParen) {
         return this
     } else {
@@ -78,7 +78,7 @@ private fun parseTuplePatternBody(parser: Parser, handling: DecHandling): List<P
     }
 }
 
-fun parseTuplePattern(parser: Parser, handling: DecHandling): PPattern {
+private fun parseTuplePattern(parser: Parser, handling: DecHandling): PPattern {
     val marker = parser.Marker()
 
     parser.advance()
@@ -97,7 +97,7 @@ fun parseTuplePattern(parser: Parser, handling: DecHandling): PPattern {
     }
 }
 
-fun parseEnumPattern(parser: Parser, handling: DecHandling): PPattern {
+private fun parseEnumPattern(parser: Parser, handling: DecHandling): PPattern {
     val start = parser.Marker()
     parser.advance()
 
@@ -139,7 +139,7 @@ private fun convertName(name: PString, handling: DecHandling) = when (handling) 
 }
 
 private fun parseRecordPatternBody(parser: Parser, handling: DecHandling): List<Pair<PString, PPattern>> =
-    recBuildList<Pair<PString, PPattern>> {
+    recBuildList {
         if (parser.current == Token.RBrace) {
             return this
         } else {
@@ -169,7 +169,7 @@ private fun parseRecordPatternBody(parser: Parser, handling: DecHandling): List<
     }
 
 
-fun parseRecordPattern(parser: Parser, handling: DecHandling): PPattern {
+private fun parseRecordPattern(parser: Parser, handling: DecHandling): PPattern {
     val marker = parser.Marker()
 
     parser.advance()

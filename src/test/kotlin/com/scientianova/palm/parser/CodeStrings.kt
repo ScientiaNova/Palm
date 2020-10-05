@@ -76,13 +76,17 @@ fun Import.toCodeString() = "import " + when (this) {
     is Import.Package -> "${path.toCodeString()}._"
 }
 
-fun Alias.toCodeString() = "type $name$params = ${actual.toCodeString()}"
-
 fun Record.toCodeString(indent: Int) = "record " + when (this) {
-    is Record.Tuple -> "$name${typeParams.toCodeString()}(${components.joinToString { it.toCodeString() }})"
-    is Record.Normal -> "$name${typeParams.toCodeString()} " +
+    is Record.Tuple -> "${type.toCodeString()}record $name${typeParams.toCodeString()}(${components.joinToString { it.toCodeString() }})"
+    is Record.Normal -> "${type.toCodeString()}record $name${typeParams.toCodeString()} " +
             scopeCodeString(components, indent, ",") { "${it.first}: ${it.second.toCodeString()}" }
-    is Record.Single -> name.value
+    is Record.Single -> "record" + name.value
+}
+
+fun RecordType.toCodeString() = when (this) {
+    RecordType.Normal -> ""
+    RecordType.Annotation -> "annotation "
+    RecordType.Inline -> "inline "
 }
 
 fun EnumCase.toCodeString(indent: Int) = when (this) {
@@ -107,6 +111,7 @@ fun ScopeStatement.toCodeString(indent: Int): String = when (this) {
     is UsingStatement -> "using ${expr.toCodeString(indent)}"
     is AssignStatement -> "${left.toCodeString(indent)} ${type.toCodeString()} ${right.toCodeString(indent)}"
     is GuardStatement -> "guard ${cond.toCodeString(indent)} else ${body.toCodeString(indent)}"
+    is DeferStatement -> "defer ${body.toCodeString(indent)}"
 }
 
 fun ClassLevelPrivacy.toCodeString() = when (this) {
@@ -124,29 +129,6 @@ fun TopLevelPrivacy.toCodeString() = when (this) {
 fun Function.toCodeString(indent: Int) = "fun " + (if (typeParams.isEmpty()) "" else " ") + typeParams.toCodeString() +
         "$name(${params.toCodeString(indent)})${typeAnn(type)} " +
         expr.mapTo { (if (it.value is Expr.Scope) "" else "= ") + it.value.toCodeString(indent) }
-
-fun <P> Getter<P>.toCodeString(indent: Int, pFn: (P) -> String): String {
-    val privacyS = pFn(privacy)
-    return privacyS + (if (privacyS.isEmpty()) "" else " ") + "get()${typeAnn(type)} " +
-            if (expr.value is Expr.Scope) "" else "= " + expr.toCodeString(indent)
-}
-
-fun <P> Setter<P>.toCodeString(indent: Int, pFn: (P) -> String): String {
-    val privacyS = pFn(privacy)
-    return privacyS + (if (privacyS.isEmpty()) "" else " ") + "set($paramName${typeAnn(paramType)})${typeAnn(type)} " +
-            if (expr.value is Expr.Scope) "" else "= " + expr.toCodeString(indent)
-}
-
-fun <P> Property<P>.toCodeString(indent: Int, pFn: (P) -> String) = when (this) {
-    is Property.Normal -> (if (mutable) "val " else "var ") + typeParams.toCodeString() +
-            (if (typeParams.isEmpty()) "" else " ") + typeParams.toCodeString() +
-            name + typeAnn(type) + expr.mapTo { " = ${it.toCodeString(indent)}" } +
-            getter.mapTo { "\n${indent(indent + 1)}${it.toCodeString(indent, pFn)}" } +
-            setter.mapTo { "\n${indent(indent + 1)}${it.toCodeString(indent, pFn)}" }
-    is Property.Delegated -> (if (mutable) "val " else "var ") + typeParams.toCodeString() +
-            (if (typeParams.isEmpty()) "" else " ") + typeParams.toCodeString() +
-            name + typeAnn(type) + " by " + delegate.toCodeString(indent)
-}
 
 fun ClassImplementation.toCodeString() = when (this) {
     ClassImplementation.Abstract -> "abstract "
@@ -295,7 +277,18 @@ ${indent(indent)}}
     is Expr.NotRefEq -> "${first.toCodeString(indent)} !== ${second.toCodeString(indent)}"
     is Expr.Object -> TODO()
     is Expr.Get -> expr.toCodeString(indent) + "[${args.joinToString { it.toCodeString(indent) }}]"
+    is Expr.Throw -> "throw ${expr.toCodeString(indent)}"
+    is Expr.Do -> "do ${scope.toCodeString(indent)}" + if (catches.isEmpty()) "" else " " + catches.joinToString(" ") {
+        it.toCodeString(
+            indent
+        )
+    }
+    is Expr.With -> "with ${declarations.joinToString { it.toCodeString(indent) }} ${body.toCodeString(indent)}"
 }
+
+fun Catch.toCodeString(indent: Int) = "catch ${dec.toCodeString()}: ${type.toCodeString()} ${body.toCodeString(indent)}"
+
+fun WithDec.toCodeString(indent: Int) = "${dec.toCodeString()}${typeAnn(type)} = ${expr.toCodeString(indent)}"
 
 fun BinaryOp.toCodeString() = when (this) {
     BinaryOp.Div -> "/"
@@ -315,8 +308,6 @@ fun UnaryOp.toCodeString() = when (this) {
     UnaryOp.Minus -> "-"
     UnaryOp.Not -> "!"
     UnaryOp.NonNull -> "!!"
-    UnaryOp.RangeFrom -> ".."
-    UnaryOp.RangeUntil -> ".."
 }
 
 fun Arg.toCodeString(indent: Int) = when (this) {

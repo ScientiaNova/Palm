@@ -43,10 +43,10 @@ data class ClassPropertyInfo(
 data class MethodInfo(
     val privacy: ClassLevelPrivacy,
     val operator: Boolean,
+    val blank: Boolean,
     val override: Boolean,
     val tailRec: Boolean,
     val given: Boolean,
-    val using: Boolean
 )
 
 sealed class ClassStatement {
@@ -54,7 +54,6 @@ sealed class ClassStatement {
     data class Initializer(val scope: ExprScope) : ClassStatement()
     data class Method(val function: Function, val info: MethodInfo) : ClassStatement()
     data class VProperty(val property: Property<ClassLevelPrivacy>, val info: ClassPropertyInfo) : ClassStatement()
-    data class AssociatedType(val type: Alias) : ClassStatement()
     data class InnerClass(val clazz: Class) : ClassStatement()
     data class Extensions(val extension: Extension<ClassLevelPrivacy>) : ClassStatement()
 }

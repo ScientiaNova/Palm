@@ -4,8 +4,8 @@ import com.scientianova.palm.errors.unclosedMultilineComment
 import com.scientianova.palm.util.StringPos
 
 tailrec fun lexSingleLineComment(code: String, pos: StringPos): PToken = when (code.getOrNull(pos)) {
-    null -> Token.EOF.to(pos + 1)
-    '\n' -> Token.EOL.to(pos + 1)
+    null -> Token.EOF to pos + 1
+    '\n' -> Token.EOL to pos + 1
     else -> lexSingleLineComment(code, pos + 1)
 }
 
@@ -13,7 +13,7 @@ tailrec fun lexSingleLineComment(code: String, pos: StringPos): PToken = when (c
 tailrec fun lexMultiLineComment(code: String, start: StringPos, pos: StringPos): PToken = when (code.getOrNull(pos)) {
     null -> unclosedMultilineComment.token(start, pos)
     '*' -> if (code.getOrNull(pos + 1) == '/') {
-        Token.Comment.to(pos + 2)
+        Token.Comment to pos + 2
     } else {
         lexMultiLineComment(code, start, pos + 1)
     }
@@ -29,5 +29,5 @@ tailrec fun lexMultiLineComment(code: String, start: StringPos, pos: StringPos):
 
 tailrec fun lexWhitespace(code: String, pos: StringPos): PToken = when (code.getOrNull(pos)) {
     ' ', '\t', '\r' -> lexWhitespace(code, pos + 1)
-    else -> Token.Whitespace.to(pos)
+    else -> Token.Whitespace to pos
 }

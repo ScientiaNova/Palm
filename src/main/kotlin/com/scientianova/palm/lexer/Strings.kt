@@ -17,7 +17,7 @@ internal tailrec fun lexSingleLineString(
     builder: StringBuilder
 ): PToken = when (val char = code.getOrNull(pos)) {
     null, '\n' -> missingDoubleQuote.token(pos)
-    '"' -> Token.Str(parts + StringPart.String(builder.toString())).to(pos + 1)
+    '"' -> Token.Str(parts + StringPart.String(builder.toString())) to pos + 1
     '$' -> {
         val interPos = pos + 1
         when (val interChar = code.getOrNull(interPos)) {
@@ -65,7 +65,7 @@ internal tailrec fun lexMultiLineString(
 ): PToken = when (val char = code.getOrNull(pos)) {
     null -> unclosedMultilineString.token(pos)
     '"' -> if (code.startsWith("\"\"", pos + 1)) {
-        Token.Str(parts + StringPart.String(builder.toString())).to(pos + 1)
+        Token.Str(parts + StringPart.String(builder.toString())) to pos + 1
     } else lexMultiLineString(code, pos + 1, parts, builder.append('"'))
     '$' -> {
         val interPos = pos + 1

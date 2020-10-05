@@ -22,7 +22,7 @@ fun parseDecPattern(parser: Parser): PDecPattern? = when (val token = parser.cur
 
 fun requireDecPattern(parser: Parser) = parseDecPattern(parser) ?: parser.err(invalidPattern)
 
-private fun parseDecTupleBody(parser: Parser): List<PDecPattern> = recBuildList<PDecPattern> {
+private fun parseDecTupleBody(parser: Parser): List<PDecPattern> = recBuildList {
     if (parser.current == Token.RParen) {
         return this
     } else {
@@ -35,7 +35,7 @@ private fun parseDecTupleBody(parser: Parser): List<PDecPattern> = recBuildList<
     }
 }
 
-fun parseDecTuple(parser: Parser): PDecPattern {
+private fun parseDecTuple(parser: Parser): PDecPattern {
     val marker = parser.Marker()
     parser.advance()
 
@@ -50,37 +50,36 @@ fun parseDecTuple(parser: Parser): PDecPattern {
     }
 }
 
-private fun parseDecRecordBody(parser: Parser): List<Pair<PString, PDecPattern>> =
-    recBuildList<Pair<PString, PDecPattern>> {
-        if (parser.current == Token.RBrace) {
-            return this
-        } else {
-            val name = parseIdent(parser)
-            when (parser.current) {
-                Token.Comma -> {
-                    add(name to name.map(DecPattern::Name))
-                    parser.advance()
-                }
-                Token.RBrace -> {
-                    add(name to name.map(DecPattern::Name))
-                    return this
-                }
-                Token.Colon -> {
-                    val pattern = requireDecPattern(parser.advance())
-                    add(name to pattern)
-
-                    when (parser.current) {
-                        Token.Comma -> parser.advance()
-                        Token.RBrace -> return this
-                        else -> parser.err(unclosedParenthesis)
-                    }
-                }
-                else -> parser.err(unclosedParenthesis)
+private fun parseDecRecordBody(parser: Parser): List<Pair<PString, PDecPattern>> = recBuildList {
+    if (parser.current == Token.RBrace) {
+        return this
+    } else {
+        val name = parseIdent(parser)
+        when (parser.current) {
+            Token.Comma -> {
+                add(name to name.map(DecPattern::Name))
+                parser.advance()
             }
+            Token.RBrace -> {
+                add(name to name.map(DecPattern::Name))
+                return this
+            }
+            Token.Colon -> {
+                val pattern = requireDecPattern(parser.advance())
+                add(name to pattern)
+
+                when (parser.current) {
+                    Token.Comma -> parser.advance()
+                    Token.RBrace -> return this
+                    else -> parser.err(unclosedParenthesis)
+                }
+            }
+            else -> parser.err(unclosedParenthesis)
         }
     }
+}
 
-fun parseDecRecord(parser: Parser): PDecPattern {
+private fun parseDecRecord(parser: Parser): PDecPattern {
     val marker = parser.Marker()
     parser.advance()
 
