@@ -21,7 +21,6 @@ data class GuardStatement(
 ) : ScopeStatement()
 
 data class DeferStatement(val body: ExprScope) : ScopeStatement()
-data class UsingStatement(val expr: PExpr) : ScopeStatement()
 data class ExprStatement(val expr: PExpr) : ScopeStatement()
 
 typealias ExprScope = List<ScopeStatement>

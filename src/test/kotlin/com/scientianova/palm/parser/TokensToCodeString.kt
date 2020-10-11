@@ -11,8 +11,6 @@ fun Token.toCodeString() = when (this) {
     Token.RBracket -> "]"
     Token.Dot -> "."
     Token.RangeTo -> ".."
-    Token.RangeFrom -> ".."
-    Token.RangeUntil -> ".."
     Token.SafeAccess -> "?."
     Token.Colon -> ":"
     Token.DoubleColon -> "::"

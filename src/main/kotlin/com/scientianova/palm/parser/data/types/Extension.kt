@@ -13,9 +13,7 @@ data class Extension<P>(
 
 data class ExtensionPropertyInfo<P>(
     val privacy: P,
-    val inline: Boolean,
-    val given: Boolean,
-    val using: Boolean
+    val inline: Boolean
 )
 
 data class ExtensionMethodInfo<P>(
@@ -23,9 +21,7 @@ data class ExtensionMethodInfo<P>(
     val operator: Boolean,
     val blank: Boolean,
     val tailRec: Boolean,
-    val inline: Boolean,
-    val given: Boolean,
-    val using: Boolean
+    val inline: Boolean
 )
 
 sealed class ExtensionStatement<P> {

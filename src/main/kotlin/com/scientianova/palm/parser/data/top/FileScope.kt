@@ -16,15 +16,13 @@ data class FileScope(val path: Path?, val imports: List<Import>, val declaration
 data class FilePropertyInfo(
     val privacy: TopLevelPrivacy,
     val inline: Boolean,
-    val lateInit: Boolean,
-    val given: Boolean
+    val lateInit: Boolean
 )
 
 data class FileFunctionInfo(
     val privacy: TopLevelPrivacy,
     val inline: Boolean,
-    val tailRec: Boolean,
-    val given: Boolean
+    val tailRec: Boolean
 )
 
 sealed class FileStatement

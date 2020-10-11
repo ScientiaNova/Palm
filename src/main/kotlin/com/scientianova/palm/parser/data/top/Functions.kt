@@ -13,7 +13,6 @@ enum class InlineHandling {
 
 data class ParamInfo(
     val using: Boolean,
-    val given: Boolean,
     val inlineHandling: InlineHandling
 )
 

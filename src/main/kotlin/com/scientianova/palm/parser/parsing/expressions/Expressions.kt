@@ -11,7 +11,6 @@ import com.scientianova.palm.parser.recBuildList
 import com.scientianova.palm.util.PString
 import com.scientianova.palm.util.at
 import com.scientianova.palm.util.map
-import java.util.*
 
 private fun parseTerm(parser: Parser): PExpr? = when (val token = parser.current) {
     in identTokens -> {
@@ -193,37 +192,16 @@ private fun parseSubExpr(parser: Parser) = parseTerm(parser)?.let { parsePostfix
 
 fun requireSubExpr(parser: Parser) = parseSubExpr(parser) ?: parser.err(missingExpression)
 
-private fun parseBinOpsBody(parser: Parser, opStack: Stack<Token>, operandStack: Stack<PExpr>): PExpr {
-    while (true) {
-        val op = parser.current
-        val opPrecedence = op.precedence
-
-        while (opStack.peek().precedence >= opPrecedence) {
-            operandStack.push(opStack.pop().handleBinary(operandStack.pop(), operandStack.pop()))
-        }
-
-        if (opPrecedence < 0) {
-            return operandStack.pop()
-        }
-
-        op.handleBinaryAppend(parser.advance(), opStack, operandStack)
-    }
+fun parseBinOps(parser: Parser): PExpr? = parseSubExpr(parser)?.let { first ->
+    parseBinOps(parser, first, 0)
 }
 
-fun parseBinOps(parser: Parser): PExpr? = parseTerm(parser)?.let { term ->
-    parseBinOps(parser, parsePostfix(parser, term))
-}
-
-fun parseBinOps(parser: Parser, first: PExpr): PExpr = if (parser.current.precedence > 0) {
-    val opStack = Stack<Token>()
-    opStack.push(Token.PlaceHolder)
-
-    val operandStack = Stack<PExpr>()
-    operandStack.push(first)
-
-    parseBinOpsBody(parser, opStack, operandStack)
-} else {
-    first
+tailrec fun parseBinOps(parser: Parser, left: PExpr, minPrecedence: Int): PExpr {
+    val current = parser.current
+    return if (current.precedence >= minPrecedence) {
+        parser.advance()
+        parseBinOps(parser, current.handleBinary(parser, left, minPrecedence), minPrecedence)
+    } else left
 }
 
 fun requireBinOps(parser: Parser) = parseBinOps(parser) ?: parser.err(missingExpression)
@@ -534,7 +512,7 @@ private fun parseCallBody(parser: Parser): List<Arg> = recBuildList {
 
             add(
                 if (expr == null) {
-                    Arg.Free(parseBinOps(parser, parsePostfix(parser, ident.map(Expr::Ident))))
+                    Arg.Free(parseBinOps(parser, parsePostfix(parser, ident.map(Expr::Ident)), 0))
                 } else {
                     Arg.Named(ident, expr)
                 }

@@ -18,7 +18,7 @@ private fun parseStatement(parser: Parser): ScopeStatement = when (parser.curren
         val subExpr = requireSubExpr(parser)
         val assignment = parser.current.assignment()
         if (assignment == null) {
-            ExprStatement(parseBinOps(parser, subExpr))
+            ExprStatement(parseBinOps(parser, subExpr, 0))
         } else {
             AssignStatement(subExpr, assignment, requireBinOps(parser.advance()))
         }

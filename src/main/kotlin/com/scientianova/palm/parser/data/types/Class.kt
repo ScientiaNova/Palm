@@ -35,9 +35,7 @@ data class Class(
 data class ClassPropertyInfo(
     val privacy: ClassLevelPrivacy,
     val override: Boolean,
-    val lateInit: Boolean,
-    val given: Boolean,
-    val using: Boolean
+    val lateInit: Boolean
 )
 
 data class MethodInfo(
@@ -45,8 +43,7 @@ data class MethodInfo(
     val operator: Boolean,
     val blank: Boolean,
     val override: Boolean,
-    val tailRec: Boolean,
-    val given: Boolean,
+    val tailRec: Boolean
 )
 
 sealed class ClassStatement {
