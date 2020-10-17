@@ -5,6 +5,7 @@ import com.scientianova.palm.lexer.Token
 import com.scientianova.palm.lexer.identTokens
 import com.scientianova.palm.parser.Parser
 import com.scientianova.palm.parser.data.expressions.*
+import com.scientianova.palm.parser.parseIdent
 import com.scientianova.palm.parser.recBuildList
 import com.scientianova.palm.util.PString
 import com.scientianova.palm.util.at
@@ -26,12 +27,7 @@ fun parseTypeAnn(parser: Parser) = if (parser.current == Token.Colon) {
 fun requireTypeAnn(parser: Parser) = parseTypeAnn(parser) ?: parser.err(missingTypeAnn)
 
 private fun parseTypePath(parser: Parser): List<PString> = recBuildList {
-    val ident = parser.current.identString()
-
-    if (ident.isEmpty()) parser.err(missingIdentifier)
-    parser.advance()
-
-    add(parser.end(ident))
+    add(parseIdent(parser))
 
     if (parser.current == Token.Dot) {
         parser.advance()
@@ -40,7 +36,7 @@ private fun parseTypePath(parser: Parser): List<PString> = recBuildList {
     }
 }
 
-private fun parseTypeArgs(parser: Parser): List<PTypeArg> = recBuildList {
+fun parseTypeArgs(parser: Parser): List<PTypeArg> = recBuildList {
     if (parser.current == Token.RBracket) {
         return this
     } else {
@@ -54,7 +50,7 @@ private fun parseTypeArgs(parser: Parser): List<PTypeArg> = recBuildList {
 }
 
 private fun parseNamedType(parser: Parser): PType {
-    val start = parser.Marker()
+    val start = parser.mark()
 
     val path = parseTypePath(parser)
 
@@ -96,7 +92,7 @@ private fun parseInterTypeBody(parser: Parser, first: PType) = recBuildList(muta
 }
 
 fun parseTypeBinOps(parser: Parser): PType {
-    val start = parser.Marker()
+    val start = parser.mark()
 
     val first = parseType(parser)
 
@@ -125,7 +121,7 @@ private fun parseTypeTupleBody(parser: Parser): List<FunTypeArg> = recBuildList 
 }
 
 private fun parseTypeTuple(parser: Parser): PType {
-    val marker = parser.Marker()
+    val marker = parser.mark()
 
     parser.advance()
     parser.trackNewline = false
@@ -157,7 +153,7 @@ private fun parseTypeArg(parser: Parser): PTypeArg = when (parser.current) {
 }
 
 private fun parseNormalTypeArg(parser: Parser, variance: VarianceMod): PTypeArg {
-    val start = parser.Marker()
+    val start = parser.mark()
 
     val type = parseType(parser.advance())
 

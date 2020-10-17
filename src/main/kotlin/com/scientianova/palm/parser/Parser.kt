@@ -17,7 +17,7 @@ class Parser(private val stream: TokenStream) {
     val pos get() = stream.getPos(index)
     val nextPos get() = stream.getPos(index + 1)
 
-    fun <T> end(thing: T) = Positioned(thing, stream.getPos(index - 1), pos)
+    fun <T> end(thing: T, startIndex: Int = index - 1) = Positioned(thing, stream.getPos(startIndex), pos)
 
     fun err(error: PalmError): Nothing {
         val current = current
@@ -28,12 +28,18 @@ class Parser(private val stream: TokenStream) {
         }
     }
 
+    fun err(error: PalmError, startIndex: Int): Nothing = parseErr(error, stream.getPos(startIndex), pos)
+
     fun advance(): Parser = this.also { index = nextIndex(index + 1) }
 
     private tailrec fun nextIndex(newIndex: Int): Int = if (stream.getToken(newIndex).canIgnore()) {
         nextIndex(newIndex + 1)
     } else {
         newIndex
+    }
+
+    fun revertIndex(marker: ParseMarker) {
+        index = marker.index
     }
 
     val lastNewline get() = trackNewline && lastNewLine(index - 1)
@@ -49,23 +55,24 @@ class Parser(private val stream: TokenStream) {
 
     fun rawLookup(offset: Int) = stream.getToken(index + offset)
 
-    inner class Marker {
-        private val index = this@Parser.index
-        private val trackNewline = this@Parser.trackNewline
-        private val excludeCurly = this@Parser.excludeCurly
+    fun mark() = ParseMarker(this, index, trackNewline, excludeCurly)
+}
 
-        fun <T> end(thing: T) = Positioned(thing, stream.getPos(index), pos)
+data class ParseMarker(
+    val parser: Parser,
+    val index: Int,
+    val trackNewline: Boolean,
+    val excludeCurly: Boolean
+) {
+    fun <T> end(thing: T) = parser.end(thing, index)
 
-        fun err(error: PalmError): Nothing = parseErr(error, stream.getPos(index), pos)
+    fun err(error: PalmError): Nothing = parser.err(error, index)
 
-        fun revertIndex() {
-            this@Parser.index = index
-        }
+    fun revertIndex() = parser.revertIndex(this)
 
-        fun revertFlags() {
-            this@Parser.trackNewline = trackNewline
-            this@Parser.excludeCurly = excludeCurly
-        }
+    fun revertFlags() {
+        parser.trackNewline = trackNewline
+        parser.excludeCurly = excludeCurly
     }
 }
 

@@ -7,70 +7,31 @@ import com.scientianova.palm.parser.data.types.*
 import com.scientianova.palm.parser.data.types.Enum
 import com.scientianova.palm.util.PString
 
-enum class TopLevelPrivacy {
-    Public, Internal, Private
-}
-
 data class FileScope(val path: Path?, val imports: List<Import>, val declarations: List<FileStatement>)
-
-data class FilePropertyInfo(
-    val privacy: TopLevelPrivacy,
-    val inline: Boolean,
-    val lateInit: Boolean
-)
-
-data class FileFunctionInfo(
-    val privacy: TopLevelPrivacy,
-    val inline: Boolean,
-    val tailRec: Boolean
-)
 
 sealed class FileStatement
 
-data class StaticFunction(
-    val function: Function,
-    val info: FileFunctionInfo
-) : FileStatement()
-
-data class StaticProperty(
-    val property: Property<TopLevelPrivacy>,
-    val info: FilePropertyInfo
-) : FileStatement()
+data class StaticFunction(val function: Function) : FileStatement()
+data class StaticProperty(val property: BackedProperty) : FileStatement()
+data class StaticClass(val clazz: Class) : FileStatement()
+data class StaticRecord(val record: Record) : FileStatement()
+data class StaticEnum(val enum: Enum) : FileStatement()
+data class StaticObject(val obj: Object) : FileStatement()
+data class StaticExtensions(val extension: Extension) : FileStatement()
+data class StaticImpl(val implementation: Implementation) : FileStatement()
+data class StaticTrait(val trait: Trait) : FileStatement()
+data class StaticMixin(val mixin: Mixin) : FileStatement()
 
 data class TypeAlias(
     val name: PString,
+    val modifiers: List<DecModifier>,
     val params: List<PString>,
     val actual: PType,
-    val privacy: TopLevelPrivacy
 ) : FileStatement()
 
 data class Constant(
     val name: PString,
+    val modifiers: List<DecModifier>,
     val type: PType?,
-    val expr: PExpr,
-    val privacy: TopLevelPrivacy
-) : FileStatement()
-
-data class StaticClass(
-    val clazz: Class
-) : FileStatement()
-
-data class StaticRecord(
-    val record: Record,
-    val privacy: TopLevelPrivacy,
-    val inline: Boolean
-) : FileStatement()
-
-data class StaticEnum(
-    val enum: Enum,
-    val privacy: TopLevelPrivacy
-) : FileStatement()
-
-data class StaticObject(
-    val obj: Object,
-    val privacy: TopLevelPrivacy
-) : FileStatement()
-
-data class StaticExtensions(
-    val extension: Extension<TopLevelPrivacy>
+    val expr: PExpr
 ) : FileStatement()

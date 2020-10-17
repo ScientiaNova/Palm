@@ -254,6 +254,18 @@ sealed class Token {
         override fun identString() = "record"
     }
 
+    object Mixin : Token() {
+        override fun identString() = "mixin"
+    }
+
+    object Trait : Token() {
+        override fun identString() = "trait"
+    }
+
+    object Impl : Token() {
+        override fun identString() = "impl"
+    }
+
     object Type : Token() {
         override fun identString() = "type"
     }
@@ -268,6 +280,10 @@ sealed class Token {
 
     object Abstract : Token() {
         override fun identString() = "abstract"
+    }
+
+    object Static : Token() {
+        override fun identString() = "static"
     }
 
     object Inline : Token() {
@@ -306,12 +322,16 @@ sealed class Token {
         override fun identString() = "lateinit"
     }
 
-    object Given : Token() {
-        override fun identString() = "given"
-    }
-
     object Override : Token() {
         override fun identString() = "override"
+    }
+
+    object Partial : Token() {
+        override fun identString() = "partial"
+    }
+
+    object Annotation : Token() {
+        override fun identString() = "annotation"
     }
 
     object Suspend : Token() {
@@ -364,7 +384,6 @@ sealed class Token {
     object While : Token()
     object Do : Token()
     object Catch : Token()
-    object With : Token()
     object Defer : Token()
     object Loop : Token()
     object Break : Token()
@@ -372,9 +391,12 @@ sealed class Token {
     object Return : Token()
     object Throw : Token()
     object Guard : Token()
-    object Using : Token()
     object Nobreak : Token()
     object Fallthrough : Token()
+
+    object Using : Token() {
+        override fun identString() = "using"
+    }
 
     object Import : Token() {
         override fun identString() = "import"

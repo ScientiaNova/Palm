@@ -4,21 +4,23 @@ import com.scientianova.palm.parser.data.expressions.PDecPattern
 import com.scientianova.palm.parser.data.expressions.PExpr
 import com.scientianova.palm.parser.data.expressions.PType
 import com.scientianova.palm.parser.data.types.TypeConstraints
-import com.scientianova.palm.parser.data.types.TypeParam
 import com.scientianova.palm.util.PString
 
 enum class InlineHandling {
     None, NoInline, CrossInline
 }
 
-data class ParamInfo(
-    val using: Boolean,
-    val inlineHandling: InlineHandling
-)
+sealed class ParamModifier {
+    object CrossInline : ParamModifier()
+    object NoInline : ParamModifier()
+    object Using : ParamModifier()
+    data class Annotation(val annotation: com.scientianova.palm.parser.data.top.Annotation) : ParamModifier()
+}
 
 data class Function(
     val name: PString,
-    val typeParams: List<TypeParam>,
+    val modifiers: List<DecModifier>,
+    val typeParams: List<PString>,
     val constraints: TypeConstraints,
     val params: List<FunParam>,
     val type: PType?,
@@ -26,8 +28,14 @@ data class Function(
 )
 
 data class FunParam(
-    val info: ParamInfo,
+    val modifiers: List<ParamModifier>,
     val pattern: PDecPattern,
     val type: PType,
     val default: PExpr? = null
+)
+
+data class OptionallyTypedFunParam(
+    val modifiers: List<ParamModifier>,
+    val pattern: PDecPattern,
+    val type: PType?
 )

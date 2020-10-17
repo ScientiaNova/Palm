@@ -1,6 +1,5 @@
 package com.scientianova.palm.parser.parsing.top
 
-import com.scientianova.palm.errors.doubleInlineHandling
 import com.scientianova.palm.errors.missingFunParams
 import com.scientianova.palm.errors.unclosedParenthesis
 import com.scientianova.palm.lexer.Token
@@ -8,10 +7,11 @@ import com.scientianova.palm.parser.Parser
 import com.scientianova.palm.parser.data.expressions.PType
 import com.scientianova.palm.parser.data.top.FunParam
 import com.scientianova.palm.parser.data.top.Function
-import com.scientianova.palm.parser.data.top.InlineHandling
-import com.scientianova.palm.parser.data.top.ParamInfo
 import com.scientianova.palm.parser.parseIdent
-import com.scientianova.palm.parser.parsing.expressions.*
+import com.scientianova.palm.parser.parsing.expressions.parseBinOps
+import com.scientianova.palm.parser.parsing.expressions.parseScopeExpr
+import com.scientianova.palm.parser.parsing.expressions.parseTypeAnn
+import com.scientianova.palm.parser.parsing.expressions.requireTypeAnn
 import com.scientianova.palm.parser.parsing.types.parseTypeParams
 import com.scientianova.palm.parser.recBuildList
 import com.scientianova.palm.util.PString
@@ -33,40 +33,9 @@ fun parseWhere(parser: Parser, constraints: MutableList<Pair<PString, PType>>) {
     }
 }
 
-class ParamInfoBuilder {
-    var using = false
-    var given = false
-    var inlineHandling: InlineHandling? = null
+fun parseFunParam(parser: Parser): FunParam = TODO()
 
-    fun build() = ParamInfo(using, given, inlineHandling ?: InlineHandling.None)
-}
-
-fun parseParamModifiers(parser: Parser, builder: ParamInfoBuilder): ParamInfo {
-    when (parser.current) {
-        Token.Using -> builder.using = true
-        Token.Given -> builder.given = true
-        Token.Noinline -> {
-            if (builder.inlineHandling != null) parser.err(doubleInlineHandling)
-            builder.inlineHandling = InlineHandling.NoInline
-        }
-        Token.Crossinline -> {
-            if (builder.inlineHandling != null) parser.err(doubleInlineHandling)
-            builder.inlineHandling = InlineHandling.CrossInline
-        }
-        else -> return builder.build()
-    }
-    return parseParamModifiers(parser.advance(), builder)
-}
-
-fun parseFunParam(parser: Parser): FunParam {
-    val info = parseParamModifiers(parser, ParamInfoBuilder())
-    val pattern = requireDecPattern(parser)
-    val type = requireTypeAnn(parser)
-    val default = parseEqExpr(parser)
-    return FunParam(info, pattern, type, default)
-}
-
-private fun parseFunParamsBody(parser: Parser): List<FunParam> = recBuildList<FunParam> {
+private fun parseFunParamsBody(parser: Parser): List<FunParam> = recBuildList {
     if (parser.current == Token.RParen) {
         return this
     } else {
@@ -80,7 +49,7 @@ private fun parseFunParamsBody(parser: Parser): List<FunParam> = recBuildList<Fu
 }
 
 fun parseFunParams(parser: Parser): List<FunParam> {
-    val marker = parser.Marker()
+    val marker = parser.mark()
 
     parser.advance()
     parser.trackNewline = false
@@ -110,5 +79,5 @@ fun parseFun(parser: Parser): Function {
         else -> null
     }
 
-    return Function(name, typeParams, constrains, params, type, expr)
+    return Function(name, TODO(), typeParams, constrains, params, type, expr)
 }

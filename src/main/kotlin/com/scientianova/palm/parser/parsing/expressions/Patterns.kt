@@ -57,7 +57,7 @@ fun parsePatternNoExpr(parser: Parser, handling: DecHandling): PPattern = when (
 }
 
 private fun parseTypePattern(parser: Parser): PPattern {
-    val start = parser.Marker()
+    val start = parser.mark()
     parser.advance()
 
     val type = parseType(parser)
@@ -79,7 +79,7 @@ private fun parseTuplePatternBody(parser: Parser, handling: DecHandling): List<P
 }
 
 private fun parseTuplePattern(parser: Parser, handling: DecHandling): PPattern {
-    val marker = parser.Marker()
+    val marker = parser.mark()
 
     parser.advance()
     parser.trackNewline = false
@@ -98,7 +98,7 @@ private fun parseTuplePattern(parser: Parser, handling: DecHandling): PPattern {
 }
 
 private fun parseEnumPattern(parser: Parser, handling: DecHandling): PPattern {
-    val start = parser.Marker()
+    val start = parser.mark()
     parser.advance()
 
     val name = parseIdent(parser)
@@ -170,7 +170,7 @@ private fun parseRecordPatternBody(parser: Parser, handling: DecHandling): List<
 
 
 private fun parseRecordPattern(parser: Parser, handling: DecHandling): PPattern {
-    val marker = parser.Marker()
+    val marker = parser.mark()
 
     parser.advance()
     parser.excludeCurly = false

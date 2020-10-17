@@ -1,9 +1,9 @@
 package com.scientianova.palm.parser.data.expressions
 
 import com.scientianova.palm.lexer.StringPart
+import com.scientianova.palm.parser.data.top.Annotation
 import com.scientianova.palm.parser.data.types.ObjectStatement
-import com.scientianova.palm.parser.data.types.SuperClass
-import com.scientianova.palm.util.PInt
+import com.scientianova.palm.parser.data.types.SuperType
 import com.scientianova.palm.util.PString
 import com.scientianova.palm.util.Positioned
 
@@ -42,8 +42,6 @@ sealed class Expr {
 
     data class Do(val scope: ExprScope, val catches: List<Catch>) : Expr()
 
-    data class With(val declarations: List<WithDec>, val body: ExprScope) : Expr()
-
     data class Scope(val scope: ExprScope) : Expr()
 
     data class Byte(val value: kotlin.Byte) : Expr()
@@ -58,8 +56,8 @@ sealed class Expr {
 
     object Null : Expr()
 
-    data class This(val label: PString?) : Expr()
-    data class Super(val label: PString?) : Expr()
+    object This : Expr()
+    object Super : Expr()
 
     data class Tuple(val elements: List<PExpr>) : Expr()
     data class Lis(val elements: List<PExpr>) : Expr()
@@ -75,8 +73,7 @@ sealed class Expr {
     data class MemberAccess(val expr: PExpr, val value: PString) : Expr()
     data class SafeMemberAccess(val expr: PExpr, val value: PString) : Expr()
 
-    data class ComponentAccess(val expr: PExpr, val value: PInt) : Expr()
-    data class SafeComponentAccess(val expr: PExpr, val value: PInt) : Expr()
+    data class Turbofish(val expr: PExpr, val args: List<PTypeArg>) : Expr()
 
     data class FunRef(val on: PExpr?, val value: PString) : Expr()
     data class Spread(val expr: PExpr) : Expr()
@@ -94,9 +91,10 @@ sealed class Expr {
     data class RefEq(val first: PExpr, val second: PExpr) : Expr()
     data class NotRefEq(val first: PExpr, val second: PExpr) : Expr()
 
+    data class Annotated(val annotation: Annotation, val expr: PExpr) : Expr()
+
     data class Object(
-        val superClass: SuperClass?,
-        val implements: List<PType>,
+        val superTypes: List<SuperType>,
         val statements: List<ObjectStatement>
     ) : Expr()
 }
@@ -109,8 +107,6 @@ sealed class Arg {
 data class CallArgs(val args: List<Arg> = emptyList(), val last: PExpr? = null)
 
 data class Catch(val dec: PDecPattern, val type: PType, val body: ExprScope)
-
-data class WithDec(val dec: PDecPattern, val type: PType?, val expr: PExpr)
 
 typealias LambdaParams = List<Pair<PDecPattern, PType?>>
 

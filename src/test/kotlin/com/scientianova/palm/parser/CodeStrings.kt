@@ -63,11 +63,6 @@ fun TypeArg.toCodeString() = when (this) {
 
 fun FunTypeArg.toCodeString() = (if (using) "using " else "") + type.toCodeString()
 
-fun TypeParam.toCodeString() = name.value
-
-@JvmName("typeParamsToCodeString")
-fun List<TypeParam>.toCodeString() = if (isEmpty()) "" else joinToString { it.toCodeString() }
-
 @JvmName("pathToCodeString")
 fun Path.toCodeString() = joinToString(".") { it.value }
 
@@ -83,11 +78,6 @@ fun Record.toCodeString(indent: Int) = "record " + when (this) {
     is Record.Single -> "record" + name.value
 }
 
-fun RecordType.toCodeString() = when (this) {
-    RecordType.Normal -> ""
-    RecordType.Annotation -> "annotation "
-    RecordType.Inline -> "inline "
-}
 
 fun EnumCase.toCodeString(indent: Int) = when (this) {
     is EnumCase.Tuple -> "$name(${components.joinToString { it.toCodeString() }})"
@@ -108,33 +98,16 @@ fun ScopeStatement.toCodeString(indent: Int): String = when (this) {
     is ExprStatement -> expr.toCodeString(indent)
     is DecStatement -> "${if (mutable) "val" else "var"} ${pattern.toCodeString()}" + typeAnn(type) +
             expr.mapTo { " = ${it.toCodeString(indent)}" }
-    is UsingStatement -> "using ${expr.toCodeString(indent)}"
     is AssignStatement -> "${left.toCodeString(indent)} ${type.toCodeString()} ${right.toCodeString(indent)}"
     is GuardStatement -> "guard ${cond.toCodeString(indent)} else ${body.toCodeString(indent)}"
     is DeferStatement -> "defer ${body.toCodeString(indent)}"
 }
 
-fun ClassLevelPrivacy.toCodeString() = when (this) {
-    ClassLevelPrivacy.Public -> "public"
-    ClassLevelPrivacy.Private -> "private"
-    ClassLevelPrivacy.Protected -> "protected"
-}
-
-fun TopLevelPrivacy.toCodeString() = when (this) {
-    TopLevelPrivacy.Public -> "public"
-    TopLevelPrivacy.Private -> "private"
-    TopLevelPrivacy.Internal -> "internal"
-}
 
 fun Function.toCodeString(indent: Int) = "fun " + (if (typeParams.isEmpty()) "" else " ") + typeParams.toCodeString() +
         "$name(${params.toCodeString(indent)})${typeAnn(type)} " +
         expr.mapTo { (if (it.value is Expr.Scope) "" else "= ") + it.value.toCodeString(indent) }
 
-fun ClassImplementation.toCodeString() = when (this) {
-    ClassImplementation.Abstract -> "abstract "
-    ClassImplementation.Full -> ""
-    ClassImplementation.Leaf -> "leaf "
-}
 
 fun SuperClass.toCodeString(indent: Int) = type.toCodeString() + args.toCodeString(indent) +
         (if (mixins.isEmpty()) "" else "with {${mixins.joinToString { it.toCodeString() }}}")
@@ -149,20 +122,9 @@ fun Class.toCodeString(indent: Int): String {
 }
 
 
-fun ClassTypeParam.toCodeString() = variance.toCodeString() + type.toCodeString()
+fun ClassTypeParam.toCodeString() = variance.toCodeString() + type.value
 
-fun ParamInfo.toCodeString() = StringBuilder().apply {
-    if (using) append(" using")
-    if (given) append(" given")
-    when (inlineHandling) {
-        InlineHandling.NoInline -> append(" noinline")
-        InlineHandling.CrossInline -> append(" crossinline")
-        InlineHandling.None -> {
-        }
-    }
-}.toString()
-
-fun FunParam.toCodeString(indent: Int) = info.toCodeString() +
+fun FunParam.toCodeString(indent: Int) = modifiers.toCodeString() +
         "${pattern.toCodeString()}: ${type.toCodeString()}" + default.mapTo { " = ${it.toCodeString(indent)}" }
 
 @JvmName("funParamsToCodeString")
@@ -204,8 +166,8 @@ fun Expr.toCodeString(indent: Int): String = when (this) {
     is Expr.Ident -> name
     is Expr.Bool -> value.toString()
     is Expr.Null -> "null"
-    is Expr.This -> "this" + label.mapTo { "@$it" }
-    is Expr.Super -> "super" + label.mapTo { "@$it" }
+    is Expr.This -> "this"
+    is Expr.Super -> "super"
     is Expr.Byte -> value.toString()
     is Expr.Short -> value.toString()
     is Expr.Int -> value.toString()
@@ -258,8 +220,6 @@ ${indent(indent)}}
     is Expr.UnsafeCast -> "${expr.toCodeString(indent)} as! ${type.toCodeString()}"
     is Expr.MemberAccess -> "${expr.toCodeString(indent)}.$value"
     is Expr.SafeMemberAccess -> "${expr.toCodeString(indent)}?.$value"
-    is Expr.ComponentAccess -> "${expr.toCodeString(indent)}.$value"
-    is Expr.SafeComponentAccess -> "${expr.toCodeString(indent)}?.$value"
     is Expr.FunRef -> on.mapTo { it.toCodeString(indent) } + "::$value"
     is Expr.Spread -> "*${expr.toCodeString(indent)}"
     is Expr.Unary -> {
@@ -283,12 +243,9 @@ ${indent(indent)}}
             indent
         )
     }
-    is Expr.With -> "with ${declarations.joinToString { it.toCodeString(indent) }} ${body.toCodeString(indent)}"
 }
 
 fun Catch.toCodeString(indent: Int) = "catch ${dec.toCodeString()}: ${type.toCodeString()} ${body.toCodeString(indent)}"
-
-fun WithDec.toCodeString(indent: Int) = "${dec.toCodeString()}${typeAnn(type)} = ${expr.toCodeString(indent)}"
 
 fun BinaryOp.toCodeString() = when (this) {
     BinaryOp.Div -> "/"

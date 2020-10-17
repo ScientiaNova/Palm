@@ -19,10 +19,15 @@ private fun matchIdentToken(ident: String, code: String, nextPos: StringPos) = w
     "object" -> Token.Object to nextPos
     "record" -> Token.Record to nextPos
     "enum" -> Token.Enum to nextPos
+    "mixin" -> Token.Mixin to nextPos
+    "impl" -> Token.Enum to nextPos
+    "trait" -> Token.Enum to nextPos
     "abstract" -> Token.Abstract to nextPos
+    "static" -> Token.Enum to nextPos
     "leaf" -> Token.Leaf to nextPos
+    "partial" -> Token.Partial to nextPos
+    "annotation" -> Token.Annotation to nextPos
     "using" -> Token.Using to nextPos
-    "given" -> Token.Given to nextPos
     "override" -> Token.Override to nextPos
     "val" -> Token.Val to nextPos
     "var" -> Token.Var to nextPos
@@ -80,7 +85,6 @@ private fun matchIdentToken(ident: String, code: String, nextPos: StringPos) = w
     "out" -> Token.Out to nextPos
     "tailrec" -> Token.Tailrec to nextPos
     "suspend" -> Token.Suspend to nextPos
-    "with" -> Token.With to nextPos
     "init" -> Token.Init to nextPos
     "constructor" -> Token.Constructor to nextPos
     "operator" -> Token.Operator to nextPos
@@ -101,11 +105,11 @@ internal tailrec fun lexTickedIdent(
     '/', '\\', '.', ';', ':', '<', '>', '[', ']' -> invalidBacktickedIdentifier.token(pos)
     '`' -> {
         val ident = builder.toString()
-        when {
-            ident.isBlank() -> emptyIdent.token(pos - ident.length - 1, pos + 1)
-            else -> Token.Ident(ident) to pos + 1
+        if (ident.isBlank()) {
+            emptyIdent.token(pos - ident.length - 1, pos + 1)
+        } else {
+            Token.Ident(ident) to pos + 1
         }
     }
     else -> lexTickedIdent(code, pos + 1, builder.append(char))
 }
-

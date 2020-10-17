@@ -3,29 +3,19 @@ package com.scientianova.palm.parser.data.types
 import com.scientianova.palm.parser.data.expressions.PType
 import com.scientianova.palm.parser.data.top.Function
 import com.scientianova.palm.parser.data.top.Property
+import com.scientianova.palm.util.PString
 
-data class Extension<P>(
-    val typeParams: TypeParam,
-    val on: PType,
+data class Extension(
+    val typeParams: PString,
+    val on: List<ExtensionType>,
     val typeConstraints: TypeConstraints,
-    val statements: List<ExtensionStatement<P>>
+    val statements: List<ExtensionStatement>
 )
 
-data class ExtensionPropertyInfo<P>(
-    val privacy: P,
-    val inline: Boolean
-)
+data class ExtensionType(val type: PType, val alias: PString?)
 
-data class ExtensionMethodInfo<P>(
-    val privacy: P,
-    val operator: Boolean,
-    val blank: Boolean,
-    val tailRec: Boolean,
-    val inline: Boolean
-)
-
-sealed class ExtensionStatement<P> {
-    data class Method<P>(val function: Function, val info: ExtensionMethodInfo<P>) : ExtensionStatement<P>()
-    data class VProperty<P>(val property: Property<P>, val info: ExtensionPropertyInfo<P>) : ExtensionStatement<P>()
-    data class Extensions<P>(val extension: Extension<P>) : ExtensionStatement<P>()
+sealed class ExtensionStatement {
+    data class Method(val function: Function) : ExtensionStatement()
+    data class VProperty(val property: Property) : ExtensionStatement()
+    data class Extensions(val extension: Extension) : ExtensionStatement()
 }

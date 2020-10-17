@@ -36,7 +36,7 @@ private fun parseDecTupleBody(parser: Parser): List<PDecPattern> = recBuildList 
 }
 
 private fun parseDecTuple(parser: Parser): PDecPattern {
-    val marker = parser.Marker()
+    val marker = parser.mark()
     parser.advance()
 
     val list = parseDecTupleBody(parser)
@@ -80,7 +80,7 @@ private fun parseDecRecordBody(parser: Parser): List<Pair<PString, PDecPattern>>
 }
 
 private fun parseDecRecord(parser: Parser): PDecPattern {
-    val marker = parser.Marker()
+    val marker = parser.mark()
     parser.advance()
 
     val list = parseDecRecordBody(parser)

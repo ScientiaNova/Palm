@@ -11,7 +11,6 @@ import com.scientianova.palm.parser.recBuildList
 private fun parseStatement(parser: Parser): ScopeStatement = when (parser.current) {
     Token.Val -> parseDecStatement(parser, false)
     Token.Var -> parseDecStatement(parser, true)
-    Token.Using -> UsingStatement(requireBinOps(parser.advance()))
     Token.Guard -> parseGuard(parser)
     Token.Defer -> DeferStatement(requireScope(parser.advance()))
     else -> {
@@ -62,7 +61,7 @@ fun parseStatements(parser: Parser): ExprScope = recBuildList {
 }
 
 fun parseScopeBody(parser: Parser): ExprScope {
-    val marker = parser.Marker()
+    val marker = parser.mark()
     parser.advance()
 
     parser.trackNewline = true
