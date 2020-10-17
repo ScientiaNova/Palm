@@ -20,10 +20,10 @@ private fun matchIdentToken(ident: String, code: String, nextPos: StringPos) = w
     "record" -> Token.Record to nextPos
     "enum" -> Token.Enum to nextPos
     "mixin" -> Token.Mixin to nextPos
-    "impl" -> Token.Enum to nextPos
-    "trait" -> Token.Enum to nextPos
+    "impl" -> Token.Impl to nextPos
+    "trait" -> Token.Trait to nextPos
     "abstract" -> Token.Abstract to nextPos
-    "static" -> Token.Enum to nextPos
+    "static" -> Token.Static to nextPos
     "leaf" -> Token.Leaf to nextPos
     "partial" -> Token.Partial to nextPos
     "annotation" -> Token.Annotation to nextPos
@@ -31,6 +31,7 @@ private fun matchIdentToken(ident: String, code: String, nextPos: StringPos) = w
     "override" -> Token.Override to nextPos
     "val" -> Token.Val to nextPos
     "var" -> Token.Var to nextPos
+    "const" -> Token.Const to nextPos
     "inline" -> Token.Inline to nextPos
     "by" -> Token.By to nextPos
     "get" -> Token.Get to nextPos
@@ -45,6 +46,8 @@ private fun matchIdentToken(ident: String, code: String, nextPos: StringPos) = w
     "noinline" -> Token.Noinline to nextPos
     "crossinline" -> Token.Crossinline to nextPos
     "where" -> Token.Where to nextPos
+    "with" -> Token.With to nextPos
+    "on" -> Token.On to nextPos
     "fun" -> Token.Fun to nextPos
     "when" -> Token.When to nextPos
     "if" -> Token.If to nextPos

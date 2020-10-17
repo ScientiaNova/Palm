@@ -21,7 +21,12 @@ sealed class Record {
         val components: List<RecordProperty>
     ) : Record()
 
-    data class Single(val name: PString, val modifiers: List<DecModifier>, ) : Record()
+    data class Single(
+        val name: PString,
+        val modifiers: List<DecModifier>,
+        val typeParams: List<PString>,
+        val typeConstraints: TypeConstraints,
+    ) : Record()
 }
 
 data class RecordProperty(val name: PString, val modifiers: List<DecModifier>, val type: PType)

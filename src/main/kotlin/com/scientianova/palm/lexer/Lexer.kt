@@ -10,6 +10,7 @@ fun lex(
     null -> Token.EOF to pos + 1
     '\n' -> Token.EOL to pos + 1
     '\t', ' ', '\r' -> lexWhitespace(code, pos + 1)
+    '#' -> lexMetadataComment(code, pos + 1, StringBuilder())
     '(' -> Token.LParen to pos + 1
     '[' -> Token.LBracket to pos + 1
     '{' -> Token.LBrace to pos + 1
@@ -362,4 +363,10 @@ private tailrec fun isMalformedTab(code: String, pos: StringPos): StringPos? = w
     ' ' -> isMalformedTab(code, pos)
     '\'' -> pos
     else -> null
+}
+
+private tailrec fun lexMetadataComment(code: String, pos: StringPos, builder: StringBuilder): PToken = when (val char = code.getOrNull(pos)) {
+    null -> Token.MetadataComment(builder.toString()) to pos
+    '\n' -> Token.MetadataComment(builder.toString()) to pos
+    else -> lexMetadataComment(code, pos + 1, builder.append(char))
 }

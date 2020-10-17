@@ -8,15 +8,12 @@ import com.scientianova.palm.parser.Parser
 import com.scientianova.palm.parser.data.expressions.Expr
 import com.scientianova.palm.parser.data.expressions.PPattern
 import com.scientianova.palm.parser.data.expressions.Pattern
+import com.scientianova.palm.parser.data.types.DecHandling
 import com.scientianova.palm.parser.parseIdent
 import com.scientianova.palm.parser.recBuildList
 import com.scientianova.palm.util.PString
 import com.scientianova.palm.util.at
 import com.scientianova.palm.util.map
-
-enum class DecHandling {
-    None, Val, Var
-}
 
 fun parsePattern(parser: Parser, handling: DecHandling): PPattern = when (parser.current) {
     Token.Wildcard -> parser.advance().end(Pattern.Wildcard)
@@ -56,14 +53,7 @@ fun parsePatternNoExpr(parser: Parser, handling: DecHandling): PPattern = when (
     else -> parser.err(invalidPattern)
 }
 
-private fun parseTypePattern(parser: Parser): PPattern {
-    val start = parser.mark()
-    parser.advance()
-
-    val type = parseType(parser)
-
-    return start.end(Pattern.Type(type))
-}
+private fun parseTypePattern(parser: Parser): PPattern = parser.mark().end(Pattern.Type(requireType(parser.advance())))
 
 private fun parseTuplePatternBody(parser: Parser, handling: DecHandling): List<PPattern> = recBuildList {
     if (parser.current == Token.RParen) {
@@ -82,13 +72,12 @@ private fun parseTuplePattern(parser: Parser, handling: DecHandling): PPattern {
     val marker = parser.mark()
 
     parser.advance()
-    parser.trackNewline = false
-    parser.excludeCurly = false
 
-    val list = parseTuplePatternBody(parser, handling)
+    val list = parser.withFlags(trackNewline = false, excludeCurly = false) {
+        parseTuplePatternBody(parser, handling)
+    }
 
     parser.advance()
-    marker.revertFlags()
 
     return if (list.size == 1) {
         list[0]
@@ -106,24 +95,22 @@ private fun parseEnumPattern(parser: Parser, handling: DecHandling): PPattern {
     return when (parser.current) {
         Token.LParen -> {
             parser.advance()
-            parser.trackNewline = false
-            parser.excludeCurly = false
 
-            val list = parseTuplePatternBody(parser, handling)
+            val list = parser.withFlags(trackNewline = false, excludeCurly = false) {
+                parseTuplePatternBody(parser, handling)
+            }
 
             parser.advance()
-            start.revertFlags()
 
             start.end(Pattern.EnumTuple(name, list))
         }
         Token.LBrace -> {
             parser.advance()
-            parser.excludeCurly = false
-            parser.trackNewline = false
 
-            val list = parseRecordPatternBody(parser, handling)
+            val list = parser.withFlags(trackNewline = false, excludeCurly = false) {
+                parseRecordPatternBody(parser, handling)
+            }
 
-            start.revertFlags()
             parser.advance()
 
             start.end(Pattern.Enum(name, list))
@@ -173,12 +160,11 @@ private fun parseRecordPattern(parser: Parser, handling: DecHandling): PPattern 
     val marker = parser.mark()
 
     parser.advance()
-    parser.excludeCurly = false
-    parser.trackNewline = false
 
-    val list = parseRecordPatternBody(parser, handling)
+    val list = parser.withFlags(trackNewline = false, excludeCurly = false) {
+        parseRecordPatternBody(parser, handling)
+    }
 
-    marker.revertFlags()
     parser.advance()
 
     return marker.end(Pattern.Record(list))

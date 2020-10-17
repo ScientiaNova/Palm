@@ -61,18 +61,21 @@ fun parseStatements(parser: Parser): ExprScope = recBuildList {
 }
 
 fun parseScopeBody(parser: Parser): ExprScope {
-    val marker = parser.mark()
     parser.advance()
 
-    parser.trackNewline = true
-    parser.excludeCurly = false
-
-    val scope = parseStatements(parser)
+    val scope = parser.withFlags(trackNewline = true, excludeCurly = false) {
+        parseStatements(parser)
+    }
 
     parser.advance()
-    marker.revertFlags()
 
     return scope
+}
+
+fun parseScope(parser: Parser) = if (parser.current == Token.LBrace) {
+    parseScopeBody(parser)
+} else {
+    null
 }
 
 fun requireScope(parser: Parser) = if (parser.current == Token.LBrace) {

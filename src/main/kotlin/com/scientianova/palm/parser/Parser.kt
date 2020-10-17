@@ -1,11 +1,12 @@
 package com.scientianova.palm.parser
 
 import com.scientianova.palm.errors.PalmError
+import com.scientianova.palm.errors.messageFor
 import com.scientianova.palm.errors.missingIdentifier
 import com.scientianova.palm.lexer.Token
 import com.scientianova.palm.lexer.TokenStream
-import com.scientianova.palm.util.PString
-import com.scientianova.palm.util.Positioned
+import com.scientianova.palm.parser.data.top.FileScope
+import com.scientianova.palm.util.*
 
 class Parser(private val stream: TokenStream) {
     private var index = nextIndex(0)
@@ -55,28 +56,40 @@ class Parser(private val stream: TokenStream) {
 
     fun rawLookup(offset: Int) = stream.getToken(index + offset)
 
-    fun mark() = ParseMarker(this, index, trackNewline, excludeCurly)
+    fun mark() = ParseMarker(this, index)
+
+    inline fun <T> withFlags(trackNewline: Boolean, excludeCurly: Boolean, crossinline body: () -> T): T {
+        val startNewLine = this.trackNewline
+        val startCurly = this.excludeCurly
+
+        this.trackNewline = trackNewline
+        this.excludeCurly = excludeCurly
+
+        val res = body()
+
+        this.trackNewline = startNewLine
+        this.excludeCurly = startCurly
+
+        return res
+    }
 }
 
 data class ParseMarker(
     val parser: Parser,
-    val index: Int,
-    val trackNewline: Boolean,
-    val excludeCurly: Boolean
+    val index: Int
 ) {
     fun <T> end(thing: T) = parser.end(thing, index)
 
     fun err(error: PalmError): Nothing = parser.err(error, index)
 
     fun revertIndex() = parser.revertIndex(this)
-
-    fun revertFlags() {
-        parser.trackNewline = trackNewline
-        parser.excludeCurly = excludeCurly
-    }
 }
 
 inline fun <T> recBuildList(list: MutableList<T> = mutableListOf(), builder: MutableList<T>.() -> Any): List<T> {
+    while (true) builder(list)
+}
+
+inline fun <T> recBuildListN(list: MutableList<T> = mutableListOf(), builder: MutableList<T>.() -> Any): Nothing {
     while (true) builder(list)
 }
 
@@ -84,4 +97,10 @@ fun parseIdent(parser: Parser): PString {
     val ident = parser.current.identString()
     if (ident.isEmpty()) parser.err(missingIdentifier)
     return parser.advance().end(ident)
+}
+
+fun parseFile(code: String, name: String): Either<String, FileScope> = try {
+    Right(com.scientianova.palm.parser.parsing.top.parseFile(Parser(TokenStream((code)))))
+} catch (e: ParseException) {
+    Left(e.error.messageFor(code, name))
 }

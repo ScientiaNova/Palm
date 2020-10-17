@@ -272,6 +272,12 @@ val missingLambda = missing("lambda")
 
 val missingWildcard = missing("wildcard")
 
+val missingConstructor = missing("constructor")
+
+val missingThis = missing("this")
+
+val missingPackage = missing("package")
+
 val notEOF = PalmError(
     "NOT END OF LINE",
     "I got to:",
@@ -381,7 +387,7 @@ val emptyGetBody = PalmError(
 )
 
 fun doubleModifier(about: String) = PalmError(
-    "DOUBLE ${about.capitalize()}",
+    "DOUBLE ${about.toUpperCase()}",
     "I saw ${aOrAn(about.first())} $about modifier on this function parameter, but its $about was already set:",
     "Remove either this or the first $about modifier."
 )
@@ -397,6 +403,12 @@ val missingFunParams = PalmError(
 
 val missingConstructorParams = PalmError(
     "MISSING CONSTRUCTOR PARAMETERS",
-    "I was expecting to see the start of the contructor parameters, but instead got:",
-    "Constructors need to have parameters inside parentheses after the kwyword."
+    "I was expecting to see the start of the constructor parameters, but instead got:",
+    "Constructors need to have parameters inside parentheses after the keyword."
+)
+
+fun unexpectedMember(of: String) = PalmError(
+    "UNEXPECTED ${of.toUpperCase()} MEMBER",
+    "I was going through the body of ${aOrAn(of.first())} $of and found:",
+    "I don't recognize such ${aOrAn(of.first())} $of member."
 )

@@ -7,12 +7,18 @@ import com.scientianova.palm.parser.data.types.*
 import com.scientianova.palm.parser.data.types.Enum
 import com.scientianova.palm.util.PString
 
-data class FileScope(val path: Path?, val imports: List<Import>, val declarations: List<FileStatement>)
+data class FileScope(
+    val metadataComments: List<PString>,
+    val annotations: List<Annotation>,
+    val path: Path,
+    val imports: List<Import>,
+    val declarations: List<FileStatement>
+)
 
 sealed class FileStatement
 
 data class StaticFunction(val function: Function) : FileStatement()
-data class StaticProperty(val property: BackedProperty) : FileStatement()
+data class StaticProperty(val property: Property) : FileStatement()
 data class StaticClass(val clazz: Class) : FileStatement()
 data class StaticRecord(val record: Record) : FileStatement()
 data class StaticEnum(val enum: Enum) : FileStatement()

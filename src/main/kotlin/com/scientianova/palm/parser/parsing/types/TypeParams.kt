@@ -6,10 +6,14 @@ import com.scientianova.palm.parser.Parser
 import com.scientianova.palm.parser.data.expressions.PType
 import com.scientianova.palm.parser.parseIdent
 import com.scientianova.palm.parser.parsing.expressions.parseTypeAnn
+import com.scientianova.palm.parser.parsing.expressions.requireTypeAnn
 import com.scientianova.palm.parser.recBuildList
 import com.scientianova.palm.util.PString
 
-fun parseTypeParams(parser: Parser, constraints: MutableList<Pair<PString, PType>>): List<PString> =
+typealias Constraints = MutableList<Pair<PString, PType>>
+fun constraints(): Constraints = mutableListOf()
+
+fun parseTypeParams(parser: Parser, constraints: Constraints): List<PString> =
     if (parser.current == Token.LBracket) {
         recBuildList {
             if (parser.current == Token.RBracket) {
@@ -33,3 +37,23 @@ fun parseTypeParams(parser: Parser, constraints: MutableList<Pair<PString, PType
     } else {
         emptyList()
     }
+
+fun parseWhere(parser: Parser, constraints: MutableList<Pair<PString, PType>>) {
+    if (parser.current != Token.Where) {
+        return
+    }
+
+    parser.advance()
+
+    recBuildList(constraints) {
+        val name = parseIdent(parser)
+        val type = requireTypeAnn(parser)
+        add(name to type)
+
+        if (parser.current == Token.Comma) {
+            parser.advance()
+        } else {
+            return
+        }
+    }
+}

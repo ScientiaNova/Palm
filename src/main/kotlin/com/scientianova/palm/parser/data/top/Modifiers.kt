@@ -17,9 +17,13 @@ sealed class DecModifier {
     object Partial : DecModifier()
     object Static : DecModifier()
     object Override : DecModifier()
+    object Operator : DecModifier()
     object Blank : DecModifier()
     object In : DecModifier()
     object Out : DecModifier()
+    object NoInline : DecModifier()
+    object CrossInline : DecModifier()
+    object Using : DecModifier()
     data class Annotation(val annotation: com.scientianova.palm.parser.data.top.Annotation) : DecModifier()
 }
 

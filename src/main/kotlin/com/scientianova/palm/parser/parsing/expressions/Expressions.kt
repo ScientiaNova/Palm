@@ -7,6 +7,10 @@ import com.scientianova.palm.lexer.isIdentifier
 import com.scientianova.palm.lexer.prefixTokens
 import com.scientianova.palm.parser.Parser
 import com.scientianova.palm.parser.data.expressions.*
+import com.scientianova.palm.parser.data.types.DecHandling
+import com.scientianova.palm.parser.parsing.top.parseAnnotation
+import com.scientianova.palm.parser.parsing.types.parseObjectBody
+import com.scientianova.palm.parser.parsing.types.parseSuperTypes
 import com.scientianova.palm.parser.recBuildList
 import com.scientianova.palm.util.PString
 import com.scientianova.palm.util.at
@@ -45,13 +49,16 @@ private fun parseTerm(parser: Parser): PExpr? = when (val token = parser.current
     Token.LBrace -> parseLambda(parser, null)
     Token.LBracket -> parseListOrMap(parser)
     Token.LParen -> parseTuple(parser)
-    Token.Object -> TODO()
+    Token.Object -> parseObject(parser)
     Token.Spread -> parser.advance().end(Expr.Spread(requireSubExpr(parser.advance())))
     Token.DoubleColon -> parseFreeFunRef(parser)
+    Token.At -> parser.mark().end(Expr.Annotated(parseAnnotation(parser), requireTerm(parser)))
     in prefixTokens ->
         parser.mark().end(Expr.Unary(token.unaryOp(), requireSubExpr(parser.advance())))
     else -> null
 }
+
+private fun requireTerm(parser: Parser) = parseTerm(parser) ?: parser.err(missingExpression)
 
 private fun parseLabeledTerm(parser: Parser, label: PString): PExpr = when (parser.current) {
     Token.For -> parseFor(parser, label)
@@ -111,12 +118,7 @@ private fun parseCatches(parser: Parser): List<Catch> = recBuildList {
     }
 }
 
-private tailrec fun parsePostfix(parser: Parser, term: PExpr): PExpr = when (val token = parser.current) {
-    Token.LBrace -> if (parser.excludeCurly) {
-        term
-    } else {
-        parsePostfix(parser, Expr.Call(term, CallArgs(last = parseLambda(parser, null))).at(term.start, parser.pos))
-    }
+private tailrec fun parsePostfix(parser: Parser, term: PExpr): PExpr = when (parser.current) {
     Token.LBracket -> if (parser.lastNewline) {
         term
     } else {
@@ -126,16 +128,6 @@ private tailrec fun parsePostfix(parser: Parser, term: PExpr): PExpr = when (val
         term
     } else {
         parsePostfix(parser, parseCall(parser, term))
-    }
-    in identTokens -> if (parser.rawLookup(1) != Token.At || parser.lastNewline) {
-        term
-    } else {
-        val lStart = parser.mark()
-        parser.advance().advance()
-        val label = lStart.end(token.identString())
-
-        if (parser.current != Token.LBrace) parser.err(missingLambda)
-        parsePostfix(parser, Expr.Call(term, CallArgs(last = parseLambda(parser, label))).at(term.start, parser.pos))
     }
     Token.Dot -> {
         val operand = parser.advance().current
@@ -170,7 +162,45 @@ private tailrec fun parsePostfix(parser: Parser, term: PExpr): PExpr = when (val
         }
     }
     Token.NonNull -> parsePostfix(parser.advance(), Expr.Unary(UnaryOp.NonNull, term).at(term.start, parser.pos))
-    else -> term
+    else -> if (parser.excludeCurly) {
+        term
+    } else {
+        val marker = parser.mark()
+        val lambda = parsePostfixLambda(parser)
+
+        if (lambda == null) {
+            term
+        } else {
+            parsePostfix(parser, marker.end(Expr.Call(term, CallArgs(last = lambda))))
+        }
+    }
+}
+
+fun parsePostfixLambda(parser: Parser): PExpr? {
+    val current = parser.current
+    return when {
+        current == Token.At -> {
+            val marker = parser.mark()
+            val annotation = parseAnnotation(parser)
+            val expr = parsePostfixLambda(parser) ?: return null
+            marker.end(Expr.Annotated(annotation, expr))
+        }
+        current.isIdentifier() && parser.rawLookup(1) == Token.At -> {
+            val marker = parser.mark()
+            parser.advance()
+            parser.advance()
+
+            val label = marker.end(current.identString())
+
+            if (parser.current != Token.LBrace) {
+                parser.err(missingLambda)
+            }
+
+            parseLambda(parser, label)
+        }
+        current == Token.LBrace -> parseLambda(parser, null)
+        else -> null
+    }
 }
 
 private fun parseSubExpr(parser: Parser) = parseTerm(parser)?.let { parsePostfix(parser, it) }
@@ -191,13 +221,17 @@ tailrec fun parseBinOps(parser: Parser, left: PExpr, minPrecedence: Int): PExpr 
 
 fun requireBinOps(parser: Parser) = parseBinOps(parser) ?: parser.err(missingExpression)
 
-fun parseEqExpr(parser: Parser): PExpr? = if (parser.current == Token.Assign) {
+fun parseEqExpr(parser: Parser) = if (parser.current == Token.Assign) {
     requireBinOps(parser.advance())
 } else {
     null
 }
 
-fun requireEqExpr(parser: Parser): PExpr = parseEqExpr(parser) ?: parser.err(missingExpression)
+fun requireEqExpr(parser: Parser) = if (parser.current == Token.Assign) {
+    requireBinOps(parser.advance())
+} else {
+    parser.err(missingExpression)
+}
 
 private fun parseTupleBody(parser: Parser): List<PExpr> = recBuildList {
     if (parser.current == Token.RParen) {
@@ -214,15 +248,13 @@ private fun parseTupleBody(parser: Parser): List<PExpr> = recBuildList {
 
 private fun parseTuple(parser: Parser): PExpr {
     val marker = parser.mark()
+    parser.advance()
+
+    val list = parser.withFlags(trackNewline = false, excludeCurly = false) {
+        parseTupleBody(parser)
+    }
 
     parser.advance()
-    parser.trackNewline = false
-    parser.excludeCurly = false
-
-    val list = parseTupleBody(parser)
-
-    parser.advance()
-    marker.revertFlags()
 
     return if (list.size == 1) {
         list[0]
@@ -273,19 +305,20 @@ private fun parseWhen(parser: Parser): PExpr {
     val expr = if (parser.current == Token.LBrace) {
         null
     } else {
-        parser.excludeCurly = true
-        parser.trackNewline = false
-        requireBinOps(parser)
+        parser.withFlags(trackNewline = false, excludeCurly = true) {
+            requireBinOps(parser)
+        }
     }
 
-    if (parser.current != Token.LBrace) parser.err(missingScope)
-    parser.excludeCurly = false
-    parser.trackNewline = true
+    if (parser.current != Token.LBrace) {
+        parser.err(missingScope)
+    }
 
-    val branches = parseWhenBranches(parser.advance())
+    val branches = parser.withFlags(trackNewline = true, excludeCurly = false) {
+        parseWhenBranches(parser.advance())
+    }
 
     parser.advance()
-    marker.revertFlags()
 
     return marker.end(Expr.When(expr, branches))
 }
@@ -303,18 +336,12 @@ private fun parsePatternCondition(parser: Parser, handling: DecHandling): Condit
     return Condition.Pattern(pattern, expr)
 }
 
-fun parseConditions(parser: Parser): List<Condition> {
-    val marker = parser.mark()
-
-    parser.trackNewline = false
-    parser.excludeCurly = true
-
-    return recBuildList {
+fun parseConditions(parser: Parser): List<Condition> = parser.withFlags(trackNewline = false, excludeCurly = true) {
+    recBuildList {
         add(parseCondition(parser))
         if (parser.current != Token.Comma) {
-            marker.revertFlags()
-            return this
-        }
+            return@recBuildList this
+        } else Unit
     }
 }
 
@@ -408,35 +435,34 @@ private fun parseListOrMap(parser: Parser): PExpr {
     val marker = parser.mark()
 
     parser.advance()
-    parser.trackNewline = false
-    parser.excludeCurly = false
 
-    val expr = when (parser.current) {
-        Token.RBracket -> Expr.Lis(emptyList())
-        Token.Colon -> {
-            if (parser.advance().current != Token.RBracket) parser.err(unclosedSquareBracket)
-            Expr.Map(emptyList())
-        }
-        else -> {
-            val first = requireBinOps(parser)
-            when (parser.current) {
-                Token.Comma -> Expr.Lis(parseListBody(parser.advance(), mutableListOf(first)))
-                Token.Colon -> {
-                    val second = requireBinOps(parser.advance())
-                    when (parser.current) {
-                        Token.Comma -> Expr.Map(parseMapBody(parser.advance(), mutableListOf(first to second)))
-                        Token.RBracket -> Expr.Map(listOf(first to second))
-                        else -> parser.err(unclosedSquareBracket)
+    val expr = parser.withFlags(trackNewline = false, excludeCurly = false) {
+        when (parser.current) {
+            Token.RBracket -> Expr.Lis(emptyList())
+            Token.Colon -> {
+                if (parser.advance().current != Token.RBracket) parser.err(unclosedSquareBracket)
+                Expr.Map(emptyList())
+            }
+            else -> {
+                val first = requireBinOps(parser)
+                when (parser.current) {
+                    Token.Comma -> Expr.Lis(parseListBody(parser.advance(), mutableListOf(first)))
+                    Token.Colon -> {
+                        val second = requireBinOps(parser.advance())
+                        when (parser.current) {
+                            Token.Comma -> Expr.Map(parseMapBody(parser.advance(), mutableListOf(first to second)))
+                            Token.RBracket -> Expr.Map(listOf(first to second))
+                            else -> parser.err(unclosedSquareBracket)
+                        }
                     }
+                    Token.RBracket -> Expr.Lis(listOf(first))
+                    else -> parser.err(unclosedSquareBracket)
                 }
-                Token.RBracket -> Expr.Lis(listOf(first))
-                else -> parser.err(unclosedSquareBracket)
             }
         }
     }
 
     parser.advance()
-    marker.revertFlags()
 
     return marker.end(expr)
 }
@@ -445,13 +471,12 @@ private fun parseGet(parser: Parser, on: PExpr): PExpr {
     val marker = parser.mark()
 
     parser.advance()
-    parser.trackNewline = false
-    parser.excludeCurly = false
 
-    val list = parseListBody(parser, mutableListOf())
+    val list = parser.withFlags(trackNewline = false, excludeCurly = false) {
+        parseListBody(parser, mutableListOf())
+    }
 
     parser.advance()
-    marker.revertFlags()
 
     return if (list.isEmpty()) {
         marker.err(emptyGetBody)
@@ -486,63 +511,63 @@ private fun parseLambda(parser: Parser, label: PString?): PExpr {
     return start.end(Expr.Lambda(label, params, body))
 }
 
-private fun parseCallBody(parser: Parser): List<Arg> = recBuildList {
-    val current = parser.current
-    if (current == Token.RParen) {
-        return this
-    } else {
-        if (current.isIdentifier()) {
-            val ident = parser.advance().end(current.identString())
-            val expr = parseEqExpr(parser)
-
-            add(
-                if (expr == null) {
-                    Arg.Free(parseBinOps(parser, parsePostfix(parser, ident.map(Expr::Ident)), 0))
-                } else {
-                    Arg.Named(ident, expr)
-                }
-            )
+fun parseCallArgs(parser: Parser): List<Arg> = parser.withFlags(trackNewline = false, excludeCurly = false) {
+    recBuildList {
+        val current = parser.current
+        if (current == Token.RParen) {
+            return@recBuildList this
         } else {
-            add(Arg.Free(requireBinOps(parser)))
-        }
+            if (current.isIdentifier()) {
+                val ident = parser.advance().end(current.identString())
+                val expr = parseEqExpr(parser)
 
-        when (parser.current) {
-            Token.Comma -> parser.advance()
-            Token.RParen -> return this
-            else -> parser.err(unclosedParenthesis)
+                add(
+                    if (expr == null) {
+                        Arg.Free(parseBinOps(parser, parsePostfix(parser, ident.map(Expr::Ident)), 0))
+                    } else {
+                        Arg.Named(ident, expr)
+                    }
+                )
+            } else {
+                add(Arg.Free(requireBinOps(parser)))
+            }
+
+            when (parser.current) {
+                Token.Comma -> parser.advance()
+                Token.RParen -> return@recBuildList this
+                else -> parser.err(unclosedParenthesis)
+            }
         }
     }
 }
 
 private fun parseCall(parser: Parser, on: PExpr): PExpr {
-    val marker = parser.mark()
+    parser.advance()
+
+    val list = parseCallArgs(parser)
 
     parser.advance()
-    parser.trackNewline = false
-    parser.excludeCurly = false
-
-    val list = parseCallBody(parser)
-
-    parser.advance()
-    marker.revertFlags()
 
     val last = if (parser.excludeCurly) {
         null
     } else {
-        when (val token = parser.current) {
-            Token.LBrace -> parseLambda(parser, null)
-            in identTokens -> if (parser.rawLookup(1) == Token.At) {
-                val lStart = parser.mark()
-                parser.advance().advance()
-                val label = lStart.end(token.identString())
-                if (parser.current != Token.LBrace) parser.err(missingLambda)
-                parseLambda(parser, label)
-            } else {
-                null
-            }
-            else -> null
-        }
+        parsePostfixLambda(parser)
     }
 
     return Expr.Call(on, CallArgs(list, last)).at(on.start, parser.pos)
+}
+
+private fun parseObject(parser: Parser): PExpr {
+    val start = parser.mark()
+
+    val superTypes = parseSuperTypes(parser.advance())
+
+    if (parser.current != Token.LBrace) {
+        parser.err(missingScope)
+    }
+
+    val body = parseObjectBody(parser)
+    parser.advance()
+
+    return start.end(Expr.Object(superTypes, body))
 }

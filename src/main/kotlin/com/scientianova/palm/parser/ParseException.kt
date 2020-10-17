@@ -2,8 +2,6 @@ package com.scientianova.palm.parser
 
 import com.scientianova.palm.errors.PError
 import com.scientianova.palm.errors.PalmError
-import com.scientianova.palm.lexer.PToken
-import com.scientianova.palm.lexer.Token
 import com.scientianova.palm.util.StringPos
 import com.scientianova.palm.util.at
 
