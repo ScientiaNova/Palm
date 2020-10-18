@@ -3,7 +3,7 @@ package com.scientianova.palm.parser.parsing.types
 import com.scientianova.palm.errors.*
 import com.scientianova.palm.lexer.Token
 import com.scientianova.palm.parser.Parser
-import com.scientianova.palm.parser.data.expressions.Arg
+import com.scientianova.palm.parser.data.expressions.PType
 import com.scientianova.palm.parser.data.expressions.VarianceMod
 import com.scientianova.palm.parser.data.top.DecModifier
 import com.scientianova.palm.parser.data.types.*
@@ -23,25 +23,7 @@ private fun parseSuperType(parser: Parser): SuperType {
             val args = parseCallArgs(parser)
             val mixins = if (parser.current == Token.On) {
                 if (parser.advance().current == Token.LParen) {
-                    parser.advance()
-                    recBuildList {
-                        if (parser.current == Token.RParen) {
-                            parser.advance()
-                            return@recBuildList this
-                        }
-
-                        add(requireType(parser))
-
-                        when (parser.current) {
-                            Token.Comma -> parser.advance()
-                            Token.RParen -> {
-                                parser.advance()
-                                return@recBuildList this
-                            }
-                            else -> {
-                            }
-                        }
-                    }
+                    parseMixinPredicates(parser.advance())
                 } else {
                     listOf(requireType(parser))
                 }
@@ -51,6 +33,24 @@ private fun parseSuperType(parser: Parser): SuperType {
             SuperType.Class(type, args, mixins)
         }
         else -> SuperType.Interface(type, null)
+    }
+}
+
+private fun parseMixinPredicates(parser: Parser): List<PType> = recBuildList {
+    if (parser.current == Token.RParen) {
+        parser.advance()
+        return this
+    }
+
+    add(requireType(parser))
+
+    when (parser.current) {
+        Token.Comma -> parser.advance()
+        Token.RParen -> {
+            parser.advance()
+            return this
+        }
+        else -> parser.err(unclosedParenthesis)
     }
 }
 
@@ -89,14 +89,14 @@ private fun parsePrimaryParam(parser: Parser): PrimaryParam {
 private fun parsePrimaryParams(parser: Parser) = parser.withFlags(trackNewline = false, excludeCurly = false) {
     recBuildList<PrimaryParam> {
         if (parser.current == Token.RParen) {
-            return@recBuildList this
+            return@withFlags this
         }
 
         add(parsePrimaryParam(parser))
 
         when (parser.current) {
             Token.Comma -> parser.advance()
-            Token.RParen -> return@recBuildList this
+            Token.RParen -> return@withFlags this
             else -> parser.err(unclosedParenthesis)
         }
     }
@@ -133,18 +133,16 @@ fun parseClass(parser: Parser, modifiers: List<DecModifier>): Class {
 
     parseWhere(parser, constraints)
 
-    val body: List<ClassStatement>
-    if (parser.current == Token.LBrace) {
-        body = parseClassBody(parser)
-        parser.advance()
+    val body = if (parser.current == Token.LBrace) {
+        parseClassBody(parser.advance())
     } else {
-        body = emptyList()
+        emptyList()
     }
 
     return Class(name, modifiers, constructorModifiers, primaryConstructor, typeParams, constraints, superTypes, body)
 }
 
-private fun parseClassTypeParams(parser: Parser, constraints: Constraints): List<PClassTypeParam> =
+private fun parseClassTypeParams(parser: Parser, constraints: MutableConstraints): List<PClassTypeParam> =
     if (parser.current == Token.LBracket) {
         recBuildList {
             if (parser.current == Token.RBracket) {
@@ -183,7 +181,10 @@ private fun parseClassTypeParams(parser: Parser, constraints: Constraints): List
 
 private fun parseClassBody(parser: Parser) = recBuildList<ClassStatement> {
     when (parser.current) {
-        Token.RBrace -> return this
+        Token.RBrace -> {
+            parser.advance()
+            return this
+        }
         Token.Semicolon -> parser.advance()
         Token.Init -> add(ClassStatement.Initializer(requireScope(parser.advance())))
         else -> {
@@ -207,11 +208,7 @@ private fun parseConstructor(parser: Parser, modifiers: List<DecModifier>): Clas
     }
 
     val params = parseFunParams(parser.advance())
-    parser.advance()
-
-    val primaryCall: List<Arg>?
-
-    if (parser.current == Token.Colon) {
+    val primaryCall = if (parser.current == Token.Colon) {
         if (parser.advance().current != Token.This) {
             parser.err(missingThis)
         }
@@ -220,10 +217,9 @@ private fun parseConstructor(parser: Parser, modifiers: List<DecModifier>): Clas
             parser.err(unexpectedSymbol("("))
         }
 
-        primaryCall = parseCallArgs(parser)
-        parser.advance()
+        parseCallArgs(parser.advance())
     } else {
-        primaryCall = null
+        null
     }
 
     val body = parseScope(parser) ?: emptyList()

@@ -14,7 +14,7 @@ import com.scientianova.palm.util.at
 
 sealed class StringPart {
     data class String(val string: kotlin.String) : StringPart()
-    data class Expr(val token: PExpr) : StringPart()
+    data class Expr(val expr: PExpr) : StringPart()
 }
 
 sealed class Token {

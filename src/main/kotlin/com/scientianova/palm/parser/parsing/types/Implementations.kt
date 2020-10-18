@@ -16,7 +16,10 @@ import com.scientianova.palm.parser.recBuildList
 
 private fun parseImplBody(parser: Parser) = recBuildList<ImplStatement> {
     when (parser.current) {
-        Token.RBrace -> return this
+        Token.RBrace -> {
+            parser.advance()
+            return this
+        }
         Token.Semicolon -> parser.advance()
         else -> {
             val modifiers = parseDecModifiers(parser)
@@ -34,7 +37,10 @@ private fun parseImplBody(parser: Parser) = recBuildList<ImplStatement> {
 
 private fun parseTraitImplBody(parser: Parser) = recBuildList<TraitImplStatement> {
     when (parser.current) {
-        Token.RBrace -> return this
+        Token.RBrace -> {
+            parser.advance()
+            return this
+        }
         Token.Semicolon -> parser.advance()
         else -> {
             val modifiers = parseDecModifiers(parser)
@@ -60,22 +66,18 @@ fun parseImpl(parser: Parser): Implementation {
     val type = requireType(parser)
 
     return if (parser.current == Token.For) {
-        val forType = requireType(parser)
+        val forType = requireType(parser.advance())
         parseWhere(parser, constraints)
-        val body: List<TraitImplStatement>
-
-        if (parser.current == Token.LBrace) {
-            body = parseTraitImplBody(parser)
-            parser.advance()
+        val body = if (parser.current == Token.LBrace) {
+            parseTraitImplBody(parser.advance())
         } else {
-            body = emptyList()
+            emptyList()
         }
 
         Implementation.Trait(type, forType, typeParams, constraints, body)
     } else {
         parseWhere(parser, constraints)
         val body = parseImplBody(parser.advance())
-        parser.advance()
 
         Implementation.Inherent(type, typeParams, constraints, body)
     }

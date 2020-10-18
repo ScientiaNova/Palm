@@ -22,7 +22,7 @@ fun parseDecPattern(parser: Parser): PDecPattern? = when (val token = parser.cur
 
 fun requireDecPattern(parser: Parser) = parseDecPattern(parser) ?: parser.err(invalidPattern)
 
-private fun parseDecTupleBody(parser: Parser): List<PDecPattern> = recBuildList {
+private fun parseDecTupleBody(parser: Parser): List<PDecPattern>? = recBuildList {
     if (parser.current == Token.RParen) {
         return this
     } else {
@@ -30,16 +30,16 @@ private fun parseDecTupleBody(parser: Parser): List<PDecPattern> = recBuildList 
         when (parser.current) {
             Token.Comma -> parser.advance()
             Token.RParen -> return this
-            else -> parser.err(unclosedParenthesis)
+            else -> return null
         }
     }
 }
 
-private fun parseDecTuple(parser: Parser): PDecPattern {
+private fun parseDecTuple(parser: Parser): PDecPattern? {
     val marker = parser.mark()
     parser.advance()
 
-    val list = parseDecTupleBody(parser)
+    val list = parseDecTupleBody(parser) ?: return null
 
     parser.advance()
 

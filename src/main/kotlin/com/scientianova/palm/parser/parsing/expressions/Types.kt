@@ -152,10 +152,12 @@ private fun parseTypeTuple(parser: Parser): PType {
     parser.advance()
 
     return when {
-        parser.current == Token.Arrow -> marker.end(Type.Function(list, requireType(parser)))
+        parser.current == Token.Arrow -> marker.end(Type.Function(list, requireType(parser.advance())))
         list.size == 1 -> {
             val type = list[0]
-            if (type.using) parser.err(missingTypeReturnType)
+            if (type.using) {
+                parser.err(missingTypeReturnType)
+            }
             type.type
         }
         else -> parser.err(missingTypeReturnType)

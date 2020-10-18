@@ -248,10 +248,9 @@ private fun parseTupleBody(parser: Parser): List<PExpr> = recBuildList {
 
 private fun parseTuple(parser: Parser): PExpr {
     val marker = parser.mark()
-    parser.advance()
 
     val list = parser.withFlags(trackNewline = false, excludeCurly = false) {
-        parseTupleBody(parser)
+        parseTupleBody(parser.advance())
     }
 
     parser.advance()
@@ -267,9 +266,12 @@ fun parseScopeExpr(parser: Parser) = parser.mark().end(Expr.Scope(parseScopeBody
 
 private fun parseWhenBranch(parser: Parser): WhenBranch {
     val pattern = parsePattern(parser, DecHandling.None)
-    if (parser.current != Token.Arrow) parser.err(missingArrowOnBranch)
-    parser.advance()
-    val expr = if (parser.current == Token.LBrace) {
+
+    if (parser.current != Token.Arrow) {
+        parser.err(missingArrowOnBranch)
+    }
+
+    val expr = if (parser.advance().current == Token.LBrace) {
         parseScopeExpr(parser)
     } else {
         requireBinOps(parser)
@@ -340,7 +342,7 @@ fun parseConditions(parser: Parser): List<Condition> = parser.withFlags(trackNew
     recBuildList {
         add(parseCondition(parser))
         if (parser.current != Token.Comma) {
-            return@recBuildList this
+            return@withFlags this
         } else Unit
     }
 }
@@ -515,7 +517,8 @@ fun parseCallArgs(parser: Parser): List<Arg> = parser.withFlags(trackNewline = f
     recBuildList {
         val current = parser.current
         if (current == Token.RParen) {
-            return@recBuildList this
+            parser.advance()
+            return@withFlags this
         } else {
             if (current.isIdentifier()) {
                 val ident = parser.advance().end(current.identString())
@@ -534,7 +537,10 @@ fun parseCallArgs(parser: Parser): List<Arg> = parser.withFlags(trackNewline = f
 
             when (parser.current) {
                 Token.Comma -> parser.advance()
-                Token.RParen -> return@recBuildList this
+                Token.RParen -> {
+                    parser.advance()
+                    return@withFlags this
+                }
                 else -> parser.err(unclosedParenthesis)
             }
         }
@@ -542,12 +548,7 @@ fun parseCallArgs(parser: Parser): List<Arg> = parser.withFlags(trackNewline = f
 }
 
 private fun parseCall(parser: Parser, on: PExpr): PExpr {
-    parser.advance()
-
-    val list = parseCallArgs(parser)
-
-    parser.advance()
-
+    val list = parseCallArgs(parser.advance())
     val last = if (parser.excludeCurly) {
         null
     } else {
@@ -567,7 +568,6 @@ private fun parseObject(parser: Parser): PExpr {
     }
 
     val body = parseObjectBody(parser)
-    parser.advance()
 
     return start.end(Expr.Object(superTypes, body))
 }

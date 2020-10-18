@@ -8,7 +8,6 @@ import com.scientianova.palm.parser.data.expressions.Expr
 import com.scientianova.palm.parser.parsing.expressions.parseStatements
 import com.scientianova.palm.util.StringPos
 import com.scientianova.palm.util.at
-import com.scientianova.palm.util.mapFirst
 
 internal tailrec fun lexSingleLineString(
     code: String,
@@ -43,8 +42,22 @@ internal tailrec fun lexSingleLineString(
                     else -> error("!??")
                 }
             }
-            in identStartChars ->
-                lexNormalIdent(code, interPos + 1, StringBuilder().append(interChar)).mapFirst { TODO() }
+            in identStartChars -> {
+                val (token, afterToken) = lexNormalIdent(code, interPos + 1, StringBuilder().append(interChar))
+                when (token) {
+                    in identTokens -> lexSingleLineString(
+                        code, afterToken,
+                        parts + StringPart.Expr(Expr.Ident(token.identString()).at(interPos, afterToken)),
+                        builder.clear()
+                    )
+                    Token.This -> lexSingleLineString(
+                        code, afterToken,
+                        parts + StringPart.Expr(Expr.This.at(interPos, afterToken)),
+                        builder.clear()
+                    )
+                    else -> invalidInterpolation.token(interPos, afterToken)
+                }
+            }
             else ->
                 lexSingleLineString(code, pos + 1, parts, builder.append('$'))
         }
@@ -102,7 +115,7 @@ internal tailrec fun lexMultiLineString(
                     )
                     Token.This -> lexMultiLineString(
                         code, afterToken,
-                        parts + StringPart.Expr(Expr.This(null).at(interPos, afterToken)),
+                        parts + StringPart.Expr(Expr.This.at(interPos, afterToken)),
                         builder.clear()
                     )
                     else -> invalidInterpolation.token(interPos, afterToken)

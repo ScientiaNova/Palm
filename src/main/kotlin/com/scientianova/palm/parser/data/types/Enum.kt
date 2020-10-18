@@ -24,8 +24,10 @@ sealed class EnumCase {
     data class Normal(
         val name: PString,
         val annotations: List<Annotation>,
-        val components: List<RecordProperty>
+        val components: List<CaseProperty>
     ) : EnumCase()
 
     data class Single(val name: PString, val annotations: List<Annotation>) : EnumCase()
 }
+
+data class CaseProperty(val name: PString, val annotations: List<Annotation>, val type: PType)

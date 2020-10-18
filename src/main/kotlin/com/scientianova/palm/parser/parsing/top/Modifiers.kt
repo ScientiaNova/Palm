@@ -18,7 +18,10 @@ fun parseDecModifiers(parser: Parser): List<DecModifier> = recBuildList {
     val current = parser.current
     val modifier = current.decModifier
     when {
-        modifier != null -> add(modifier)
+        modifier != null -> {
+            add(modifier)
+            parser.advance()
+        }
         current == Token.At -> add(DecModifier.Annotation(parseAnnotation(parser)))
         else -> return this
     }
@@ -31,9 +34,8 @@ fun parseAnnotation(parser: Parser): Annotation {
         parseErr(missingIdentifier, parser.nextPos)
     }
 
-    parser.advance()
-
     val type = start.annotationType
+    parser.advance()
 
     val firstIdent = if (type == AnnotationType.Normal) {
         parser.advance().end(start.identString())

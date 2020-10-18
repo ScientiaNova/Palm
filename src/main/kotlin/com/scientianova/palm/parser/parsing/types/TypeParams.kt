@@ -10,10 +10,12 @@ import com.scientianova.palm.parser.parsing.expressions.requireTypeAnn
 import com.scientianova.palm.parser.recBuildList
 import com.scientianova.palm.util.PString
 
-typealias Constraints = MutableList<Pair<PString, PType>>
-fun constraints(): Constraints = mutableListOf()
+typealias Constraints = List<Pair<PString, PType>>
+typealias MutableConstraints = MutableList<Pair<PString, PType>>
 
-fun parseTypeParams(parser: Parser, constraints: Constraints): List<PString> =
+fun constraints(): MutableConstraints = mutableListOf()
+
+fun parseTypeParams(parser: Parser, constraints: MutableConstraints): List<PString> =
     if (parser.current == Token.LBracket) {
         recBuildList {
             if (parser.current == Token.RBracket) {

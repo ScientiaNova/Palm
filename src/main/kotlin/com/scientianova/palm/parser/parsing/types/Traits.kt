@@ -16,7 +16,10 @@ import com.scientianova.palm.parser.recBuildList
 
 private fun parseTraitBody(parser: Parser) = recBuildList<TraitStatement> {
     when (parser.current) {
-        Token.RBrace -> return this
+        Token.RBrace -> {
+            parser.advance()
+            return this
+        }
         Token.Semicolon -> parser.advance()
         else -> {
             val modifiers = parseDecModifiers(parser)
@@ -45,15 +48,13 @@ fun parseTrait(parser: Parser, modifiers: List<DecModifier>): Trait {
     val name = parseIdent(parser)
     val constraints = constraints()
     val typeParams = parseTypeParams(parser, constraints)
+    val superTraits = if (parser.current == Token.Colon) parseTypes(parser.advance()) else emptyList()
     parseWhere(parser, constraints)
-    val body: List<TraitStatement>
-
-    if (parser.current == Token.LBrace) {
-        body = parseTraitBody(parser)
-        parser.advance()
+    val body = if (parser.current == Token.LBrace) {
+        parseTraitBody(parser.advance())
     } else {
-        body = emptyList()
+        emptyList()
     }
 
-    return Trait(name, modifiers, typeParams, constraints, body)
+    return Trait(name, modifiers, typeParams, constraints, superTraits, body)
 }

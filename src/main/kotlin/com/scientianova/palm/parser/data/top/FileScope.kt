@@ -12,7 +12,7 @@ data class FileScope(
     val annotations: List<Annotation>,
     val path: Path,
     val imports: List<Import>,
-    val declarations: List<FileStatement>
+    val statements: List<FileStatement>
 )
 
 sealed class FileStatement
@@ -23,7 +23,7 @@ data class StaticClass(val clazz: Class) : FileStatement()
 data class StaticRecord(val record: Record) : FileStatement()
 data class StaticEnum(val enum: Enum) : FileStatement()
 data class StaticObject(val obj: Object) : FileStatement()
-data class StaticExtensions(val extension: Extension) : FileStatement()
+data class StaticExtension(val extension: Extension) : FileStatement()
 data class StaticImpl(val implementation: Implementation) : FileStatement()
 data class StaticTrait(val trait: Trait) : FileStatement()
 data class StaticMixin(val mixin: Mixin) : FileStatement()

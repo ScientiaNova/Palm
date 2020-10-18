@@ -10,6 +10,7 @@ data class Trait(
     val modifiers: List<DecModifier>,
     val typeParams: List<PString>,
     val typeConstraints: TypeConstraints,
+    val superTraits: List<PType>,
     val statements: List<TraitStatement>
 )
 

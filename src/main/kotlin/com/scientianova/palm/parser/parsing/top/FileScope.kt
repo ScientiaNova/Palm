@@ -52,8 +52,8 @@ private fun parseStatements(parser: Parser) = recBuildList<FileStatement> {
     when (parser.current) {
         Token.EOF -> return this
         Token.Semicolon -> parser.advance()
-        Token.Extend -> add(StaticExtensions(parseExtension(parser.advance())))
-        Token.Impl -> StaticImpl(parseImpl(parser.advance()))
+        Token.Extend -> add(StaticExtension(parseExtension(parser.advance())))
+        Token.Impl -> add(StaticImpl(parseImpl(parser.advance())))
         else -> {
             val modifiers = parseDecModifiers(parser)
             add(
@@ -87,23 +87,7 @@ private fun parseConst(parser: Parser, modifiers: List<DecModifier>): FileStatem
 private fun parseTpeAlias(parser: Parser, modifiers: List<DecModifier>): FileStatement {
     val name = parseIdent(parser)
     val params = if (parser.current == Token.LBracket) {
-        recBuildList<PString> {
-            if (parser.current == Token.RBracket) {
-                parser.advance()
-                return@recBuildList this
-            }
-
-            add(parseIdent(parser))
-
-            when (parser.current) {
-                Token.Comma -> parser.advance()
-                Token.RBracket -> {
-                    parser.advance()
-                    return@recBuildList this
-                }
-                else -> parser.err(unclosedSquareBracket)
-            }
-        }
+        parseAliasParams(parser.advance())
     } else {
         emptyList()
     }
@@ -111,4 +95,22 @@ private fun parseTpeAlias(parser: Parser, modifiers: List<DecModifier>): FileSta
     val actual = requireEqType(parser)
 
     return TypeAlias(name, modifiers, params, actual)
+}
+
+private fun parseAliasParams(parser: Parser) = recBuildList<PString> {
+    if (parser.current == Token.RBracket) {
+        parser.advance()
+        return this
+    }
+
+    add(parseIdent(parser))
+
+    when (parser.current) {
+        Token.Comma -> parser.advance()
+        Token.RBracket -> {
+            parser.advance()
+            return this
+        }
+        else -> parser.err(unclosedSquareBracket)
+    }
 }

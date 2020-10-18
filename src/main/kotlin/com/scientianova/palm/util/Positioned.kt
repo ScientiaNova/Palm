@@ -12,5 +12,4 @@ fun <T> T.at(start: StringPos, end: StringPos = start + 1) = Positioned(this, st
 
 inline fun <A, B> Positioned<A>.map(fn: (A) -> B) = Positioned(fn(value), start, next)
 
-typealias PInt = Positioned<Int>
 typealias PString = Positioned<String>

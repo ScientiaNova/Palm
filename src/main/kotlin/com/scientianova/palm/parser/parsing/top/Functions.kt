@@ -52,12 +52,16 @@ fun parseOptionallyTypedFunParam(parser: Parser): OptionallyTypedFunParam {
 fun parseFunParams(parser: Parser): List<FunParam> = parser.withFlags(trackNewline = false, excludeCurly = false) {
     recBuildList {
         if (parser.current == Token.RParen) {
-            return@recBuildList this
+            parser.advance()
+            return@withFlags this
         } else {
             add(parseFunParam(parser))
             when (parser.current) {
                 Token.Comma -> parser.advance()
-                Token.RParen -> return@recBuildList this
+                Token.RParen -> {
+                    parser.advance()
+                    return@withFlags this
+                }
                 else -> parser.err(unclosedParenthesis)
             }
         }
@@ -66,18 +70,15 @@ fun parseFunParams(parser: Parser): List<FunParam> = parser.withFlags(trackNewli
 
 fun parseFun(parser: Parser, modifiers: List<DecModifier>): Function {
     val constrains = constraints()
-    val typeParams = parseTypeParams(parser.advance(), constrains)
+    val typeParams = parseTypeParams(parser, constrains)
     val name = parseIdent(parser)
 
-    if (parser.current != Token.RParen) {
+    if (parser.current != Token.LParen) {
         parser.err(missingFunParams)
     }
 
     val params = parseFunParams(parser.advance())
-    parser.advance()
-
     val type = parseTypeAnn(parser)
-
     parseWhere(parser, constrains)
     val expr = parseFunBody(parser)
 

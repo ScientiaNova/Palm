@@ -33,6 +33,7 @@ fun parseProperty(parser: Parser, modifiers: List<DecModifier>, mutable: Boolean
 
     when (parser.current) {
         Token.Get -> {
+            parser.advance()
             getterModifiers = firstModifiers
             getter = parseGetter(parser)
 
@@ -40,6 +41,7 @@ fun parseProperty(parser: Parser, modifiers: List<DecModifier>, mutable: Boolean
             val secondModifiers = parseDecModifiers(parser)
 
             if (parser.current == Token.Set) {
+                parser.advance()
                 setterModifiers = secondModifiers
                 setter = parseSetter(parser)
             } else {
@@ -49,6 +51,7 @@ fun parseProperty(parser: Parser, modifiers: List<DecModifier>, mutable: Boolean
             }
         }
         Token.Set -> {
+            parser.advance()
             setterModifiers = firstModifiers
             setter = parseSetter(parser)
 
@@ -56,6 +59,7 @@ fun parseProperty(parser: Parser, modifiers: List<DecModifier>, mutable: Boolean
             val secondModifiers = parseDecModifiers(parser)
 
             if (parser.current == Token.Get) {
+                parser.advance()
                 getterModifiers = secondModifiers
                 getter = parseGetter(parser)
             } else {

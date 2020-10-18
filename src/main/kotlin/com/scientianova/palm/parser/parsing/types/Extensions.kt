@@ -45,14 +45,16 @@ fun parseExtension(parser: Parser): Extension {
     }
 
     val body = parseExtensionBody(parser.advance())
-    parser.advance()
 
     return Extension(on, typeParams, constraints, body)
 }
 
 private fun parseExtensionBody(parser: Parser) = recBuildList<ExtensionStatement> {
     when (parser.current) {
-        Token.RBrace -> return this
+        Token.RBrace -> {
+            parser.advance()
+            return this
+        }
         Token.Semicolon -> parser.advance()
         Token.Extend -> add(ExtensionStatement.Extension(parseExtension(parser.advance())))
         else -> {

@@ -16,8 +16,6 @@ sealed class SuperType {
     data class Interface(val type: PType, val delegate: PString?) : SuperType()
 }
 
-data class SuperClass(val type: PType, val args: CallArgs, val mixins: List<PType>)
-
 data class Class(
     val name: PString,
     val modifiers: List<DecModifier>,

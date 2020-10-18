@@ -18,35 +18,35 @@ fun parseMixin(parser: Parser, modifiers: List<DecModifier>): Mixin {
     val name = parseIdent(parser)
     val constraints = constraints()
     val typeParams = parseTypeParams(parser, constraints)
-    val on = parseMixinTypes(parser)
-    val body: List<MixinStatement>
-
-    if (parser.current == Token.LBrace) {
-        body = parseMixinBody(parser)
-        parser.advance()
+    val on = if (parser.current == Token.On) {
+        parseTypes(parser.advance())
     } else {
-        body = emptyList()
+        emptyList()
+    }
+    val body = if (parser.current == Token.LBrace) {
+        parseMixinBody(parser.advance())
+    } else {
+        emptyList()
     }
 
     return Mixin(name, modifiers, typeParams, constraints, on, body)
 }
 
-private fun parseMixinTypes(parser: Parser): List<PType> = if (parser.current == Token.On) {
-    recBuildList {
-        add(requireType(parser))
-        if (parser.current == Token.Comma) {
-            parser.advance()
-        } else {
-            return this
-        }
+fun parseTypes(parser: Parser): List<PType> = recBuildList {
+    add(requireType(parser))
+    if (parser.current == Token.Comma) {
+        parser.advance()
+    } else {
+        return this
     }
-} else {
-    emptyList()
 }
 
 private fun parseMixinBody(parser: Parser) = recBuildList<MixinStatement> {
     when (parser.current) {
-        Token.RBrace -> return this
+        Token.RBrace -> {
+            parser.advance()
+            return this
+        }
         Token.Semicolon -> parser.advance()
         else -> {
             val modifiers = parseDecModifiers(parser)

@@ -15,7 +15,10 @@ import com.scientianova.palm.parser.recBuildList
 
 fun parseObjectBody(parser: Parser) = recBuildList<ObjectStatement> {
     when (parser.current) {
-        Token.RBrace -> return this
+        Token.RBrace -> {
+            parser.advance()
+            return this
+        }
         Token.Semicolon -> parser.advance()
         Token.Init -> add(ObjectStatement.Initializer(requireScope(parser.advance())))
         else -> {
@@ -35,13 +38,10 @@ fun parseObjectBody(parser: Parser) = recBuildList<ObjectStatement> {
 fun parseObject(parser: Parser, modifiers: List<DecModifier>): Object {
     val name = parseIdent(parser)
     val superTypes = parseSuperTypes(parser)
-    val body: List<ObjectStatement>
-
-    if (parser.current == Token.LBrace) {
-        body = parseObjectBody(parser)
-        parser.advance()
+    val body = if (parser.current == Token.LBrace) {
+        parseObjectBody(parser.advance())
     } else {
-        body = emptyList()
+        emptyList()
     }
 
     return Object(name, modifiers, superTypes, body)

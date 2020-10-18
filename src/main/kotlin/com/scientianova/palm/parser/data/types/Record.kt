@@ -1,5 +1,6 @@
 package com.scientianova.palm.parser.data.types
 
+import com.scientianova.palm.parser.data.expressions.PExpr
 import com.scientianova.palm.parser.data.expressions.PType
 import com.scientianova.palm.parser.data.top.DecModifier
 import com.scientianova.palm.util.PString
@@ -29,4 +30,4 @@ sealed class Record {
     ) : Record()
 }
 
-data class RecordProperty(val name: PString, val modifiers: List<DecModifier>, val type: PType)
+data class RecordProperty(val name: PString, val modifiers: List<DecModifier>, val type: PType, val default: PExpr?)

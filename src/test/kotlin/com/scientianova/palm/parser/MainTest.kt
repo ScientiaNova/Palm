@@ -1,10 +1,11 @@
 package com.scientianova.palm.parser
 
-import com.scientianova.palm.parser.parsing.expressions.requireBinOps
 import kotlin.system.measureTimeMillis
 
 fun main() {
-    println(testParse(oldExample, ::requireBinOps).toCodeString(0))
+    benchmark(1_000_000) {
+        parseTestCode(implTest)
+    }
 }
 
 inline fun benchmark(times: Int, block: () -> Unit) {
