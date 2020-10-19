@@ -3,7 +3,7 @@ package com.scientianova.palm.parser
 import kotlin.system.measureTimeMillis
 
 fun main() {
-    benchmark(1_000_000) {
+    benchmark(10_000) {
         parseTestCode(implTest)
     }
 }

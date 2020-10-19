@@ -23,7 +23,6 @@ sealed class Token {
     open fun isPostfix() = false
     open fun isPrefix() = false
     open fun unaryOp(): UnaryOp = error("$this is not a unary operator.")
-    open fun assignment(): AssignmentType? = null
     open fun convertBinary(left: PExpr, right: PExpr): PExpr = error("!??")
     open fun handleBinary(parser: Parser, left: PExpr, precedence: kotlin.Int) =
         convertBinary(left, parseBinOps(parser, requireSubExpr(parser), precedence + 1))
@@ -189,27 +188,39 @@ sealed class Token {
     }
 
     object Assign : Token() {
-        override fun assignment() = AssignmentType.Normal
+        override val precedence get() = 11
+        override fun convertBinary(left: PExpr, right: PExpr) =
+            Expr.Assign(left, right, AssignmentType.Normal).at(left.start, right.next)
     }
 
     object PlusAssign : Token() {
-        override fun assignment() = AssignmentType.Plus
+        override val precedence get() = 11
+        override fun convertBinary(left: PExpr, right: PExpr) =
+            Expr.Assign(left, right, AssignmentType.Plus).at(left.start, right.next)
     }
 
     object MinusAssign : Token() {
-        override fun assignment() = AssignmentType.Minus
+        override val precedence get() = 11
+            override fun convertBinary(left: PExpr, right: PExpr) =
+            Expr.Assign(left, right, AssignmentType.Minus).at(left.start, right.next)
     }
 
     object TimesAssign : Token() {
-        override fun assignment() = AssignmentType.Times
+        override val precedence get() = 11
+        override fun convertBinary(left: PExpr, right: PExpr) =
+            Expr.Assign(left, right, AssignmentType.Times).at(left.start, right.next)
     }
 
     object DivAssign : Token() {
-        override fun assignment() = AssignmentType.Div
+        override val precedence get() = 11
+        override fun convertBinary(left: PExpr, right: PExpr) =
+            Expr.Assign(left, right, AssignmentType.Div).at(left.start, right.next)
     }
 
     object RemAssign : Token() {
-        override fun assignment() = AssignmentType.Rem
+        override val precedence get() = 11
+        override fun convertBinary(left: PExpr, right: PExpr) =
+            Expr.Assign(left, right, AssignmentType.Rem).at(left.start, right.next)
     }
 
     object QuestionMark : Token()

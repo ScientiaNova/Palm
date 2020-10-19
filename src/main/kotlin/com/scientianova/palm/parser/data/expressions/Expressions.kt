@@ -55,6 +55,7 @@ sealed class Expr {
     data class Bool(val value: Boolean) : Expr()
 
     object Null : Expr()
+    object Wildcard : Expr()
 
     object This : Expr()
     object Super : Expr()
@@ -91,6 +92,12 @@ sealed class Expr {
     data class RefEq(val first: PExpr, val second: PExpr) : Expr()
     data class NotRefEq(val first: PExpr, val second: PExpr) : Expr()
 
+    data class Dec(val mutable: Boolean, val pattern: PExpr, val type: PType?, val expr: PExpr?) : Expr()
+    data class Assign(val left: PExpr, val right: PExpr, val type: AssignmentType) : Expr()
+
+    data class Guard(val cond: List<Condition>, val body: ExprScope) : Expr()
+    data class Defer(val body: ExprScope) : Expr()
+
     data class Annotated(val annotation: Annotation, val expr: PExpr) : Expr()
 
     data class Object(
@@ -112,7 +119,9 @@ typealias LambdaParams = List<Pair<PDecPattern, PType?>>
 
 sealed class Condition {
     data class Expr(val expr: PExpr) : Condition()
-    data class Pattern(val pattern: PPattern, val expr: PExpr) : Condition()
+    data class Pattern(val mutable: Boolean, val pattern: PExpr, val expr: PExpr) : Condition()
 }
 
-typealias WhenBranch = Pair<PPattern, PExpr>
+typealias WhenBranch = Pair<Pattern, PExpr>
+
+typealias ExprScope = List<PExpr>

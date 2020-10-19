@@ -7,7 +7,6 @@ import com.scientianova.palm.lexer.isIdentifier
 import com.scientianova.palm.lexer.prefixTokens
 import com.scientianova.palm.parser.Parser
 import com.scientianova.palm.parser.data.expressions.*
-import com.scientianova.palm.parser.data.types.DecHandling
 import com.scientianova.palm.parser.parsing.top.parseAnnotation
 import com.scientianova.palm.parser.parsing.types.parseObjectBody
 import com.scientianova.palm.parser.parsing.types.parseSuperTypes
@@ -34,6 +33,7 @@ private fun parseTerm(parser: Parser): PExpr? = when (val token = parser.current
     is Token.Char -> parser.advance().end(Expr.Char(token.value))
     is Token.Str -> parser.advance().end(Expr.Str(token.parts))
     Token.Null -> parser.advance().end(Expr.Null)
+    Token.Wildcard -> parser.advance().end(Expr.Wildcard)
     Token.This -> parser.advance().end(Expr.This)
     Token.Super -> parser.advance().end(Expr.Super)
     Token.Return -> parseReturn(parser)
@@ -53,6 +53,10 @@ private fun parseTerm(parser: Parser): PExpr? = when (val token = parser.current
     Token.Spread -> parser.advance().end(Expr.Spread(requireSubExpr(parser.advance())))
     Token.DoubleColon -> parseFreeFunRef(parser)
     Token.At -> parser.mark().end(Expr.Annotated(parseAnnotation(parser), requireTerm(parser)))
+    Token.Defer -> parser.mark().end(Expr.Defer(requireScope(parser.advance())))
+    Token.Guard -> parseGuard(parser)
+    Token.Val -> parseDec(parser, false)
+    Token.Var -> parseDec(parser, true)
     in prefixTokens ->
         parser.mark().end(Expr.Unary(token.unaryOp(), requireSubExpr(parser.advance())))
     else -> null
@@ -203,8 +207,7 @@ fun parsePostfixLambda(parser: Parser): PExpr? {
     }
 }
 
-private fun parseSubExpr(parser: Parser) = parseTerm(parser)?.let { parsePostfix(parser, it) }
-
+fun parseSubExpr(parser: Parser) = parseTerm(parser)?.let { parsePostfix(parser, it) }
 fun requireSubExpr(parser: Parser) = parseSubExpr(parser) ?: parser.err(missingExpression)
 
 fun parseBinOps(parser: Parser): PExpr? = parseSubExpr(parser)?.let { first ->
@@ -265,7 +268,7 @@ private fun parseTuple(parser: Parser): PExpr {
 fun parseScopeExpr(parser: Parser) = parser.mark().end(Expr.Scope(parseScopeBody(parser)))
 
 private fun parseWhenBranch(parser: Parser): WhenBranch {
-    val pattern = parsePattern(parser, DecHandling.None)
+    val pattern = parsePattern(parser)
 
     if (parser.current != Token.Arrow) {
         parser.err(missingArrowOnBranch)
@@ -327,15 +330,15 @@ private fun parseWhen(parser: Parser): PExpr {
 
 
 private fun parseCondition(parser: Parser): Condition = when (parser.current) {
-    Token.Val -> parsePatternCondition(parser, DecHandling.Val)
-    Token.Var -> parsePatternCondition(parser, DecHandling.Var)
+    Token.Val -> parsePatternCondition(parser.advance(), false)
+    Token.Var -> parsePatternCondition(parser.advance(), true)
     else -> Condition.Expr(requireBinOps(parser))
 }
 
-private fun parsePatternCondition(parser: Parser, handling: DecHandling): Condition {
-    val pattern = parsePatternNoExpr(parser.advance(), handling)
+private fun parsePatternCondition(parser: Parser, mutable: Boolean): Condition {
+    val pattern = requireSubExpr(parser)
     val expr = parseEqExpr(parser) ?: parser.err(missingExpression)
-    return Condition.Pattern(pattern, expr)
+    return Condition.Pattern(mutable, pattern, expr)
 }
 
 fun parseConditions(parser: Parser): List<Condition> = parser.withFlags(trackNewline = false, excludeCurly = true) {
@@ -570,4 +573,23 @@ private fun parseObject(parser: Parser): PExpr {
     val body = parseObjectBody(parser)
 
     return start.end(Expr.Object(superTypes, body))
+}
+
+private fun parseGuard(parser: Parser): PExpr {
+    val start = parser.mark()
+
+    val conditions = parseConditions(parser.advance())
+    if (parser.current != Token.Else) parser.err(missingElseInGuard)
+    val scope = requireScope(parser.advance())
+
+    return start.end(Expr.Guard(conditions, scope))
+}
+
+private fun parseDec(parser: Parser, mutable: Boolean): PExpr {
+    val start = parser.mark()
+
+    val pattern = requireSubExpr(parser.advance())
+    val type = parseTypeAnn(parser)
+    val expr = parseEqExpr(parser)
+    return start.end(Expr.Dec(mutable, pattern, type, expr))
 }

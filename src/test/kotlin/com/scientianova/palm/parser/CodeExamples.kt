@@ -297,10 +297,10 @@ impl Builder {
     fun onThreadStop(f: () -> Send + Sync) = this.copyWith(beforeStop = Some(f))
 
     fun build(): Result[Runtime] = when kind { 
-        .CurrentThread -> {
+        CurrentThread -> {
             buildBasicRuntime()
         }
-        .MultiThread -> {
+        MultiThread -> {
             buildThreadedRuntime()
         }
     }

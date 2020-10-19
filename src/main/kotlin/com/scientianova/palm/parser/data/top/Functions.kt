@@ -6,7 +6,6 @@ import com.scientianova.palm.parser.data.expressions.PType
 import com.scientianova.palm.parser.data.types.TypeConstraints
 import com.scientianova.palm.util.PString
 
-
 data class Function(
     val name: PString,
     val modifiers: List<DecModifier>,

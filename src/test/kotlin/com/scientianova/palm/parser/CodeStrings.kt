@@ -20,9 +20,6 @@ fun PExpr.toCodeString(indent: Int) = value.toCodeString(indent)
 @JvmName("typeToCodeString")
 fun PType.toCodeString(indent: Int) = value.toCodeString(indent)
 
-@JvmName("patternToCodeString")
-fun PPattern.toCodeString(indent: Int) = value.toCodeString(indent)
-
 @JvmName("decPatternToCodeString")
 fun PDecPattern.toCodeString() = value.toCodeString()
 
@@ -52,21 +49,14 @@ fun AnnotationType.toCodeString() = when (this) {
 }
 
 fun Pattern.toCodeString(indent: Int): String = when (this) {
-    is Pattern.Wildcard -> "_"
     is Pattern.Expr -> expr.toCodeString(indent)
-    is Pattern.Dec -> "${if (mutable) "var" else "val"} $name"
     is Pattern.Type -> "is ${type.toCodeString(indent)}"
-    is Pattern.EnumTuple -> ".$name(${params.joinToString { it.toCodeString(indent) }})"
-    is Pattern.Enum -> ".$name(${params.joinToString { "${it.first.value}: ${it.second.value.toCodeString(indent)}" }})"
-    is Pattern.Tuple -> "(${elements.joinToString { it.toCodeString(indent) }})"
-    is Pattern.Record -> "{${pairs.joinToString { "${it.first.value}: ${it.second.value.toCodeString(indent)}" }}}"
 }
 
 fun DecPattern.toCodeString(): String = when (this) {
     is DecPattern.Wildcard -> "_"
     is DecPattern.Name -> name
     is DecPattern.Tuple -> "(${elements.joinToString { it.toCodeString() }})"
-    is DecPattern.Record -> "{${pairs.joinToString { "${it.first.value}: ${it.second.value.toCodeString()}" }}}"
 }
 
 fun Type.toCodeString(indent: Int): String = when (this) {
@@ -141,15 +131,6 @@ fun Condition.toCodeString(indent: Int): String = when (this) {
     is Condition.Pattern -> "${pattern.toCodeString(indent)} = ${expr.toCodeString(indent)}"
 }
 
-fun ScopeStatement.toCodeString(indent: Int): String = when (this) {
-    is ExprStatement -> expr.toCodeString(indent)
-    is DecStatement -> "${if (mutable) "val" else "var"} ${pattern.toCodeString()}" + typeAnn(type, indent) +
-            expr.mapTo { " = ${it.toCodeString(indent)}" }
-    is AssignStatement -> "${left.toCodeString(indent)} ${type.toCodeString()} ${right.toCodeString(indent)}"
-    is GuardStatement -> "guard ${cond.toCodeString(indent)} else ${body.toCodeString(indent)}"
-    is DeferStatement -> "defer ${body.toCodeString(indent)}"
-}
-
 fun Function.toCodeString(indent: Int) = modifiers.toCodeString(indent) + "fun " +
         typeParams.typeParams() + (if (typeParams.isEmpty()) "" else " ") +
         "$name(${params.toCodeString(indent)})${typeAnn(type, indent)}" +
@@ -199,7 +180,6 @@ private fun Constraints.toCodeString(indent: Int) =
 fun RecordProperty.toCodeString(indent: Int) =
     modifiers.toCodeString(indent) + name + typeAnn(type, indent) + eqExpr(default, indent)
 
-fun CaseProperty.toCodeString(indent: Int) = annotations.toCodeString(indent) + name + typeAnn(type, indent)
 
 fun Record.toCodeString(indent: Int) = when (this) {
     is Record.Tuple -> "${modifiers.toCodeString(indent)}record $name${typeParams.typeParams()}(${
@@ -211,9 +191,7 @@ fun Record.toCodeString(indent: Int) = when (this) {
 }
 
 fun EnumCase.toCodeString(indent: Int) = when (this) {
-    is EnumCase.Tuple -> "$name(${components.joinToString { it.toCodeString(indent) }})"
-    is EnumCase.Normal -> name.value + " " +
-            scopeCodeString(components, indent, ",") { it.toCodeString(indent + 1) }
+    is EnumCase.Tuple -> "${annotations.toCodeString(indent)}$name(${components.joinToString { it.toCodeString(indent) }})"
     is EnumCase.Single -> name.value
 }
 
@@ -329,7 +307,7 @@ fun Expr.toCodeString(indent: Int): String = when (this) {
 when ${comparing.mapTo { it.value.toCodeString(indent) + " " }}{
 ${indent(indent + 1)}${
         branches.joinToString("\n" + indent(indent + 1)) {
-            it.first.value.toCodeString(indent + 1) + " -> " + it.second.toCodeString(indent + 1)
+            it.first.toCodeString(indent + 1) + " -> " + it.second.toCodeString(indent + 1)
         }
     }
 ${indent(indent)}}
@@ -392,6 +370,12 @@ ${indent(indent)}}
     }
     is Expr.Turbofish -> ".${expr.toCodeString(indent)}[${args.toCodeString(indent)}]"
     is Expr.Annotated -> annotation.toCodeString(indent) + " " + expr.toCodeString(indent)
+    Expr.Wildcard -> "_"
+    is Expr.Dec -> "${if (mutable) "val" else "var"} ${pattern.toCodeString(indent)}" + typeAnn(type, indent) +
+            expr.mapTo { " = ${it.toCodeString(indent)}" }
+    is Expr.Assign -> "${left.toCodeString(indent)} ${type.toCodeString()} ${right.toCodeString(indent)}"
+    is Expr.Guard -> "guard ${cond.toCodeString(indent)} else ${body.toCodeString(indent)}"
+    is Expr.Defer -> "defer ${body.toCodeString(indent)}"
 }
 
 
