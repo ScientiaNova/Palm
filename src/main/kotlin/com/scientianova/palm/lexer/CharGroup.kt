@@ -7,3 +7,9 @@ class CharGroup(private val predicate: Char.() -> Boolean) {
 
 val identStartChars = CharGroup(Char::isIdentifierStart)
 val identChars = CharGroup(Char::isIdentifierPart)
+val symbolChars = CharGroup {
+    when (this) {
+        '+', '-', '/', '*', '%', '=', '>', '<', '!', '&', '|' -> true
+        else -> false
+    }
+}

@@ -4,16 +4,6 @@ package com.scientianova.palm.lexer
 fun Char.isIdentifierStart() = isLetter() || this == '_'
 fun Char.isIdentifierPart() = isLetterOrDigit() || this == '_'
 
-fun Char?.isBeforePostfix() = when (this) {
-    null, ')', ']', '}', in identChars, '\"', '\'', '`' -> true
-    else -> false
-}
-
-fun Char?.isAfterPrefix() = when (this) {
-    '(', '[', '{', in identChars, '\"', '\'', '`' -> true
-    else -> false
-}
-
 val charNames = mapOf(
     ' ' to "Space",
     '_' to "Underscore",

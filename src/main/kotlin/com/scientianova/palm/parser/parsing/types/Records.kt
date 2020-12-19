@@ -42,7 +42,10 @@ fun parseTypeTuple(parser: Parser): List<PType> = recBuildList {
 
         when (parser.current) {
             Token.Comma -> parser.advance()
-            Token.RParen -> return this
+            Token.RParen -> {
+                parser.advance()
+                return this
+            }
             else -> parser.err(unclosedParenthesis)
         }
     }

@@ -1,6 +1,5 @@
 package com.scientianova.palm.parser
 
-import com.scientianova.palm.lexer.TokenStream
 import com.scientianova.palm.parser.data.top.FileScope
 import com.scientianova.palm.util.Either
 import com.scientianova.palm.util.Left

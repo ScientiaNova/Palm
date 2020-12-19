@@ -1,6 +1,5 @@
 package com.scientianova.palm.lexer
 
-import com.scientianova.palm.errors.unclosedMultilineComment
 import com.scientianova.palm.util.StringPos
 
 tailrec fun lexSingleLineComment(code: String, pos: StringPos): PToken = when (code.getOrNull(pos)) {
@@ -10,21 +9,20 @@ tailrec fun lexSingleLineComment(code: String, pos: StringPos): PToken = when (c
 }
 
 @Suppress("NON_TAIL_RECURSIVE_CALL")
-tailrec fun lexMultiLineComment(code: String, start: StringPos, pos: StringPos): PToken = when (code.getOrNull(pos)) {
-    null -> unclosedMultilineComment.token(start, pos)
+tailrec fun lexMultiLineComment(code: String, pos: StringPos): PToken = when (code.getOrNull(pos)) {
+    null -> Token.Error("Unclosed multi-line comment") to pos
     '*' -> if (code.getOrNull(pos + 1) == '/') {
         Token.Comment to pos + 2
     } else {
-        lexMultiLineComment(code, start, pos + 1)
+        lexMultiLineComment(code, pos + 1)
     }
     '/' -> if (code.getOrNull(pos + 1) == '*') {
-        val token = lexMultiLineComment(code, pos, pos + 2)
-        if (token.first is Token.Error) token
-        else lexMultiLineComment(code, start, token.second)
+        val token = lexMultiLineComment(code, pos + 2)
+        lexMultiLineComment(code, token.second)
     } else {
-        lexMultiLineComment(code, start, pos + 1)
+        lexMultiLineComment(code, pos + 1)
     }
-    else -> lexMultiLineComment(code, start, pos + 1)
+    else -> lexMultiLineComment(code, pos + 1)
 }
 
 tailrec fun lexWhitespace(code: String, pos: StringPos): PToken = when (code.getOrNull(pos)) {

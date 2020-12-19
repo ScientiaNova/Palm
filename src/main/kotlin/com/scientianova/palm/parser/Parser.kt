@@ -4,7 +4,6 @@ import com.scientianova.palm.errors.PalmError
 import com.scientianova.palm.errors.messageFor
 import com.scientianova.palm.errors.missingIdentifier
 import com.scientianova.palm.lexer.Token
-import com.scientianova.palm.lexer.TokenStream
 import com.scientianova.palm.parser.data.top.FileScope
 import com.scientianova.palm.util.*
 
@@ -85,13 +84,6 @@ data class ParseMarker(
     fun revertIndex() = parser.revertIndex(this)
 }
 
-inline fun <T> recBuildList(list: MutableList<T> = mutableListOf(), builder: MutableList<T>.() -> Any): List<T> {
-    while (true) builder(list)
-}
-
-inline fun <T> recBuildListN(list: MutableList<T> = mutableListOf(), builder: MutableList<T>.() -> Any): Nothing {
-    while (true) builder(list)
-}
 
 fun parseIdent(parser: Parser): PString {
     val ident = parser.current.identString()
