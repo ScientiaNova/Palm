@@ -8,52 +8,53 @@ internal tailrec fun lexNormalIdent(
     builder: StringBuilder,
 ): PToken = when (val char = code.getOrNull(pos)) {
     in identChars -> lexNormalIdent(code, pos + 1, builder.append(char))
-    else -> matchIdentToken(builder.toString(), pos)
+    else -> matchIdentToken(builder.toString()).till(pos)
 }
 
-private fun matchIdentToken(ident: String, nextPos: StringPos) = when (ident) {
-    "class" -> Token.Class to nextPos
-    "object" -> Token.Object to nextPos
-    "enum" -> Token.Enum to nextPos
-    "val" -> Token.Val to nextPos
-    "var" -> Token.Var to nextPos
-    "fun" -> Token.Fun to nextPos
-    "when" -> Token.When to nextPos
-    "if" -> Token.If to nextPos
-    "else" -> Token.Else to nextPos
-    "break" -> Token.Break to nextPos
-    "return" -> Token.Return to nextPos
-    "throw" -> Token.Throw to nextPos
-    "do" -> Token.Do to nextPos
-    "catch" -> Token.Catch to nextPos
-    "defer" -> Token.Defer to nextPos
-    "import" -> Token.Import to nextPos
-    "is" -> Token.Is to nextPos
-    "as" -> Token.As to nextPos
-    "null" -> Token.Null to nextPos
-    "super" -> Token.Super to nextPos
-    "true" -> trueToken to nextPos
-    "false" -> falseToken to nextPos
+private fun matchIdentToken(ident: String) = when (ident) {
+    "class" -> Token.Class
+    "object" -> Token.Object
+    "enum" -> Token.Enum
+    "val" -> Token.Val
+    "var" -> Token.Var
+    "fun" -> Token.Fun
+    "when" -> Token.When
+    "if" -> Token.If
+    "else" -> Token.Else
+    "break" -> Token.Break
+    "return" -> Token.Return
+    "throw" -> Token.Throw
+    "do" -> Token.Do
+    "catch" -> Token.Catch
+    "defer" -> Token.Defer
+    "import" -> Token.Import
+    "is" -> Token.Is
+    "as" -> Token.As
+    "null" -> Token.NullLit
+    "super" -> Token.Super
+    "true" -> trueToken
+    "false" -> falseToken
     else -> if (ident.all { it == '_' }) {
-        Token.Wildcard to nextPos
+        Token.Wildcard
     } else {
-        Token.Ident(ident, false) to nextPos
+        Token.Ident(ident, false)
     }
 }
 
-internal tailrec fun lexTickedIdent(
+internal tailrec fun Lexer.lexTickedIdent(
     code: String,
     pos: StringPos,
     builder: StringBuilder
-): PToken = when (val char = code.getOrNull(pos)) {
-    null -> Token.Error("Unclosed identifier") to pos + 1
-    '/', '\\', '.', ';', ':', '<', '>', '[', ']' -> Token.Error("Unsupported character inside identifier") to pos + 1
+): Lexer = when (val char = code.getOrNull(pos)) {
+    null -> addErr("Unclosed identifier", this.pos + 1, pos)
+    '/', '\\', '.', ';', ':', '<', '>', '[', ']' ->
+        err("Unsupported character inside identifier", pos).lexTickedIdent(code, pos, builder)
     '`' -> {
         val ident = builder.toString()
-        if (ident.isBlank()) {
-            Token.Error("Empty identifier") to pos + 1
+        if (ident.isBlank()) err("Empty identifier", pos - 1, pos + 1).apply {
+            Token.Ident(ident, true).add(pos + 1)
         } else {
-            Token.Ident(ident, true) to pos + 1
+            Token.Ident(ident, true).add(pos + 1)
         }
     }
     else -> lexTickedIdent(code, pos + 1, builder.append(char))

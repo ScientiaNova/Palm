@@ -4,7 +4,7 @@ import com.scientianova.palm.util.StringPos
 
 sealed class StringPart {
     data class String(val string: kotlin.String) : StringPart()
-    data class Expr(val expr: PToken) : StringPart()
+    data class Expr(val expr: List<PToken>) : StringPart()
 }
 
 sealed class Token {
@@ -12,16 +12,12 @@ sealed class Token {
 
     data class Ident(val name: String, val backticked: Boolean) : Token()
 
-    object Null : Token()
-    data class Bool(val value: Boolean) : Token()
-    data class Char(val value: kotlin.Char) : Token()
-    data class Byte(val value: kotlin.Byte) : Token()
-    data class Short(val value: kotlin.Short) : Token()
-    data class Int(val value: kotlin.Int) : Token()
-    data class Long(val value: kotlin.Long) : Token()
-    data class Float(val value: kotlin.Float) : Token()
-    data class Double(val value: kotlin.Double) : Token()
-    data class Str(val parts: List<StringPart>) : Token()
+    object NullLit : Token()
+    data class BoolLit(val value: Boolean) : Token()
+    data class CharLit(val value: Char) : Token()
+    data class IntLit(val value: Long) : Token()
+    data class FloatLit(val value: Double) : Token()
+    data class StrLit(val parts: List<StringPart>) : Token()
 
     data class Parens(val token: List<PToken>) : Token()
     data class Brackets(val token: List<PToken>) : Token()
@@ -100,14 +96,13 @@ sealed class Token {
         override fun canIgnore() = true
     }
 
-    object EOF : Token()
-
     data class MetadataComment(val content: String) : Token()
 
     data class Error(val error: String) : Token()
 }
 
-typealias PToken = Pair<Token, StringPos>
+data class PToken(val token: Token, val next: StringPos)
+fun Token.till(next: StringPos) = PToken(this, next)
 
-val trueToken = Token.Bool(true)
-val falseToken = Token.Bool(false)
+val trueToken = Token.BoolLit(true)
+val falseToken = Token.BoolLit(false)

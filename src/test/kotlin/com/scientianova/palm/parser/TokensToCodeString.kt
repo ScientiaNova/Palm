@@ -53,7 +53,7 @@ fun Token.toCodeString() = when (this) {
     Token.Object -> "object"
     Token.This -> "this"
     Token.Super -> "super"
-    Token.Null -> "null"
+    Token.NullLit -> "null"
     Token.When -> "when"
     Token.If -> "if"
     Token.Else -> "else"

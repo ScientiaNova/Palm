@@ -13,7 +13,6 @@ import com.scientianova.palm.parser.parsing.types.parseSuperTypes
 import com.scientianova.palm.parser.recBuildList
 import com.scientianova.palm.util.PString
 import com.scientianova.palm.util.at
-import com.scientianova.palm.util.map
 
 private fun parseTerm(parser: Parser): PExpr? = when (val token = parser.current) {
     in identTokens -> {
@@ -29,10 +28,10 @@ private fun parseTerm(parser: Parser): PExpr? = when (val token = parser.current
     is Token.Long -> parser.advance().end(Expr.Long(token.value))
     is Token.Float -> parser.advance().end(Expr.Float(token.value))
     is Token.Double -> parser.advance().end(Expr.Double(token.value))
-    is Token.Bool -> parser.advance().end(Expr.Bool(token.value))
-    is Token.Char -> parser.advance().end(Expr.Char(token.value))
-    is Token.Str -> parser.advance().end(Expr.Str(token.parts))
-    Token.Null -> parser.advance().end(Expr.Null)
+    is Token.BoolLit -> parser.advance().end(Expr.Bool(token.value))
+    is Token.CharLit -> parser.advance().end(Expr.Char(token.value))
+    is Token.StrLit -> parser.advance().end(Expr.Str(token.parts))
+    Token.NullLit -> parser.advance().end(Expr.Null)
     Token.Wildcard -> parser.advance().end(Expr.Wildcard)
     Token.This -> parser.advance().end(Expr.This)
     Token.Super -> parser.advance().end(Expr.Super)
