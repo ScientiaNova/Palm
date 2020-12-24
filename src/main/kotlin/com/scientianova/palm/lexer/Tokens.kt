@@ -69,7 +69,7 @@ sealed class Token {
     object Var : Token()
     object Class : Token()
     object Object : Token()
-    object Enum : Token()
+    object Interface : Token()
 
     object Super : Token()
     object When : Token()

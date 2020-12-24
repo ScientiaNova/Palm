@@ -4,8 +4,8 @@ import com.scientianova.palm.errors.unexpectedMember
 import com.scientianova.palm.lexer.Token
 import com.scientianova.palm.parser.Parser
 import com.scientianova.palm.parser.data.top.DecModifier
-import com.scientianova.palm.parser.data.types.Trait
-import com.scientianova.palm.parser.data.types.TraitStatement
+import com.scientianova.palm.parser.data.types.TypeClass
+import com.scientianova.palm.parser.data.types.TCStmt
 import com.scientianova.palm.parser.parseIdent
 import com.scientianova.palm.parser.parsing.expressions.parseEqType
 import com.scientianova.palm.parser.parsing.expressions.parseTypeAnn
@@ -14,7 +14,7 @@ import com.scientianova.palm.parser.parsing.top.parseFun
 import com.scientianova.palm.parser.parsing.top.parseProperty
 import com.scientianova.palm.parser.recBuildList
 
-private fun parseTraitBody(parser: Parser) = recBuildList<TraitStatement> {
+private fun parseTraitBody(parser: Parser) = recBuildList<TCStmt> {
     when (parser.current) {
         Token.RBrace -> {
             parser.advance()
@@ -25,9 +25,9 @@ private fun parseTraitBody(parser: Parser) = recBuildList<TraitStatement> {
             val modifiers = parseDecModifiers(parser)
             add(
                 when (parser.current) {
-                    Token.Val -> TraitStatement.Property(parseProperty(parser.advance(), modifiers, false))
-                    Token.Var -> TraitStatement.Property(parseProperty(parser.advance(), modifiers, true))
-                    Token.Fun -> TraitStatement.Method(parseFun(parser.advance(), modifiers))
+                    Token.Val -> TCStmt.Property(parseProperty(parser.advance(), modifiers, false))
+                    Token.Var -> TCStmt.Property(parseProperty(parser.advance(), modifiers, true))
+                    Token.Fun -> TCStmt.Method(parseFun(parser.advance(), modifiers))
                     Token.Type -> parseAssociatedType(parser.advance())
                     else -> parser.err(unexpectedMember("trait"))
                 }
@@ -36,15 +36,15 @@ private fun parseTraitBody(parser: Parser) = recBuildList<TraitStatement> {
     }
 }
 
-private fun parseAssociatedType(parser: Parser): TraitStatement {
+private fun parseAssociatedType(parser: Parser): TCStmt {
     val name = parseIdent(parser)
     val bound = parseTypeAnn(parser)
     val default = parseEqType(parser)
 
-    return TraitStatement.AssociatedType(name, bound, default)
+    return TCStmt.AssociatedType(name, bound, default)
 }
 
-fun parseTrait(parser: Parser, modifiers: List<DecModifier>): Trait {
+fun parseTrait(parser: Parser, modifiers: List<DecModifier>): TypeClass {
     val name = parseIdent(parser)
     val constraints = constraints()
     val typeParams = parseTypeParams(parser, constraints)
@@ -56,5 +56,5 @@ fun parseTrait(parser: Parser, modifiers: List<DecModifier>): Trait {
         emptyList()
     }
 
-    return Trait(name, modifiers, typeParams, constraints, superTraits, body)
+    return TypeClass(name, modifiers, typeParams, constraints, superTraits, body)
 }

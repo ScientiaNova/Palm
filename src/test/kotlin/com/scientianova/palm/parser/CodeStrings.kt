@@ -9,7 +9,6 @@ import com.scientianova.palm.parser.data.top.AnnotationType.Set
 import com.scientianova.palm.parser.data.top.Function
 import com.scientianova.palm.parser.data.top.Property
 import com.scientianova.palm.parser.data.types.*
-import com.scientianova.palm.parser.data.types.Enum
 import com.scientianova.palm.parser.parsing.types.Constraints
 import com.scientianova.palm.util.PString
 
@@ -56,7 +55,7 @@ fun Pattern.toCodeString(indent: Int): String = when (this) {
 fun DecPattern.toCodeString(): String = when (this) {
     is DecPattern.Wildcard -> "_"
     is DecPattern.Name -> name
-    is DecPattern.Tuple -> "(${elements.joinToString { it.toCodeString() }})"
+    is DecPattern.Components -> "(${elements.joinToString { it.toCodeString() }})"
 }
 
 fun Type.toCodeString(indent: Int): String = when (this) {
@@ -222,7 +221,7 @@ fun Mixin.toCodeString(indent: Int) = "${modifiers.toCodeString(indent)}mixin $n
         typeConstraints.toCodeString(indent) +
         scopeCodeString(statements, indent, "\n") { it.toCodeString(indent + 1) }
 
-fun Trait.toCodeString(indent: Int) = modifiers.toCodeString(indent) + "trait $name${typeParams.typeParams()} " +
+fun TypeClass.toCodeString(indent: Int) = modifiers.toCodeString(indent) + "trait $name${typeParams.typeParams()} " +
         (if (superTraits.isEmpty()) "" else ": ") + superTraits.joinToString { it.toCodeString(indent) } +
         typeConstraints.toCodeString(indent) +
         scopeCodeString(statements, indent, "\n") { it.toCodeString(indent + 1) }
@@ -420,18 +419,18 @@ fun CallArgs.toCodeString(indent: Int): String {
 
 private fun init(scope: ExprScope, indent: Int) = "init " + scope.toCodeString(indent)
 
-fun ClassStatement.toCodeString(indent: Int) = when (this) {
-    is ClassStatement.Constructor -> modifiers.toCodeString(indent) + "constructor" + params.toCodeString(indent) + " " +
+fun ClassStmt.toCodeString(indent: Int) = when (this) {
+    is ClassStmt.Constructor -> modifiers.toCodeString(indent) + "constructor" + params.toCodeString(indent) + " " +
             primaryCall.mapTo { ": this${it.toCodeString(indent)} " } + body.toCodeString(indent)
-    is ClassStatement.Initializer -> init(scope, indent)
-    is ClassStatement.Method -> function.toCodeString(indent)
-    is ClassStatement.Property -> property.toCodeString(indent)
+    is ClassStmt.Initializer -> init(scope, indent)
+    is ClassStmt.Method -> function.toCodeString(indent)
+    is ClassStmt.Property -> property.toCodeString(indent)
 }
 
-fun ObjectStatement.toCodeString(indent: Int) = when (this) {
-    is ObjectStatement.Initializer -> init(scope, indent)
-    is ObjectStatement.Method -> function.toCodeString(indent)
-    is ObjectStatement.Property -> property.toCodeString(indent)
+fun ObjStmt.toCodeString(indent: Int) = when (this) {
+    is ObjStmt.Initializer -> init(scope, indent)
+    is ObjStmt.Method -> function.toCodeString(indent)
+    is ObjStmt.Property -> property.toCodeString(indent)
 }
 
 fun ExtensionStatement.toCodeString(indent: Int) = when (this) {
@@ -445,10 +444,10 @@ fun MixinStatement.toCodeString(indent: Int) = when (this) {
     is MixinStatement.Property -> property.toCodeString(indent)
 }
 
-fun TraitStatement.toCodeString(indent: Int) = when (this) {
-    is TraitStatement.Method -> function.toCodeString(indent)
-    is TraitStatement.Property -> property.toCodeString(indent)
-    is TraitStatement.AssociatedType -> "type $name${typeAnn(bound, indent)}${eqType(default, indent)}"
+fun TCStmt.toCodeString(indent: Int) = when (this) {
+    is TCStmt.Method -> function.toCodeString(indent)
+    is TCStmt.Property -> property.toCodeString(indent)
+    is TCStmt.AssociatedType -> "type $name${typeAnn(bound, indent)}${eqType(default, indent)}"
 }
 
 fun ImplStatement.toCodeString(indent: Int) = when (this) {
@@ -456,13 +455,13 @@ fun ImplStatement.toCodeString(indent: Int) = when (this) {
     is ImplStatement.Property -> property.toCodeString(indent)
 }
 
-fun TraitImplStatement.toCodeString(indent: Int) = when (this) {
-    is TraitImplStatement.Method -> function.toCodeString(indent)
-    is TraitImplStatement.Property -> property.toCodeString(indent)
-    is TraitImplStatement.AssociatedType -> "type $name = ${type.toCodeString(indent)}"
+fun ImplStmt.toCodeString(indent: Int) = when (this) {
+    is ImplStmt.Method -> function.toCodeString(indent)
+    is ImplStmt.Property -> property.toCodeString(indent)
+    is ImplStmt.AssociatedType -> "type $name = ${type.toCodeString(indent)}"
 }
 
-fun FileStatement.toCodeString(indent: Int) = when (this) {
+fun FileStmt.toCodeString(indent: Int) = when (this) {
     is StaticFunction -> function.toCodeString(indent)
     is StaticProperty -> property.toCodeString(indent)
     is StaticClass -> clazz.toCodeString(indent)
@@ -471,7 +470,7 @@ fun FileStatement.toCodeString(indent: Int) = when (this) {
     is StaticObject -> obj.toCodeString(indent)
     is StaticExtension -> extension.toCodeString(indent)
     is StaticImpl -> implementation.toCodeString(indent)
-    is StaticTrait -> trait.toCodeString(indent)
+    is StaticTypeClass -> trait.toCodeString(indent)
     is StaticMixin -> mixin.toCodeString(indent)
     is TypeAlias -> modifiers.toCodeString(indent) + "type $name${params.typeParams()} = " + actual.toCodeString(indent)
     is Constant -> modifiers.toCodeString(indent) + "const $name" + typeAnn(type, indent) + eqExpr(expr, indent)

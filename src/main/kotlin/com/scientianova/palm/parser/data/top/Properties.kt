@@ -4,26 +4,25 @@ import com.scientianova.palm.parser.data.expressions.PExpr
 import com.scientianova.palm.parser.data.expressions.PType
 import com.scientianova.palm.util.PString
 
-sealed class Property {
+data class Property(
+    val name: PString,
+    val modifiers: List<DecModifier>,
+    val mutable: Boolean,
+    val type: PType?,
+    val context: List<ContextParam>,
+    val body: PropertyBody
+)
+
+sealed class PropertyBody {
     data class Normal(
-        val name: PString,
-        val modifiers: List<DecModifier>,
-        val mutable: Boolean,
-        val type: PType?,
-        val expr: PExpr?,
+        val expr: PExpr,
         val getterModifiers: List<DecModifier>,
         val getter: Getter?,
         val setterModifiers: List<DecModifier>,
         val setter: Setter?
-    ) : Property()
+    ) : PropertyBody()
 
-    data class Delegated(
-        val name: PString,
-        val modifiers: List<DecModifier>,
-        val mutable: Boolean,
-        val type: PType?,
-        val delegate: PExpr
-    ) : Property()
+    data class Delegate(val expr: PExpr) : PropertyBody()
 }
 
 data class Getter(val type: PType?, val expr: PExpr?)

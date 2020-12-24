@@ -14,7 +14,7 @@ internal tailrec fun lexNormalIdent(
 private fun matchIdentToken(ident: String) = when (ident) {
     "class" -> Token.Class
     "object" -> Token.Object
-    "enum" -> Token.Enum
+    "interface" -> Token.Interface
     "val" -> Token.Val
     "var" -> Token.Var
     "fun" -> Token.Fun
@@ -29,12 +29,13 @@ private fun matchIdentToken(ident: String) = when (ident) {
     "defer" -> Token.Defer
     "import" -> Token.Import
     "is" -> Token.Is
+    "in" -> Token.In
     "as" -> Token.As
     "null" -> Token.NullLit
     "super" -> Token.Super
     "true" -> trueToken
     "false" -> falseToken
-    else -> if (ident.all { it == '_' }) {
+    else -> if (ident.all('_'::equals)) {
         Token.Wildcard
     } else {
         Token.Ident(ident, false)

@@ -12,20 +12,9 @@ enum class DecHandling {
 }
 
 sealed class SuperType {
-    data class Class(val type: PType, val args: List<Arg>, val mixins: List<PType>) : SuperType()
+    data class Class(val type: PType, val args: List<Arg<PExpr>>, val mixins: List<PType>) : SuperType()
     data class Interface(val type: PType, val delegate: PString?) : SuperType()
 }
-
-data class Class(
-    val name: PString,
-    val modifiers: List<DecModifier>,
-    val constructorModifiers: List<DecModifier>,
-    val primaryConstructor: List<PrimaryParam>?,
-    val typeParams: List<PClassTypeParam>,
-    val typeConstraints: TypeConstraints,
-    val superTypes: List<SuperType>,
-    val statements: List<ClassStatement>
-)
 
 data class PrimaryParam(
     val modifiers: List<DecModifier>,
@@ -35,17 +24,18 @@ data class PrimaryParam(
     val default: PExpr?
 )
 
-sealed class ClassStatement {
+sealed class ClassStmt {
     data class Constructor(
         val modifiers: List<DecModifier>,
         val params: List<FunParam>,
-        val primaryCall: List<Arg>?,
+        val primaryCall: List<Arg<PExpr>>?,
         val body: ExprScope
-    ) : ClassStatement()
+    ) : ClassStmt()
 
-    data class Initializer(val scope: ExprScope) : ClassStatement()
-    data class Method(val function: Function) : ClassStatement()
-    data class Property(val property: com.scientianova.palm.parser.data.top.Property) : ClassStatement()
+    data class Initializer(val scope: ExprScope) : ClassStmt()
+    data class Method(val function: Function) : ClassStmt()
+    data class Property(val property: com.scientianova.palm.parser.data.top.Property) : ClassStmt()
+    data class NestedDec(val dec: TypeDec) : ClassStmt()
 }
 
 data class ClassTypeParam(val type: PString, val variance: VarianceMod)

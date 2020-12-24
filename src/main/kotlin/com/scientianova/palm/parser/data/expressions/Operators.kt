@@ -8,8 +8,6 @@ enum class UnaryOp {
     Plus, Minus, Not, NonNull
 }
 
-fun UnaryOp.isPrefix() = this != UnaryOp.NonNull
-
 enum class AssignmentType {
     Normal, Plus, Minus, Times, Div, Rem
 }

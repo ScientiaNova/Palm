@@ -7,10 +7,13 @@ import com.scientianova.palm.util.Positioned
 typealias Path = List<PString>
 
 sealed class Type {
+    object Infer : Type()
     data class Named(val path: Path, val generics: List<Positioned<TypeArg>>) : Type()
-    data class Function(val params: List<FunTypeArg>, val returnType: PType) : Type()
+    data class Lis(val type: PType) : Type()
+    data class Dict(val key: PType, val value: PType) : Type()
+    data class Tuple(val types: List<PType>) : Type()
+    data class Function(val context: List<PType>, val params: List<PType>, val returnType: PType) : Type()
     data class Nullable(val type: PType) : Type()
-    data class Intersection(val types: List<PType>) : Type()
     data class Annotated(val annotation: Annotation, val type: PType) : Type()
 }
 
@@ -26,5 +29,3 @@ sealed class TypeArg {
 }
 
 typealias PTypeArg = Positioned<TypeArg>
-
-data class FunTypeArg(val type: PType, val using: Boolean)

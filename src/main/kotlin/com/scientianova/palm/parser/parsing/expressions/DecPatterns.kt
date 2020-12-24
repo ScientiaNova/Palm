@@ -41,6 +41,6 @@ private fun parseDecTuple(parser: Parser): PDecPattern? {
     return if (list.size == 1) {
         list[0]
     } else {
-        marker.end(DecPattern.Tuple(list))
+        marker.end(DecPattern.Components(list))
     }
 }

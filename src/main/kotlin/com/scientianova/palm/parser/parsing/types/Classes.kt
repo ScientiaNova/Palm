@@ -179,21 +179,21 @@ private fun parseClassTypeParams(parser: Parser, constraints: MutableConstraints
         emptyList()
     }
 
-private fun parseClassBody(parser: Parser) = recBuildList<ClassStatement> {
+private fun parseClassBody(parser: Parser) = recBuildList<ClassStmt> {
     when (parser.current) {
         Token.RBrace -> {
             parser.advance()
             return this
         }
         Token.Semicolon -> parser.advance()
-        Token.Init -> add(ClassStatement.Initializer(requireScope(parser.advance())))
+        Token.Init -> add(ClassStmt.Initializer(requireScope(parser.advance())))
         else -> {
             val modifiers = parseDecModifiers(parser)
             add(
                 when (parser.current) {
-                    Token.Val -> ClassStatement.Property(parseProperty(parser.advance(), modifiers, false))
-                    Token.Var -> ClassStatement.Property(parseProperty(parser.advance(), modifiers, true))
-                    Token.Fun -> ClassStatement.Method(parseFun(parser.advance(), modifiers))
+                    Token.Val -> ClassStmt.Property(parseProperty(parser.advance(), modifiers, false))
+                    Token.Var -> ClassStmt.Property(parseProperty(parser.advance(), modifiers, true))
+                    Token.Fun -> ClassStmt.Method(parseFun(parser.advance(), modifiers))
                     Token.Constructor -> parseConstructor(parser, modifiers)
                     else -> parser.err(unexpectedMember("class"))
                 }
@@ -202,7 +202,7 @@ private fun parseClassBody(parser: Parser) = recBuildList<ClassStatement> {
     }
 }
 
-private fun parseConstructor(parser: Parser, modifiers: List<DecModifier>): ClassStatement {
+private fun parseConstructor(parser: Parser, modifiers: List<DecModifier>): ClassStmt {
     if (parser.current != Token.LParen) {
         parser.err(unexpectedSymbol("("))
     }
@@ -224,5 +224,5 @@ private fun parseConstructor(parser: Parser, modifiers: List<DecModifier>): Clas
 
     val body = parseScope(parser) ?: emptyList()
 
-    return ClassStatement.Constructor(modifiers, params, primaryCall, body)
+    return ClassStmt.Constructor(modifiers, params, primaryCall, body)
 }

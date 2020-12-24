@@ -5,7 +5,7 @@ import com.scientianova.palm.lexer.Token
 import com.scientianova.palm.parser.Parser
 import com.scientianova.palm.parser.data.types.ImplStatement
 import com.scientianova.palm.parser.data.types.Implementation
-import com.scientianova.palm.parser.data.types.TraitImplStatement
+import com.scientianova.palm.parser.data.types.ImplStmt
 import com.scientianova.palm.parser.parseIdent
 import com.scientianova.palm.parser.parsing.expressions.requireEqType
 import com.scientianova.palm.parser.parsing.expressions.requireType
@@ -35,7 +35,7 @@ private fun parseImplBody(parser: Parser) = recBuildList<ImplStatement> {
     }
 }
 
-private fun parseTraitImplBody(parser: Parser) = recBuildList<TraitImplStatement> {
+private fun parseTraitImplBody(parser: Parser) = recBuildList<ImplStmt> {
     when (parser.current) {
         Token.RBrace -> {
             parser.advance()
@@ -46,9 +46,9 @@ private fun parseTraitImplBody(parser: Parser) = recBuildList<TraitImplStatement
             val modifiers = parseDecModifiers(parser)
             add(
                 when (parser.current) {
-                    Token.Val -> TraitImplStatement.Property(parseProperty(parser.advance(), modifiers, false))
-                    Token.Var -> TraitImplStatement.Property(parseProperty(parser.advance(), modifiers, true))
-                    Token.Fun -> TraitImplStatement.Method(parseFun(parser.advance(), modifiers))
+                    Token.Val -> ImplStmt.Property(parseProperty(parser.advance(), modifiers, false))
+                    Token.Var -> ImplStmt.Property(parseProperty(parser.advance(), modifiers, true))
+                    Token.Fun -> ImplStmt.Method(parseFun(parser.advance(), modifiers))
                     Token.Type -> parseAssociatedType(parser)
                     else -> parser.err(unexpectedMember("implementation"))
                 }
@@ -57,8 +57,8 @@ private fun parseTraitImplBody(parser: Parser) = recBuildList<TraitImplStatement
     }
 }
 
-private fun parseAssociatedType(parser: Parser): TraitImplStatement =
-    TraitImplStatement.AssociatedType(parseIdent(parser), requireEqType(parser))
+private fun parseAssociatedType(parser: Parser): ImplStmt =
+    ImplStmt.AssociatedType(parseIdent(parser), requireEqType(parser))
 
 fun parseImpl(parser: Parser): Implementation {
     val constraints = constraints()

@@ -48,7 +48,7 @@ private fun parseMetadataComments(parser: Parser) = recBuildList<PString> {
     }
 }
 
-private fun parseStatements(parser: Parser) = recBuildList<FileStatement> {
+private fun parseStatements(parser: Parser) = recBuildList<FileStmt> {
     when (parser.current) {
         Token.EOF -> return this
         Token.Semicolon -> parser.advance()
@@ -62,7 +62,7 @@ private fun parseStatements(parser: Parser) = recBuildList<FileStatement> {
                     Token.Var -> StaticProperty(parseProperty(parser.advance(), modifiers, true))
                     Token.Fun -> StaticFunction(parseFun(parser.advance(), modifiers))
                     Token.Object -> StaticObject(parseObject(parser.advance(), modifiers))
-                    Token.Trait -> StaticTrait(parseTrait(parser.advance(), modifiers))
+                    Token.Trait -> StaticTypeClass(parseTrait(parser.advance(), modifiers))
                     Token.Record -> StaticRecord(parseRecord(parser.advance(), modifiers))
                     Token.Enum -> StaticEnum(parseEnum(parser.advance(), modifiers))
                     Token.Class -> StaticClass(parseClass(parser.advance(), modifiers))
@@ -76,7 +76,7 @@ private fun parseStatements(parser: Parser) = recBuildList<FileStatement> {
     }
 }
 
-private fun parseConst(parser: Parser, modifiers: List<DecModifier>): FileStatement {
+private fun parseConst(parser: Parser, modifiers: List<DecModifier>): FileStmt {
     val name = parseIdent(parser)
     val type = parseTypeAnn(parser)
     val expr = requireEqExpr(parser)
@@ -84,7 +84,7 @@ private fun parseConst(parser: Parser, modifiers: List<DecModifier>): FileStatem
     return Constant(name, modifiers, type, expr)
 }
 
-private fun parseTpeAlias(parser: Parser, modifiers: List<DecModifier>): FileStatement {
+private fun parseTpeAlias(parser: Parser, modifiers: List<DecModifier>): FileStmt {
     val name = parseIdent(parser)
     val params = if (parser.current == Token.LBracket) {
         parseAliasParams(parser.advance())
