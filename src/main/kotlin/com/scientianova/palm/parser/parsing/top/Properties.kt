@@ -5,6 +5,7 @@ import com.scientianova.palm.lexer.byIdent
 import com.scientianova.palm.lexer.getIdent
 import com.scientianova.palm.lexer.setIdent
 import com.scientianova.palm.parser.Parser
+import com.scientianova.palm.parser.data.expressions.Type
 import com.scientianova.palm.parser.data.top.*
 import com.scientianova.palm.parser.parseIdent
 import com.scientianova.palm.parser.parsing.expressions.parseEqExpr
@@ -14,7 +15,7 @@ import com.scientianova.palm.parser.parsing.expressions.requireBinOps
 fun Parser.parseProperty(modifiers: List<DecModifier>, mutable: Boolean): Property {
     val name = parseIdent()
     val context = parseContextParams()
-    val type = parseTypeAnn()
+    val type = parseTypeAnn() ?: Type.Infer.noPos()
 
     if (current === byIdent) {
         val delegate = advance().requireBinOps()

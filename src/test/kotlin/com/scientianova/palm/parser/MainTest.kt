@@ -4,7 +4,7 @@ import com.scientianova.palm.parser.parsing.expressions.requireBinOps
 import kotlin.system.measureTimeMillis
 
 fun main() {
-    benchmark(10_000) {testParse(oldExample, Parser::requireBinOps) }
+    println(testParse(oldExample, Parser::requireBinOps).toCodeString(0))
 }
 
 inline fun benchmark(times: Int, block: () -> Unit) {

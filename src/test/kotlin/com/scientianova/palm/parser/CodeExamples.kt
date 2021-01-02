@@ -308,3 +308,68 @@ impl Debug<Builder> {
             .finish()
 }
 """
+
+val branchesExample = """
+fun parseOp[Parser](): PBinOp? = when (current) {
+    Token.Plus if currentInfix() -> Plus.end()
+    Token.Minus if currentInfix() -> Minus.end()
+    Token.Times -> Times.end()
+    Token.Div -> Div.end()
+    Token.Rem -> Rem.end()
+    Token.RangeTo -> RangeTo.end()
+    Token.Eq -> Eq.end()
+    Token.RefEq -> RefEq.end()
+    Token.NotEq -> Eq.end().let { Not(it).at(it.start, it.next) }
+    Token.NotRefEq -> RefEq.end().let { Not(it).at(it.start, it.next) }
+    Token.As when (rawLookup(1)) {
+        Token.QuestionMark -> {
+            val asStart = pos
+            advance()
+            NullableAs.end(asStart)
+        }
+        Token.ExclamationMark -> {
+            val asStart = pos
+            advance()
+            UnsafeAs.end(asStart)
+        }
+        _ -> As.end()
+    }
+    Token.Is if !lastNewline -> Is.end()
+    Token.In if !lastNewline -> In.end()
+    Token.QuestionMark if rawLookup(1) == Token.Colon -> {
+        advance()
+        Elvis.end(pos - 1)
+    }
+    Token.Greater -> Greater.end()
+    Token.Less -> Less.end()
+    Token.GreaterOrEq -> GreaterOrEq.end()
+    Token.LessOrEq -> LessOrEq.end()
+    Token.And -> And.end()
+    Token.Or -> Or.end()
+    Token.Assign -> Assign.end()
+    Token.PlusAssign -> PlusAssign.end()
+    Token.MinusAssign -> MinusAssign.end()
+    Token.TimesAssign -> TimesAssign.end()
+    Token.DivAssign -> DivAssign.end()
+    Token.RemAssign -> RemAssign.end()
+    Token.ExclamationMark if !lastNewline when (rawLookup(1)) {
+        is Token.Is -> {
+            val start = pos
+            advance()
+            Is.end().let { Not(it).at(start, it.next) }
+        }
+        is Token.In -> {
+            val start = pos
+            advance()
+            In.end().let { Not(it).at(start, it.next) }
+        }
+        is Token.Ident(val name) -> {
+            val start = pos
+            advance()
+            Infix(name).end().let { Not(it).at(start, it.next) }
+        }
+    }
+    is Token.Ident(val name) if !lastNewline -> Infix(token.name).end()
+    _ -> null
+}
+""".trimIndent()

@@ -68,10 +68,38 @@ private fun Parser.parseTypePath(): List<PString> = recBuildList {
     }
 }
 
-fun Parser.parseTypeArgs(): List<PTypeArg> = recBuildList {
-    if (current == Token.Greater) return this
+fun Parser.parseNestedTypeArgs(): List<Arg<PNestedType>> = recBuildList {
+    val typeStart = current
+    if (typeStart == Token.Greater)
+        return this
 
-    add(parseTypeArg())
+    add(if (typeStart is Token.Ident && next == Token.Colon) {
+        val ident = typeStart.name.end()
+        val type = advance().parseNestedType()
+        Arg(ident, type)
+    } else {
+        Arg(null, parseNestedType())
+    })
+
+    when (current) {
+        Token.Comma -> advance()
+        Token.Greater -> return this
+        else -> err("Unclosed angle brackets")
+    }
+}
+
+fun Parser.parseTypeArgs(): List<Arg<PType>> = recBuildList {
+    val typeStart = current
+    if (typeStart == Token.Greater)
+        return this
+
+    add(if (typeStart is Token.Ident && next == Token.Colon) {
+        val ident = typeStart.name.end()
+        val type = advance().requireType()
+        Arg(ident, type)
+    } else {
+        Arg(null, requireType())
+    })
 
     when (current) {
         Token.Comma -> advance()
@@ -84,7 +112,7 @@ private fun Parser.parseNamedType(): PType = withPos { start ->
     val path = parseTypePath()
     val next: StringPos
     val args = if (current is Token.Less) {
-        advance().parseTypeArgs().also {
+        advance().parseNestedTypeArgs().also {
             next = nextPos
             advance()
         }
@@ -165,15 +193,15 @@ private fun Parser.parseFunType(context: List<PType>): PType = withPos { start -
     Type.Function(context, params, returnType).at(start, returnType.next)
 }
 
-private fun Parser.parseTypeArg(): PTypeArg = when (current) {
-    Token.Times -> TypeArg.Wildcard.end()
-    Token.In -> parseNormalTypeArg(VarianceMod.In)
-    outIdent -> parseNormalTypeArg(VarianceMod.Out)
+private fun Parser.parseNestedType(): PNestedType = when (current) {
+    Token.Times -> NestedType.Wildcard.end()
+    Token.In -> parseNormalNestedType(VarianceMod.In)
+    outIdent -> parseNormalNestedType(VarianceMod.Out)
     else -> {
         val type = requireType()
-        TypeArg.Normal(type, VarianceMod.None).at(type.start, type.next)
+        NestedType.Normal(type, VarianceMod.None).at(type.start, type.next)
     }
 }
 
-private fun Parser.parseNormalTypeArg(variance: VarianceMod): PTypeArg =
-    TypeArg.Normal(advance().requireType(), variance).end(pos)
+private fun Parser.parseNormalNestedType(variance: VarianceMod): PNestedType =
+    NestedType.Normal(advance().requireType(), variance).end(pos)

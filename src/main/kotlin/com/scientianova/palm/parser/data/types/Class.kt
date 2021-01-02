@@ -43,4 +43,4 @@ sealed class ClassStmt {
 data class ClassTypeParam(val type: PString, val variance: VarianceMod)
 typealias PClassTypeParam = Positioned<ClassTypeParam>
 
-typealias TypeConstraints = List<Pair<PString, PType>>
+typealias TypeConstraints = List<Pair<PString, List<PType>>>

@@ -51,7 +51,7 @@ sealed class Expr {
     data class UnsafeCast(val expr: PExpr, val type: PType) : Expr()
 
     data class MemberAccess(val expr: PExpr, val value: PString) : Expr()
-    data class Turbofish(val expr: PExpr, val args: List<PTypeArg>) : Expr()
+    data class Turbofish(val expr: PExpr, val args: List<Arg<PType>>) : Expr()
     data class ContextCall(val expr: PExpr, val args: List<Arg<PExpr>>) : Expr()
 
     data class Unary(val op: Positioned<UnOp>, val expr: PExpr) : Expr()
@@ -78,6 +78,12 @@ data class Catch(val dec: PDecPattern, val type: PType, val body: PExprScope)
 
 data class LambdaParams(val context: List<Pair<PDecPattern, PType>>, val explicit: List<Pair<PDecPattern, PType>>)
 
-typealias WhenBranch = Pair<Pattern, PExpr>
+data class WhenBranch(val pattern: Pattern, val guard: BranchGuard?, val res: BranchRes)
+data class BranchGuard(val expr: PExpr)
+sealed class BranchRes {
+    data class Branching(val on: PExpr?, val branches: List<WhenBranch>) : BranchRes()
+    data class Single(val expr: PExpr) : BranchRes()
+}
+
 typealias ExprScope = List<ScopeStmt>
 typealias PExprScope = Positioned<ExprScope>

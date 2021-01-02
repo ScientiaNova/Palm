@@ -8,7 +8,7 @@ typealias Path = List<PString>
 
 sealed class Type {
     object Infer : Type()
-    data class Named(val path: Path, val generics: List<Positioned<TypeArg>>) : Type()
+    data class Named(val path: Path, val generics: List<Arg<PNestedType>>) : Type()
     data class Lis(val type: PType) : Type()
     data class Dict(val key: PType, val value: PType) : Type()
     data class Tuple(val types: List<PType>) : Type()
@@ -25,9 +25,9 @@ enum class VarianceMod {
     None, In, Out
 }
 
-sealed class TypeArg {
-    data class Normal(val type: PType, val variance: VarianceMod) : TypeArg()
-    object Wildcard : TypeArg()
-}
+typealias PNestedType = Positioned<NestedType>
 
-typealias PTypeArg = Positioned<TypeArg>
+sealed class NestedType {
+    data class Normal(val type: PType, val variance: VarianceMod) : NestedType()
+    object Wildcard : NestedType()
+}

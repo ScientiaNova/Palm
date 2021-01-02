@@ -137,7 +137,7 @@ fun Parser.parseClassTypeParams(constraints: MutableConstraints): List<PClassTyp
         }
 
         val param = parseIdent()
-        parseTypeAnn()?.let { constraints.add(param to it) }
+        if (current == Token.Colon) constraints.add(param to advance().parseTypeBound())
         add(ClassTypeParam(param, variance).end(start))
 
         when (current) {

@@ -3,10 +3,7 @@ package com.scientianova.palm.parser.parsing.expressions
 import com.scientianova.palm.lexer.PToken
 import com.scientianova.palm.lexer.Token
 import com.scientianova.palm.parser.Parser
-import com.scientianova.palm.parser.data.expressions.DecPattern
-import com.scientianova.palm.parser.data.expressions.Destructuring
-import com.scientianova.palm.parser.data.expressions.Pattern
-import com.scientianova.palm.parser.data.expressions.SubPattern
+import com.scientianova.palm.parser.data.expressions.*
 import com.scientianova.palm.parser.parseIdent
 import com.scientianova.palm.util.PString
 import com.scientianova.palm.util.map
@@ -31,41 +28,36 @@ fun Parser.parsePattern(): Pattern = when (val token = current) {
     else -> Pattern.Expr(requireBinOps())
 }
 
-private fun Parser.parsePatternGuard() = if (current == Token.If) advance().requireBinOps() else null
-
-private fun Parser.parseSubPattern(): SubPattern = SubPattern(parsePattern(), parsePatternGuard())
-
-private fun Parser.parseTuplePatternBody(): List<SubPattern> = recBuildList {
-    if (current == Token.End) {
+private fun Parser.parseTuplePatternBody(): List<Pattern> = recBuildList {
+    if (current == Token.End)
         return this
-    } else {
-        add(parseSubPattern())
-        when (current) {
-            Token.Comma -> advance()
-            Token.End -> return this
-            else -> err("Missing comma")
-        }
+
+    add(parsePattern())
+    when (current) {
+        Token.Comma -> advance()
+        Token.End -> return this
+        else -> err("Missing comma")
     }
 }
 
 private fun Parser.parseTuplePattern(tokens: List<PToken>): Pattern =
     Pattern.Tuple(parenthesizedOf(tokens).parseTuplePatternBody().also { advance() })
 
-private fun Parser.parseObjectPatternBody(): List<Pair<PString, SubPattern>> = recBuildList {
+private fun Parser.parseObjectPatternBody(): List<Pair<PString, Pattern>> = recBuildList {
     when (current) {
         Token.End -> return this
         Token.Val -> {
             val ident = advance().parseIdent()
-            add(ident to SubPattern(Pattern.Dec(ident.map(DecPattern::Name), false), parsePatternGuard()))
+            add(ident to Pattern.Dec(ident.map(DecPattern::Name), false))
         }
         Token.Var -> {
             val ident = advance().parseIdent()
-            add(ident to SubPattern(Pattern.Dec(ident.map(DecPattern::Name), true), parsePatternGuard()))
+            add(ident to Pattern.Dec(ident.map(DecPattern::Name), true))
         }
         else -> {
             val ident = parseIdent()
             if (current == Token.Colon) advance() else err("Missing colon")
-            add(ident to parseSubPattern())
+            add(ident to parsePattern())
         }
     }
 

@@ -8,7 +8,7 @@ data class Property(
     val name: PString,
     val modifiers: List<DecModifier>,
     val mutable: Boolean,
-    val type: PType?,
+    val type: PType,
     val context: List<ContextParam>,
     val body: PropertyBody
 )
