@@ -1,64 +1,40 @@
 package com.scientianova.palm.parser.parsing.types
 
-import com.scientianova.palm.errors.*
 import com.scientianova.palm.lexer.Token
+import com.scientianova.palm.lexer.byIdent
+import com.scientianova.palm.lexer.initIdent
+import com.scientianova.palm.lexer.outIdent
 import com.scientianova.palm.parser.Parser
-import com.scientianova.palm.parser.data.expressions.PType
 import com.scientianova.palm.parser.data.expressions.VarianceMod
 import com.scientianova.palm.parser.data.top.DecModifier
 import com.scientianova.palm.parser.data.types.*
 import com.scientianova.palm.parser.parseIdent
 import com.scientianova.palm.parser.parsing.expressions.*
 import com.scientianova.palm.parser.parsing.top.*
-import com.scientianova.palm.parser.recBuildList
+import com.scientianova.palm.util.at
+import com.scientianova.palm.util.recBuildList
 
-private fun parseSuperType(parser: Parser): SuperType {
-    val type = requireType(parser)
-    return when (parser.current) {
-        Token.By -> {
-            val delegate = parseIdent(parser.advance())
-            SuperType.Interface(type, delegate)
+private fun Parser.parseSuperType(): PSuperType {
+    val type = requireType()
+    return when (val curr = current) {
+        byIdent -> {
+            val delegate = advance().parseIdent()
+            SuperType.Interface(type, delegate).at(type.start, delegate.next)
         }
-        Token.LParen -> {
-            val args = parseCallArgs(parser)
-            val mixins = if (parser.current == Token.On) {
-                if (parser.advance().current == Token.LParen) {
-                    parseMixinPredicates(parser.advance())
-                } else {
-                    listOf(requireType(parser))
-                }
-            } else {
-                emptyList()
-            }
-            SuperType.Class(type, args, mixins)
+        is Token.Parens -> {
+            val args = parenthesizedOf(curr.tokens).parseCallArgs()
+            SuperType.Class(type, args).end(type.start)
         }
-        else -> SuperType.Interface(type, null)
+        else -> SuperType.Interface(type, null).at(type.start, type.next)
     }
 }
 
-private fun parseMixinPredicates(parser: Parser): List<PType> = recBuildList {
-    if (parser.current == Token.RParen) {
-        parser.advance()
-        return this
-    }
-
-    add(requireType(parser))
-
-    when (parser.current) {
-        Token.Comma -> parser.advance()
-        Token.RParen -> {
-            parser.advance()
-            return this
-        }
-        else -> parser.err(unclosedParenthesis)
-    }
-}
-
-fun parseSuperTypes(parser: Parser): List<SuperType> = if (parser.current == Token.Colon) {
+fun Parser.parseClassSuperTypes(): List<PSuperType> = if (current == Token.Colon) {
+    advance()
     recBuildList {
-        add(parseSuperType(parser))
-        if (parser.current == Token.Comma) {
-            parser.advance()
+        add(parseSuperType())
+        if (current == Token.Comma) {
+            advance()
         } else {
             return this
         }
@@ -67,162 +43,156 @@ fun parseSuperTypes(parser: Parser): List<SuperType> = if (parser.current == Tok
     emptyList()
 }
 
-private fun parsePrimaryParam(parser: Parser): PrimaryParam {
-    val modifiers = parseParamModifiers(parser)
-    val decHandling = when (parser.current) {
+private fun Parser.parsePrimaryParam(): PrimaryParam {
+    val modifiers = parseParamModifiers()
+    val decHandling = when (current) {
         Token.Val -> {
-            parser.advance()
+            advance()
             DecHandling.Val
         }
         Token.Var -> {
-            parser.advance()
+            advance()
             DecHandling.Var
         }
         else -> DecHandling.None
     }
-    val name = parseIdent(parser)
-    val type = requireTypeAnn(parser)
-    val default = parseEqExpr(parser)
+    val name = parseIdent()
+    val type = requireTypeAnn()
+    val default = parseEqExpr()
     return PrimaryParam(modifiers, decHandling, name, type, default)
 }
 
-private fun parsePrimaryParams(parser: Parser) = parser.withFlags(trackNewline = false, excludeCurly = false) {
+private fun Parser.parsePrimaryParams() =
     recBuildList<PrimaryParam> {
-        if (parser.current == Token.RParen) {
-            return@withFlags this
+        if (current == Token.End) {
+            return this
         }
 
-        add(parsePrimaryParam(parser))
+        add(parsePrimaryParam())
 
-        when (parser.current) {
-            Token.Comma -> parser.advance()
-            Token.RParen -> return@withFlags this
-            else -> parser.err(unclosedParenthesis)
+        when (current) {
+            Token.Comma -> advance()
+            Token.End -> return this
+            else -> err("Unclosed parentheses")
         }
     }
-}
 
 
-fun parseClass(parser: Parser, modifiers: List<DecModifier>): Class {
-    val name = parseIdent(parser)
+fun Parser.parseClass(modifiers: List<DecModifier>): TypeDec {
+    val name = parseIdent()
 
     val constraints = constraints()
-    val typeParams = parseClassTypeParams(parser, constraints)
+    val typeParams = parseClassTypeParams(constraints)
 
-    val constructorModifiers = parseDecModifiers(parser)
-    val atConstructor = parser.current == Token.Constructor
+    val constructorModifiers = parseDecModifiers()
+    val atConstructor = current === initIdent
 
     if (!(constructorModifiers.isEmpty() || atConstructor)) {
-        parser.err(missingConstructor)
+        err("Missing constructor")
     }
 
     if (atConstructor) {
-        parser.advance()
+        advance()
     }
 
-    val primaryConstructor: List<PrimaryParam>?
+    val primaryConstructor = inParensOr(Parser::parsePrimaryParams) { null }
 
-    if (parser.current == Token.LParen) {
-        primaryConstructor = parsePrimaryParams(parser.advance())
-        parser.advance()
-    } else {
-        primaryConstructor = null
-    }
+    val superTypes = parseClassSuperTypes()
 
-    val superTypes = parseSuperTypes(parser)
+    parseWhere(constraints)
 
-    parseWhere(parser, constraints)
+    val body = inBracesOrEmpty(Parser::parseClassBody)
 
-    val body = if (parser.current == Token.LBrace) {
-        parseClassBody(parser.advance())
-    } else {
-        emptyList()
-    }
-
-    return Class(name, modifiers, constructorModifiers, primaryConstructor, typeParams, constraints, superTypes, body)
+    return TypeDec.Class(
+        name,
+        modifiers,
+        constructorModifiers,
+        primaryConstructor,
+        typeParams,
+        constraints,
+        superTypes,
+        body
+    )
 }
 
-private fun parseClassTypeParams(parser: Parser, constraints: MutableConstraints): List<PClassTypeParam> =
-    if (parser.current == Token.LBracket) {
-        recBuildList {
-            if (parser.current == Token.RBracket) {
-                parser.advance()
-                return this
-            } else {
-                val start = parser.mark()
-                val variance = when (parser.current) {
-                    Token.In -> {
-                        parser.advance()
-                        VarianceMod.In
-                    }
-                    Token.Out -> {
-                        parser.advance()
-                        VarianceMod.Out
-                    }
-                    else -> VarianceMod.None
-                }
-                val param = parseIdent(parser)
-                parseTypeAnn(parser)?.let { constraints.add(param to it) }
-                add(start.end(ClassTypeParam(param, variance)))
-
-                when (parser.current) {
-                    Token.Comma -> parser.advance()
-                    Token.RBracket -> {
-                        parser.advance()
-                        return this
-                    }
-                    else -> parser.err(unclosedSquareBracket)
-                }
-            }
-        }
-    } else {
-        emptyList()
-    }
-
-private fun parseClassBody(parser: Parser) = recBuildList<ClassStmt> {
-    when (parser.current) {
-        Token.RBrace -> {
-            parser.advance()
+fun Parser.parseClassTypeParams(constraints: MutableConstraints): List<PClassTypeParam> = if (current == Token.Less) {
+    advance()
+    recBuildList {
+        if (current == Token.Greater) {
+            advance()
             return this
         }
-        Token.Semicolon -> parser.advance()
-        Token.Init -> add(ClassStmt.Initializer(requireScope(parser.advance())))
+
+        val start = pos
+        val variance = when (current) {
+            Token.In -> {
+                advance()
+                VarianceMod.In
+            }
+            outIdent -> {
+                advance()
+                VarianceMod.Out
+            }
+            else -> VarianceMod.None
+        }
+
+        val param = parseIdent()
+        parseTypeAnn()?.let { constraints.add(param to it) }
+        add(ClassTypeParam(param, variance).end(start))
+
+        when (current) {
+            Token.Comma -> advance()
+            Token.Greater -> {
+                advance()
+                return this
+            }
+            else -> err("Unclosed angle bracket")
+        }
+    }
+} else emptyList()
+
+private fun Parser.parseClassBody() = recBuildList<ClassStmt> {
+    when (current) {
+        Token.End -> return this
+        Token.Semicolon -> advance()
         else -> {
-            val modifiers = parseDecModifiers(parser)
-            add(
-                when (parser.current) {
-                    Token.Val -> ClassStmt.Property(parseProperty(parser.advance(), modifiers, false))
-                    Token.Var -> ClassStmt.Property(parseProperty(parser.advance(), modifiers, true))
-                    Token.Fun -> ClassStmt.Method(parseFun(parser.advance(), modifiers))
-                    Token.Constructor -> parseConstructor(parser, modifiers)
-                    else -> parser.err(unexpectedMember("class"))
-                }
-            )
+            val modifiers = parseDecModifiers()
+            when (current) {
+                initIdent -> add(advance().parseConstructorOrInit(modifiers))
+                Token.Val -> add(ClassStmt.Property(advance().parseProperty(modifiers, false)))
+                Token.Var -> add(ClassStmt.Property(advance().parseProperty(modifiers, true)))
+                Token.Fun -> add(ClassStmt.Method(advance().parseFun(modifiers)))
+                else -> parseTypeDec(modifiers)?.let { add(ClassStmt.NestedDec(it)) }
+            }
         }
     }
 }
 
-private fun parseConstructor(parser: Parser, modifiers: List<DecModifier>): ClassStmt {
-    if (parser.current != Token.LParen) {
-        parser.err(unexpectedSymbol("("))
+private fun Parser.parseConstructorOrInit(modifiers: List<DecModifier>): ClassStmt {
+    val params = when (val token = current) {
+        is Token.Braces -> return ClassStmt.Initializer(parseScopeBody(token.tokens)).also { advance() }
+        is Token.Parens -> parenthesizedOf(token.tokens).parseFunParams().also { advance() }
+        else -> {
+            err("Missing parameters")
+            emptyList()
+        }
     }
 
-    val params = parseFunParams(parser.advance())
-    val primaryCall = if (parser.current == Token.Colon) {
-        if (parser.advance().current != Token.This) {
-            parser.err(missingThis)
+    val primaryCall = if (current == Token.Colon) {
+        if (current != initIdent) {
+            err("Missing `init`")
         }
 
-        if (parser.advance().current != Token.LParen) {
-            parser.err(unexpectedSymbol("("))
+        if (advance().current !is Token.Parens) {
+            err("Expected (")
         }
 
-        parseCallArgs(parser.advance())
+        advance().parseCallArgs().also { advance() }
     } else {
         null
     }
 
-    val body = parseScope(parser) ?: emptyList()
+    val body = parseScope()
 
     return ClassStmt.Constructor(modifiers, params, primaryCall, body)
 }

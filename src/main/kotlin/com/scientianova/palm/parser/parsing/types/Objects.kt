@@ -1,48 +1,41 @@
 package com.scientianova.palm.parser.parsing.types
 
-import com.scientianova.palm.errors.unexpectedMember
 import com.scientianova.palm.lexer.Token
+import com.scientianova.palm.lexer.initIdent
 import com.scientianova.palm.parser.Parser
 import com.scientianova.palm.parser.data.top.DecModifier
-import com.scientianova.palm.parser.data.types.Object
 import com.scientianova.palm.parser.data.types.ObjStmt
+import com.scientianova.palm.parser.data.types.TypeDec
 import com.scientianova.palm.parser.parseIdent
 import com.scientianova.palm.parser.parsing.expressions.requireScope
 import com.scientianova.palm.parser.parsing.top.parseDecModifiers
 import com.scientianova.palm.parser.parsing.top.parseFun
 import com.scientianova.palm.parser.parsing.top.parseProperty
-import com.scientianova.palm.parser.recBuildList
+import com.scientianova.palm.parser.parsing.top.parseTypeDec
+import com.scientianova.palm.util.recBuildList
 
-fun parseObjectBody(parser: Parser) = recBuildList<ObjStmt> {
-    when (parser.current) {
-        Token.RBrace -> {
-            parser.advance()
-            return this
-        }
-        Token.Semicolon -> parser.advance()
-        Token.Init -> add(ObjStmt.Initializer(requireScope(parser.advance())))
+fun Parser.parseObjectBody() = recBuildList<ObjStmt> {
+    when (current) {
+        Token.End -> return this
+        Token.Semicolon -> advance()
+        initIdent -> add(ObjStmt.Initializer(advance().requireScope()))
         else -> {
-            val modifiers = parseDecModifiers(parser)
-            add(
-                when (parser.current) {
-                    Token.Val -> ObjStmt.Property(parseProperty(parser.advance(), modifiers, false))
-                    Token.Var -> ObjStmt.Property(parseProperty(parser.advance(), modifiers, true))
-                    Token.Fun -> ObjStmt.Method(parseFun(parser.advance(), modifiers))
-                    else -> parser.err(unexpectedMember("object"))
-                }
-            )
+            val modifiers = parseDecModifiers()
+            when (current) {
+                initIdent -> add(ObjStmt.Initializer(advance().requireScope()))
+                Token.Val -> add(ObjStmt.Property(advance().parseProperty(modifiers, false)))
+                Token.Var -> add(ObjStmt.Property(advance().parseProperty(modifiers, true)))
+                Token.Fun -> add(ObjStmt.Method(advance().parseFun(modifiers)))
+                else -> parseTypeDec(modifiers)?.let { add(ObjStmt.NestedDec(it)) }
+            }
         }
     }
 }
 
-fun parseObject(parser: Parser, modifiers: List<DecModifier>): Object {
-    val name = parseIdent(parser)
-    val superTypes = parseSuperTypes(parser)
-    val body = if (parser.current == Token.LBrace) {
-        parseObjectBody(parser.advance())
-    } else {
-        emptyList()
-    }
+fun Parser.parseObject(modifiers: List<DecModifier>): TypeDec {
+    val name = parseIdent()
+    val superTypes = parseClassSuperTypes()
+    val body = inBracesOrEmpty(Parser::parseObjectBody)
 
-    return Object(name, modifiers, superTypes, body)
+    return TypeDec.Object(name, modifiers, superTypes, body)
 }

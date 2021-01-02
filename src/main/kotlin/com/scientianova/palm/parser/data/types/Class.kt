@@ -12,9 +12,11 @@ enum class DecHandling {
 }
 
 sealed class SuperType {
-    data class Class(val type: PType, val args: List<Arg<PExpr>>, val mixins: List<PType>) : SuperType()
+    data class Class(val type: PType, val args: List<Arg<PExpr>>) : SuperType()
     data class Interface(val type: PType, val delegate: PString?) : SuperType()
 }
+
+typealias PSuperType = Positioned<SuperType>
 
 data class PrimaryParam(
     val modifiers: List<DecModifier>,
@@ -29,10 +31,10 @@ sealed class ClassStmt {
         val modifiers: List<DecModifier>,
         val params: List<FunParam>,
         val primaryCall: List<Arg<PExpr>>?,
-        val body: ExprScope
+        val body: PExprScope?
     ) : ClassStmt()
 
-    data class Initializer(val scope: ExprScope) : ClassStmt()
+    data class Initializer(val scope: PExprScope) : ClassStmt()
     data class Method(val function: Function) : ClassStmt()
     data class Property(val property: com.scientianova.palm.parser.data.top.Property) : ClassStmt()
     data class NestedDec(val dec: TypeDec) : ClassStmt()

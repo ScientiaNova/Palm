@@ -1,8 +1,9 @@
 package com.scientianova.palm.parser.data.top
 
-import com.scientianova.palm.parser.data.expressions.ExprScope
+import com.scientianova.palm.parser.data.expressions.PExprScope
 import com.scientianova.palm.parser.data.expressions.PType
 import com.scientianova.palm.parser.data.types.Implementation
+import com.scientianova.palm.parser.data.types.TypeClass
 import com.scientianova.palm.parser.data.types.TypeDec
 import com.scientianova.palm.util.PString
 
@@ -13,10 +14,11 @@ data class FileScope(
 )
 
 sealed class FileStmt {
-    data class Init(val scope: ExprScope) : FileStmt()
+    data class Init(val scope: PExprScope) : FileStmt()
     data class Fun(val function: Function) : FileStmt()
     data class Prop(val property: Property) : FileStmt()
     data class Type(val dec: TypeDec) : FileStmt()
+    data class TC(val tc: TypeClass) : FileStmt()
     data class Impl(val implementation: Implementation) : FileStmt()
 
     data class TypeAlias(

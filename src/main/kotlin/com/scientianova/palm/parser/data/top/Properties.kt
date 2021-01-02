@@ -15,7 +15,7 @@ data class Property(
 
 sealed class PropertyBody {
     data class Normal(
-        val expr: PExpr,
+        val expr: PExpr?,
         val getterModifiers: List<DecModifier>,
         val getter: Getter?,
         val setterModifiers: List<DecModifier>,

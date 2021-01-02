@@ -1,75 +1,75 @@
 package com.scientianova.palm.parser.parsing.top
 
-import com.scientianova.palm.errors.unclosedParenthesis
 import com.scientianova.palm.lexer.Token
+import com.scientianova.palm.lexer.byIdent
+import com.scientianova.palm.lexer.getIdent
+import com.scientianova.palm.lexer.setIdent
 import com.scientianova.palm.parser.Parser
-import com.scientianova.palm.parser.data.top.DecModifier
-import com.scientianova.palm.parser.data.top.Getter
-import com.scientianova.palm.parser.data.top.Property
-import com.scientianova.palm.parser.data.top.Setter
+import com.scientianova.palm.parser.data.top.*
 import com.scientianova.palm.parser.parseIdent
 import com.scientianova.palm.parser.parsing.expressions.parseEqExpr
 import com.scientianova.palm.parser.parsing.expressions.parseTypeAnn
 import com.scientianova.palm.parser.parsing.expressions.requireBinOps
 
-fun parseProperty(parser: Parser, modifiers: List<DecModifier>, mutable: Boolean): Property {
-    val name = parseIdent(parser)
-    val type = parseTypeAnn(parser)
+fun Parser.parseProperty(modifiers: List<DecModifier>, mutable: Boolean): Property {
+    val name = parseIdent()
+    val context = parseContextParams()
+    val type = parseTypeAnn()
 
-    if (parser.current == Token.By) {
-        val delegate = requireBinOps(parser.advance())
-        return Property.Delegated(name, modifiers, mutable, type, delegate)
+    if (current === byIdent) {
+        val delegate = advance().requireBinOps()
+        return Property(name, modifiers, mutable, type, context, PropertyBody.Delegate(delegate))
     }
 
-    val expr = parseEqExpr(parser)
+    val expr = parseEqExpr()
 
     val getterModifiers: List<DecModifier>
     val getter: Getter?
     val setterModifiers: List<DecModifier>
     val setter: Setter?
 
-    val firstModsStart = parser.mark()
-    val firstModifiers = parseDecModifiers(parser)
+    val firstModsStart = index
+    val firstModifiers = parseDecModifiers()
 
-    when (parser.current) {
-        Token.Get -> {
-            parser.advance()
+    when (current) {
+        getIdent -> {
+            advance()
             getterModifiers = firstModifiers
-            getter = parseGetter(parser)
+            getter = parseGetter()
 
-            val secondModsStart = parser.mark()
-            val secondModifiers = parseDecModifiers(parser)
+            val secondModsStart = index
+            val secondModifiers = parseDecModifiers()
 
-            if (parser.current == Token.Set) {
-                parser.advance()
+            if (current === setIdent) {
+                advance()
                 setterModifiers = secondModifiers
-                setter = parseSetter(parser)
+                setter = parseSetter()
             } else {
-                secondModsStart.revertIndex()
+                index = secondModsStart
                 setterModifiers = emptyList()
                 setter = null
             }
         }
-        Token.Set -> {
-            parser.advance()
+        setIdent -> {
+            advance()
             setterModifiers = firstModifiers
-            setter = parseSetter(parser)
+            setter = parseSetter()
 
-            val secondModsStart = parser.mark()
-            val secondModifiers = parseDecModifiers(parser)
+            val secondModsStart = index
+            val secondModifiers = parseDecModifiers()
 
-            if (parser.current == Token.Get) {
-                parser.advance()
+            if (current === getIdent) {
+                advance()
                 getterModifiers = secondModifiers
-                getter = parseGetter(parser)
+                getter = parseGetter()
             } else {
-                secondModsStart.revertIndex()
+                index = secondModsStart
                 getterModifiers = emptyList()
                 getter = null
             }
         }
         else -> {
-            firstModsStart.revertIndex()
+            index = firstModsStart
             getterModifiers = emptyList()
             getter = null
             setterModifiers = emptyList()
@@ -77,38 +77,45 @@ fun parseProperty(parser: Parser, modifiers: List<DecModifier>, mutable: Boolean
         }
     }
 
-    return Property.Normal(name, modifiers, mutable, type, expr, getterModifiers, getter, setterModifiers, setter)
+    return Property(
+        name,
+        modifiers,
+        mutable,
+        type,
+        context,
+        PropertyBody.Normal(expr, getterModifiers, getter, setterModifiers, setter)
+    )
 }
 
-private fun parseGetter(parser: Parser) = if (parser.current == Token.LParen) {
-    if (parser.advance().current != Token.RParen) {
-        parser.err(unclosedParenthesis)
+private fun Parser.parseGetter(): Getter? {
+    val parens = current
+    return if (parens is Token.Parens) {
+        if (parens.tokens.size != 1) {
+            err("Getter needs to have no parameters")
+        }
+
+        val type = advance().parseTypeAnn()
+        val expr = requireFunBody()
+
+        Getter(type, expr)
+    } else {
+        null
     }
-
-    parser.advance()
-
-    val type = parseTypeAnn(parser)
-    val expr = requireFunBody(parser)
-
-    Getter(type, expr)
-} else {
-    null
 }
 
 
-private fun parseSetter(parser: Parser) = if (parser.current == Token.LParen) {
-    val param = parseOptionallyTypedFunParam(parser.advance())
+private fun Parser.parseSetter(): Setter? {
+    val parens = current
+    return if (parens is Token.Parens) {
+        val param = parenthesizedOf(parens.tokens).parseOptionallyTypedFunParam()
 
-    if (parser.current != Token.RParen) {
-        parser.err(unclosedParenthesis)
+        advance()
+
+        val type = parseTypeAnn()
+        val expr = requireFunBody()
+
+        Setter(param, type, expr)
+    } else {
+        null
     }
-
-    parser.advance()
-
-    val type = parseTypeAnn(parser)
-    val expr = requireFunBody(parser)
-
-    Setter(param, type, expr)
-} else {
-    null
 }

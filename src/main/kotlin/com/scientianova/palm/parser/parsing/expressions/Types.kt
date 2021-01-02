@@ -1,99 +1,106 @@
 package com.scientianova.palm.parser.parsing.expressions
 
-import com.scientianova.palm.errors.*
+import com.scientianova.palm.lexer.PToken
 import com.scientianova.palm.lexer.Token
-import com.scientianova.palm.lexer.identTokens
+import com.scientianova.palm.lexer.outIdent
 import com.scientianova.palm.parser.Parser
 import com.scientianova.palm.parser.data.expressions.*
 import com.scientianova.palm.parser.parseIdent
 import com.scientianova.palm.parser.parsing.top.parseAnnotation
-import com.scientianova.palm.parser.recBuildList
 import com.scientianova.palm.util.PString
+import com.scientianova.palm.util.StringPos
 import com.scientianova.palm.util.at
+import com.scientianova.palm.util.recBuildList
 
-fun parseType(parser: Parser): PType? {
-    val normalType: PType = when (parser.current) {
-        in identTokens -> parseNamedType(parser)
-        Token.LParen -> parseTypeTuple(parser)
-        Token.At -> parser.mark().end(Type.Annotated(parseAnnotation(parser), requireType(parser)))
+fun Parser.parseType(): PType? {
+    val normalType: PType = when (val token = current) {
+        is Token.Ident -> parseNamedType()
+        is Token.Parens -> parseTypeTuple(token.tokens)
+        is Token.Brackets -> parseTypeList(token.tokens)
+        Token.At -> return parseAnnotatedType()
         else -> return null
     }
-    return parseTypeNullability(parser, normalType)
+    return parseTypeNullability(normalType)
 }
 
-fun requireType(parser: Parser) = parseType(parser) ?: parser.err(missingType)
+fun Parser.requireType() = parseType() ?: run {
+    err("Missing type")
+    emptyType.let { if (current == Token.End) it.noPos() else it.end() }
+}
 
-fun parseTypeAnn(parser: Parser) = if (parser.current == Token.Colon) {
-    parseTypeBinOps(parser.advance())
+fun Parser.parseTypeAnn() = if (current == Token.Colon) {
+    advance().requireType()
 } else {
     null
 }
 
-fun parseEqType(parser: Parser) = if (parser.current == Token.Assign) {
-    requireTypeBinOps(parser.advance())
+fun Parser.parseEqType() = if (current == Token.Assign) {
+    advance().requireType()
 } else {
     null
 }
 
-fun requireEqType(parser: Parser) = if (parser.current == Token.Assign) {
-    requireTypeBinOps(parser.advance())
+fun Parser.requireEqType() = if (current == Token.Assign) {
+    advance().requireType()
 } else {
-    parser.err(missingType)
+    err("Missing type")
+    emptyType.let { if (current == Token.End) it.noPos() else it.end() }
 }
 
-fun requireTypeAnn(parser: Parser) = parseTypeAnn(parser) ?: parser.err(missingTypeAnn)
+fun Parser.requireTypeAnn() = parseTypeAnn() ?: run {
+    err("Missing type annotation")
+    emptyType.let { if (current == Token.End) it.noPos() else it.end() }
+}
 
-private fun parseTypePath(parser: Parser): List<PString> = recBuildList {
-    add(parseIdent(parser))
+private fun Parser.parseAnnotatedType(): PType? = withPos { start ->
+    val annotation = parseAnnotation() ?: return advance().parseType()
+    val type = requireType()
+    Type.Annotated(annotation, type).at(start, type.next)
+}
 
-    if (parser.current == Token.Dot) {
-        parser.advance()
+private fun Parser.parseTypePath(): List<PString> = recBuildList {
+    add(parseIdent())
+
+    if (current == Token.Dot) {
+        advance()
     } else {
         return this
     }
 }
 
-fun parseTypeArgs(parser: Parser): List<PTypeArg> = recBuildList {
-    if (parser.current == Token.RBracket) {
-        return this
-    } else {
-        add(parseTypeArg(parser))
-        when (parser.current) {
-            Token.Comma -> parser.advance()
-            Token.RBracket -> return this
-            else -> parser.err(unclosedSquareBracket)
-        }
+fun Parser.parseTypeArgs(): List<PTypeArg> = recBuildList {
+    if (current == Token.Greater) return this
+
+    add(parseTypeArg())
+
+    when (current) {
+        Token.Comma -> advance()
+        Token.Greater -> return this
+        else -> err("Unclosed angle brackets")
     }
 }
 
-private fun parseNamedType(parser: Parser): PType {
-    val start = parser.mark()
-
-    val path = parseTypePath(parser)
-
-    val args = if (parser.current == Token.LBracket && !parser.lastNewline) {
-        parser.advance()
-
-        val list = parser.withFlags(trackNewline = false, excludeCurly = false) {
-            parseTypeArgs(parser)
+private fun Parser.parseNamedType(): PType = withPos { start ->
+    val path = parseTypePath()
+    val next: StringPos
+    val args = if (current is Token.Less) {
+        advance().parseTypeArgs().also {
+            next = nextPos
+            advance()
         }
-
-        parser.advance()
-
-        list
     } else {
+        next = path.last().next
         emptyList()
     }
 
-    return start.end(Type.Named(path, args))
+    return Type.Named(path, args).at(start, next)
 }
 
-private tailrec fun parseTypeNullability(parser: Parser, type: PType): PType =
-    if (parser.current == Token.QuestionMark) {
-        parseTypeNullability(
-            parser.advance(),
+private tailrec fun Parser.parseTypeNullability(type: PType): PType =
+    if (current == Token.QuestionMark) {
+        advance().parseTypeNullability(
             if (type.value !is Type.Nullable) {
-                Type.Nullable(type).at(type.start, parser.pos)
+                Type.Nullable(type).at(type.start, pos)
             } else {
                 type
             }
@@ -102,82 +109,71 @@ private tailrec fun parseTypeNullability(parser: Parser, type: PType): PType =
         type
     }
 
-private fun parseInterTypeBody(parser: Parser, first: PType) = recBuildList(mutableListOf(first)) {
-    add(requireType(parser))
-    if (parser.current == Token.Plus) {
-        parser.advance()
-    } else return this
-}
 
-fun parseTypeBinOps(parser: Parser): PType? {
-    val start = parser.mark()
-
-    val first = parseType(parser) ?: return null
-
-    return if (parser.current == Token.Plus) {
-        start.end(Type.Intersection(parseInterTypeBody(parser.advance(), first)))
-    } else {
-        first
-    }
-}
-
-fun requireTypeBinOps(parser: Parser) = parseTypeBinOps(parser) ?: parser.err(missingType)
-
-private fun parseTypeTupleBody(parser: Parser): List<FunTypeArg> = recBuildList {
-    if (parser.current == Token.RParen) {
+private fun Parser.parseTypeTupleBody(list: MutableList<PType> = mutableListOf()): List<PType> = recBuildList(list) {
+    if (current == Token.End) {
         return this
     } else {
-        val using = parser.current == Token.Using
-        if (using) parser.advance()
+        add(requireType())
 
-        add(FunTypeArg(requireTypeBinOps(parser), using))
-
-        when (parser.current) {
-            Token.Comma -> parser.advance()
-            Token.RParen -> return this
-            else -> parser.err(unclosedParenthesis)
+        when (current) {
+            Token.Comma -> advance()
+            Token.End -> return this
+            else -> err("Missing comma")
         }
     }
 }
 
-private fun parseTypeTuple(parser: Parser): PType {
-    val marker = parser.mark()
-
-    parser.advance()
-
-    val list = parser.withFlags(trackNewline = false, excludeCurly = false) {
-        parseTypeTupleBody(parser)
-    }
-
-    parser.advance()
-
+private fun Parser.parseTypeTuple(tokens: List<PToken>): PType = withPos { start ->
+    val list = parenthesizedOf(tokens).parseTypeTupleBody()
+    val afterTokens = nextPos
     return when {
-        parser.current == Token.Arrow -> marker.end(Type.Function(list, requireType(parser.advance())))
-        list.size == 1 -> {
-            val type = list[0]
-            if (type.using) {
-                parser.err(missingTypeReturnType)
-            }
-            type.type
+        advance().current == Token.Arrow -> {
+            val returnType = advance().requireType()
+            Type.Function(emptyList(), list, returnType).at(start, returnType.next)
         }
-        else -> parser.err(missingTypeReturnType)
+        list.size == 1 -> list.first()
+        else -> Type.Tuple(list).at(start, afterTokens)
     }
 }
 
-private fun parseTypeArg(parser: Parser): PTypeArg = when (parser.current) {
-    Token.Wildcard -> parser.advance().end(TypeArg.Wildcard)
-    Token.In -> parseNormalTypeArg(parser, VarianceMod.In)
-    Token.Out -> parseNormalTypeArg(parser, VarianceMod.Out)
+private fun Parser.parseTypeList(tokens: List<PToken>): PType = with(parenthesizedOf(tokens)) {
+    when (current) {
+        Token.End -> return parseFunType(emptyList())
+        else -> {
+            val firstType = requireType()
+            when (current) {
+                Token.Comma -> return parseFunType(parseTypeTupleBody(mutableListOf(firstType)))
+                Token.Colon -> Type.Dict(firstType, requireType())
+                Token.End -> Type.Lis(firstType)
+                else -> {
+                    err("Missing comma")
+                    return parseFunType(parseTypeTupleBody(mutableListOf(firstType)))
+                }
+            }
+        }
+    }
+}.end()
+
+private fun Parser.parseFunType(context: List<PType>): PType = withPos { start ->
+    val params = advance().inParensOr(Parser::parseTypeTupleBody) {
+        err("Missing function parameters")
+        emptyList()
+    }
+    if (current == Token.Arrow) advance() else err("Missing arrow")
+    val returnType = requireType()
+    Type.Function(context, params, returnType).at(start, returnType.next)
+}
+
+private fun Parser.parseTypeArg(): PTypeArg = when (current) {
+    Token.Times -> TypeArg.Wildcard.end()
+    Token.In -> parseNormalTypeArg(VarianceMod.In)
+    outIdent -> parseNormalTypeArg(VarianceMod.Out)
     else -> {
-        val type = requireTypeBinOps(parser)
+        val type = requireType()
         TypeArg.Normal(type, VarianceMod.None).at(type.start, type.next)
     }
 }
 
-private fun parseNormalTypeArg(parser: Parser, variance: VarianceMod): PTypeArg {
-    val start = parser.mark()
-
-    val type = requireType(parser.advance())
-
-    return start.end(TypeArg.Normal(type, variance))
-}
+private fun Parser.parseNormalTypeArg(variance: VarianceMod): PTypeArg =
+    TypeArg.Normal(advance().requireType(), variance).end(pos)

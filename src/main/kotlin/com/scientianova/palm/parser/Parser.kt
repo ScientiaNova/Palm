@@ -1,98 +1,125 @@
 package com.scientianova.palm.parser
 
 import com.scientianova.palm.errors.PalmError
-import com.scientianova.palm.errors.messageFor
-import com.scientianova.palm.errors.missingIdentifier
+import com.scientianova.palm.lexer.Lexer
+import com.scientianova.palm.lexer.PToken
 import com.scientianova.palm.lexer.Token
-import com.scientianova.palm.parser.data.top.FileScope
-import com.scientianova.palm.util.*
+import com.scientianova.palm.lexer.lexFile
+import com.scientianova.palm.util.PString
+import com.scientianova.palm.util.Positioned
+import com.scientianova.palm.util.StringPos
 
-class Parser(private val stream: TokenStream) {
-    private var index = nextIndex(0)
+sealed class Parser(protected val stream: List<PToken>, val errors: MutableList<PalmError>) {
+    constructor(lexer: Lexer) : this(lexer.tokens, lexer.errors)
 
-    var trackNewline = true
-    var excludeCurly = false
+    var index = nextIndex(0)
 
-    val current get() = stream.getToken(index)
-    val pos get() = stream.getPos(index)
-    val nextPos get() = stream.getPos(index + 1)
+    val currentWithPos get() = stream[index]
+    val current get() = currentWithPos.value
+    val pos get() = currentWithPos.start
+    val nextPos get() = currentWithPos.next
+    val next get() = stream[nextIndex(index + 1)].value
 
-    fun <T> end(thing: T, startIndex: Int = index - 1) = Positioned(thing, stream.getPos(startIndex), pos)
+    fun <T> T.end(startPos: Int = pos) = Positioned(this, startPos, nextPos).also { advance() }
 
-    fun err(error: PalmError): Nothing {
-        val current = current
-        if (current is Token.Error) {
-            parseErr(current.error)
-        } else {
-            parseErr(error, pos, nextPos)
-        }
-    }
+    fun advance(): Parser = also { index = nextIndex(index + 1) }
 
-    fun err(error: PalmError, startIndex: Int): Nothing = parseErr(error, stream.getPos(startIndex), pos)
+    fun <T> T.noPos(repeat: StringPos = pos) = Positioned(this, repeat, repeat)
 
-    fun advance(): Parser = this.also { index = nextIndex(index + 1) }
+    fun err(error: PalmError): Parser = also { errors += error }
+    fun err(error: String, startPos: StringPos = pos, nextPos: StringPos = this.nextPos): Parser =
+        also { errors += PalmError(error, startPos, nextPos) }
 
-    private tailrec fun nextIndex(newIndex: Int): Int = if (stream.getToken(newIndex).canIgnore()) {
+    private tailrec fun nextIndex(newIndex: Int): Int = if (stream[newIndex].value.canIgnore()) {
         nextIndex(newIndex + 1)
     } else {
         newIndex
     }
 
-    fun revertIndex(marker: ParseMarker) {
-        index = marker.index
+    abstract val lastNewline: Boolean
+
+    fun rawLookup(offset: Int) = stream[index + offset].value
+
+    inline fun <T> withPos(fn: (StringPos) -> T): T = fn(pos)
+
+    fun currentPostfix() = (stream.getOrNull(index - 1)?.let { !it.value.beforePrefix() } ?: false)
+            && stream[index + 1].value.afterPostfix()
+
+    fun currentPrefix() = (stream.getOrNull(index - 1)?.value?.beforePrefix() ?: true)
+            && !stream[index + 1].value.afterPostfix()
+
+    fun currentInfix() =
+        (stream.getOrNull(index - 1)?.value?.beforePrefix() ?: true) == stream[index + 1].value.afterPostfix()
+
+    fun parenthesizedOf(stream: List<PToken>) = ParenthesizedParser(stream, errors)
+    fun scopedOf(stream: List<PToken>) = ScopedParser(stream, errors)
+
+    inline fun <T> inParensOrEmpty(crossinline fn: Parser.() -> List<T>) = current.let { paren ->
+        if (paren is Token.Parens)
+            parenthesizedOf(paren.tokens).fn().also { advance() }
+        else emptyList()
     }
 
-    val lastNewline get() = trackNewline && lastNewLine(index - 1)
+    inline fun <T> inBracesOrEmpty(crossinline fn: Parser.() -> List<T>) = current.let { brace ->
+        if (brace is Token.Braces)
+            scopedOf(brace.tokens).fn().also { advance() }
+        else emptyList()
+    }
+
+    inline fun <T> inBracketsOrEmpty(crossinline fn: Parser.() -> List<T>) = current.let { bracket ->
+        if (bracket is Token.Brackets)
+            parenthesizedOf(bracket.tokens).fn().also { advance() }
+        else emptyList()
+    }
+
+    inline fun <T> inParensOr(crossinline fn: Parser.() -> T, or: () -> T) = current.let { paren ->
+        if (paren is Token.Parens)
+            parenthesizedOf(paren.tokens).fn().also { advance() }
+        else or()
+    }
+
+    inline fun <T> inBracesOr(crossinline fn: Parser.() -> T, or: () -> T) = current.let { brace ->
+        if (brace is Token.Braces)
+            scopedOf(brace.tokens).fn().also { advance() }
+        else or()
+    }
+
+    inline fun <T> inBracketsOr(crossinline fn: Parser.() -> T, or: () -> T) = current.let { bracket ->
+        if (bracket is Token.Brackets)
+            parenthesizedOf(bracket.tokens).fn().also { advance() }
+        else or()
+    }
+}
+
+class ParenthesizedParser(stream: List<PToken>, errors: MutableList<PalmError>) : Parser(stream, errors) {
+    override val lastNewline get() = false
+}
+
+class ScopedParser(stream: List<PToken>, errors: MutableList<PalmError>) : Parser(stream, errors) {
+    override val lastNewline get() = lastNewLine(index - 1)
 
     private tailrec fun lastNewLine(index: Int): Boolean {
-        val token = stream.getToken(index)
+        val token = stream[index].value
         return when {
             token == Token.EOL -> true
             token.canIgnore() -> lastNewLine(index - 1)
             else -> false
         }
     }
+}
 
-    fun rawLookup(offset: Int) = stream.getToken(index + offset)
+fun parserFor(code: String): Parser {
+    val lexer = Lexer()
+    lexer.lexFile(code)
+    return ScopedParser(lexer.tokens, lexer.errors)
+}
 
-    fun mark() = ParseMarker(this, index)
-
-    inline fun <T> withFlags(trackNewline: Boolean, excludeCurly: Boolean, crossinline body: () -> T): T {
-        val startNewLine = this.trackNewline
-        val startCurly = this.excludeCurly
-
-        this.trackNewline = trackNewline
-        this.excludeCurly = excludeCurly
-
-        val res = body()
-
-        this.trackNewline = startNewLine
-        this.excludeCurly = startCurly
-
-        return res
+fun Parser.parseIdent(): PString {
+    val curr = current
+    return if (curr is Token.Ident) {
+        curr.name.end()
+    } else {
+        err("Missing identifier")
+        "".noPos()
     }
-}
-
-data class ParseMarker(
-    val parser: Parser,
-    val index: Int
-) {
-    fun <T> end(thing: T) = parser.end(thing, index)
-
-    fun err(error: PalmError): Nothing = parser.err(error, index)
-
-    fun revertIndex() = parser.revertIndex(this)
-}
-
-
-fun parseIdent(parser: Parser): PString {
-    val ident = parser.current.identString()
-    if (ident.isEmpty()) parser.err(missingIdentifier)
-    return parser.advance().end(ident)
-}
-
-fun parseFile(code: String, name: String): Either<String, FileScope> = try {
-    Right(com.scientianova.palm.parser.parsing.top.parseFile(Parser(TokenStream((code)))))
-} catch (e: ParseException) {
-    Left(e.error.messageFor(code, name))
 }

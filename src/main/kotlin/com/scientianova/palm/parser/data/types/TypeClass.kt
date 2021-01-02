@@ -11,3 +11,12 @@ sealed class TCStmt {
     data class AssociatedType(val name: PString, val bound: PType?, val default: PType?) : TCStmt()
     data class NestedDec(val dec: TypeDec) : TCStmt()
 }
+
+data class TypeClass(
+    val name: PString,
+    val modifiers: List<DecModifier>,
+    val typeParams: List<PString>,
+    val typeConstraints: TypeConstraints,
+    val superTypes: List<PType>,
+    val statements: List<TCStmt>
+)

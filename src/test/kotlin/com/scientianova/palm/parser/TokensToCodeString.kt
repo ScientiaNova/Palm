@@ -1,17 +1,20 @@
 package com.scientianova.palm.parser
 
+import com.scientianova.palm.lexer.StringPartL
 import com.scientianova.palm.lexer.Token
 
-fun Token.toCodeString() = when (this) {
-    Token.LBrace -> "{"
-    Token.RBrace -> "}"
-    Token.LParen -> "("
-    Token.RParen -> ")"
-    Token.LBracket -> "["
-    Token.RBracket -> "]"
+fun Token.toCodeString(indent: Int): String = when (this) {
+    is Token.Braces -> "{\n" + indent(indent + 1) +
+                tokens.joinToString("\n" + indent(indent + 1)) { it.value.toCodeString(indent + 1) } +
+                "\n${indent(indent)}}"
+    is Token.Brackets -> "[\n" + indent(indent + 1) +
+            tokens.joinToString("\n" + indent(indent + 1)) { it.value.toCodeString(indent + 1) } +
+            "\n${indent(indent)}]"
+    is Token.Parens -> "(\n" + indent(indent + 1) +
+            tokens.joinToString("\n" + indent(indent + 1)) { it.value.toCodeString(indent + 1) } +
+            "\n${indent(indent)})"
     Token.Dot -> "."
     Token.RangeTo -> ".."
-    Token.SafeAccess -> "?."
     Token.Colon -> ":"
     Token.DoubleColon -> "::"
     Token.Semicolon -> ";"
@@ -21,7 +24,6 @@ fun Token.toCodeString() = when (this) {
     Token.Greater -> ">"
     Token.LessOrEq -> "<="
     Token.GreaterOrEq -> ">="
-    Token.Elvis -> "?:"
     Token.Plus -> "+"
     Token.Minus -> "-"
     Token.Times -> "*"
@@ -38,10 +40,6 @@ fun Token.toCodeString() = when (this) {
     Token.DivAssign -> "/="
     Token.RemAssign -> "%="
     Token.QuestionMark -> "?"
-    Token.NonNull -> "!!"
-    Token.UnaryPlus -> "+"
-    Token.UnaryMinus -> "-"
-    Token.Not -> "!"
     Token.Arrow -> "->"
     Token.Spread -> "*"
     Token.Wildcard -> "_"
@@ -51,25 +49,42 @@ fun Token.toCodeString() = when (this) {
     Token.Val -> "val"
     Token.Var -> "var"
     Token.Object -> "object"
-    Token.This -> "this"
     Token.Super -> "super"
     Token.NullLit -> "null"
     Token.When -> "when"
     Token.If -> "if"
     Token.Else -> "else"
-    Token.For -> "for"
-    Token.While -> "while"
     Token.Do -> "do"
-    Token.Loop -> "loop"
     Token.Break -> "break"
-    Token.Continue -> "continue"
     Token.Return -> "return"
-    Token.Throw -> "throw"
-    Token.Guard -> "guard"
-    Token.Using -> "using"
-    Token.Nobreak -> "nobreak"
     Token.As -> "as"
     Token.EOL -> "EOL"
-    Token.EOF -> "EOF"
-    else -> this.identString().ifEmpty { toString() }
+    is Token.Ident -> if (backticked) "`$name`" else name
+    is Token.BoolLit -> value.toString()
+    is Token.CharLit -> "'$value'"
+    is Token.IntLit -> value.toString()
+    is Token.FloatLit -> value.toString()
+    is Token.StrLit -> "\"\":\n" + indent(indent + 1) +
+            parts.joinToString("\n" + indent(indent + 1)) { it.toCodeString(indent + 1) } +
+            "\n${indent(indent)}"
+    Token.Is -> "is"
+    Token.In -> "in"
+    Token.ExclamationMark -> "!"
+    Token.Class -> "class"
+    Token.Interface -> "interface"
+    Token.Catch -> "catch"
+    Token.Defer -> "defer"
+    Token.Throw -> "throw"
+    Token.Import -> "import"
+    Token.Whitespace -> "*Whitespace*"
+    Token.Comment -> "// Comment"
+    Token.End -> "*End*"
+    is Token.Error -> "!!!error!!!"
+}
+
+fun StringPartL.toCodeString(indent: Int) = when (this) {
+    is StringPartL.String -> "\"$string\""
+    is StringPartL.Expr -> "\${\n" + indent(indent + 1) +
+            tokens.joinToString("\n" + indent(indent + 1)) { it.value.toCodeString(indent + 1) } +
+            "\n${indent(indent)}}"
 }

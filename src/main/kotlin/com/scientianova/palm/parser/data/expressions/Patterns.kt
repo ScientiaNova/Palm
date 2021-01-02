@@ -9,6 +9,7 @@ sealed class Pattern {
     data class Type(val type: PType, val inverted: Boolean, val destructuring: Destructuring?) : Pattern()
     data class Tuple(val patterns: List<SubPattern>) : Pattern()
     data class In(val expr: PExpr, val inverted: Boolean) : Pattern()
+    data class Dec(val decPattern: PDecPattern, val mutable: Boolean) : Pattern()
     object Wildcard : Pattern()
 }
 

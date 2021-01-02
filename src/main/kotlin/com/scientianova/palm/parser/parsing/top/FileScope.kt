@@ -1,116 +1,90 @@
 package com.scientianova.palm.parser.parsing.top
 
-import com.scientianova.palm.errors.missingPackage
-import com.scientianova.palm.errors.unclosedSquareBracket
-import com.scientianova.palm.errors.unexpectedMember
 import com.scientianova.palm.lexer.Token
+import com.scientianova.palm.lexer.implIdent
+import com.scientianova.palm.lexer.initIdent
+import com.scientianova.palm.lexer.typeIdent
 import com.scientianova.palm.parser.Parser
 import com.scientianova.palm.parser.data.top.*
+import com.scientianova.palm.parser.data.types.TypeDec
 import com.scientianova.palm.parser.parseIdent
-import com.scientianova.palm.parser.parsing.expressions.parseTypeAnn
-import com.scientianova.palm.parser.parsing.expressions.requireEqExpr
 import com.scientianova.palm.parser.parsing.expressions.requireEqType
+import com.scientianova.palm.parser.parsing.expressions.requireScope
 import com.scientianova.palm.parser.parsing.types.*
-import com.scientianova.palm.parser.recBuildList
 import com.scientianova.palm.util.PString
+import com.scientianova.palm.util.recBuildList
 
-fun parseFile(parser: Parser): FileScope {
-    val metadataComments = parseMetadataComments(parser)
-    val annotations = parseAnnotations(parser)
+fun Parser.parseFile(): FileScope {
+    val annotations = parseFileAnnotations()
+    val imports = parseImports()
+    val statements = parseStatements()
 
-    val pack = if (parser.current == Token.Package) {
-        parsePackage(parser.advance())
-    } else {
-        parser.err(missingPackage)
-    }
-
-    val imports = parseImports(parser)
-    val statements = parseStatements(parser)
-
-    return FileScope(metadataComments, annotations, pack, imports, statements)
+    return FileScope(annotations, imports, statements)
 }
 
-private fun parsePackage(parser: Parser) = recBuildList<PString> {
-    add(parseIdent(parser))
-    if (parser.current == Token.Dot) {
-        parser.advance()
-    } else {
-        return this
-    }
-}
-
-private fun parseMetadataComments(parser: Parser) = recBuildList<PString> {
-    val current = parser.current
-    if (current is Token.MetadataComment) {
-        add(parser.advance().end(current.content))
-    } else {
-        return this
-    }
-}
-
-private fun parseStatements(parser: Parser) = recBuildList<FileStmt> {
-    when (parser.current) {
-        Token.EOF -> return this
-        Token.Semicolon -> parser.advance()
-        Token.Extend -> add(StaticExtension(parseExtension(parser.advance())))
-        Token.Impl -> add(StaticImpl(parseImpl(parser.advance())))
+private fun Parser.parseStatements() = recBuildList<FileStmt> {
+    when (current) {
+        Token.End -> return this
+        Token.Semicolon -> advance()
+        implIdent -> add(FileStmt.Impl(advance().parseImpl()))
+        initIdent -> add(FileStmt.Init(advance().requireScope()))
         else -> {
-            val modifiers = parseDecModifiers(parser)
-            add(
-                when (parser.current) {
-                    Token.Val -> StaticProperty(parseProperty(parser.advance(), modifiers, false))
-                    Token.Var -> StaticProperty(parseProperty(parser.advance(), modifiers, true))
-                    Token.Fun -> StaticFunction(parseFun(parser.advance(), modifiers))
-                    Token.Object -> StaticObject(parseObject(parser.advance(), modifiers))
-                    Token.Trait -> StaticTypeClass(parseTrait(parser.advance(), modifiers))
-                    Token.Record -> StaticRecord(parseRecord(parser.advance(), modifiers))
-                    Token.Enum -> StaticEnum(parseEnum(parser.advance(), modifiers))
-                    Token.Class -> StaticClass(parseClass(parser.advance(), modifiers))
-                    Token.Mixin -> StaticMixin(parseMixin(parser.advance(), modifiers))
-                    Token.Const -> parseConst(parser.advance(), modifiers)
-                    Token.Type -> parseTpeAlias(parser.advance(), modifiers)
-                    else -> parser.err(unexpectedMember("file"))
-                }
-            )
+            val modifiers = parseDecModifiers()
+            when (current) {
+                Token.Val -> add(FileStmt.Prop(advance().parseProperty(modifiers, false)))
+                Token.Var -> add(FileStmt.Prop(advance().parseProperty(modifiers, true)))
+                Token.Fun -> add(FileStmt.Fun(advance().parseFun(modifiers)))
+                typeIdent -> add(when (advance().current) {
+                    Token.Class -> FileStmt.TC(advance().parseTypeClass(modifiers))
+                    else -> parseTpeAlias(modifiers)
+                })
+                else -> parseTypeDec(modifiers)?.let { add(FileStmt.Type(it)) }
+            }
         }
     }
 }
 
-private fun parseConst(parser: Parser, modifiers: List<DecModifier>): FileStmt {
-    val name = parseIdent(parser)
-    val type = parseTypeAnn(parser)
-    val expr = requireEqExpr(parser)
-
-    return Constant(name, modifiers, type, expr)
+fun Parser.parseTypeDec(modifiers: List<DecModifier>): TypeDec? = when (current) {
+    Token.Class -> advance().parseClass(modifiers)
+    Token.Object -> advance().parseObject(modifiers)
+    Token.Interface -> advance().parseInterface(modifiers)
+    Token.End -> {
+        err("Expected type declaration")
+        null
+    }
+    else -> {
+        err("Expected type declaration").advance()
+        null
+    }
 }
 
-private fun parseTpeAlias(parser: Parser, modifiers: List<DecModifier>): FileStmt {
-    val name = parseIdent(parser)
-    val params = if (parser.current == Token.LBracket) {
-        parseAliasParams(parser.advance())
+private fun Parser.parseTpeAlias(modifiers: List<DecModifier>): FileStmt {
+    val name = parseIdent()
+    val params = if (current == Token.Less) {
+        advance().parseAliasParams()
     } else {
         emptyList()
     }
 
-    val actual = requireEqType(parser)
+    val actual = requireEqType()
 
-    return TypeAlias(name, modifiers, params, actual)
+    return FileStmt.TypeAlias(name, modifiers, params, actual)
 }
 
-private fun parseAliasParams(parser: Parser) = recBuildList<PString> {
-    if (parser.current == Token.RBracket) {
-        parser.advance()
+private fun Parser.parseAliasParams() = recBuildList<PString> {
+    if (current == Token.Greater) {
+        advance()
         return this
     }
 
-    add(parseIdent(parser))
+    add(parseIdent())
 
-    when (parser.current) {
-        Token.Comma -> parser.advance()
-        Token.RBracket -> {
-            parser.advance()
+    when (current) {
+        Token.Comma -> advance()
+        Token.Greater -> {
+            advance()
             return this
         }
-        else -> parser.err(unclosedSquareBracket)
+        else -> err("Unclosed type params")
     }
 }

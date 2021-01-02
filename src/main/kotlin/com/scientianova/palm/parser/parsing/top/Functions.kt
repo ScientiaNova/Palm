@@ -1,94 +1,106 @@
 package com.scientianova.palm.parser.parsing.top
 
-import com.scientianova.palm.errors.missingExpression
-import com.scientianova.palm.errors.missingFunParams
-import com.scientianova.palm.errors.unclosedParenthesis
 import com.scientianova.palm.lexer.Token
 import com.scientianova.palm.parser.Parser
-import com.scientianova.palm.parser.data.top.DecModifier
-import com.scientianova.palm.parser.data.top.FunParam
+import com.scientianova.palm.parser.data.expressions.DecPattern
+import com.scientianova.palm.parser.data.expressions.Expr
+import com.scientianova.palm.parser.data.expressions.PExpr
+import com.scientianova.palm.parser.data.top.*
 import com.scientianova.palm.parser.data.top.Function
-import com.scientianova.palm.parser.data.top.OptionallyTypedFunParam
 import com.scientianova.palm.parser.parseIdent
 import com.scientianova.palm.parser.parsing.expressions.*
 import com.scientianova.palm.parser.parsing.types.constraints
 import com.scientianova.palm.parser.parsing.types.parseTypeParams
 import com.scientianova.palm.parser.parsing.types.parseWhere
-import com.scientianova.palm.parser.recBuildList
+import com.scientianova.palm.util.map
+import com.scientianova.palm.util.recBuildList
 
-fun parseParamModifiers(parser: Parser) = recBuildList<DecModifier> {
-    val current = parser.current
-    if (current == Token.At) {
-        add(DecModifier.Annotation(parseAnnotation(parser)))
-    } else {
-        val modifier = current.decModifier ?: return this
-        val currentMark = parser.mark()
-        when (parser.advance().current) {
-            Token.Colon, Token.RParen, Token.Comma, Token.Assign -> {
-                currentMark.revertIndex()
-                return this
-            }
-            else -> add(modifier)
+
+fun Parser.parseParamModifiers() = recBuildList<DecModifier> {
+    when (val token = current) {
+        Token.At -> parseAnnotation()?.let { add(DecModifier.Annotation(it)) }
+        is Token.Ident -> if (token.backticked) return this else when (next) {
+            Token.Colon, Token.End, Token.Comma, Token.Assign -> return this
+            else -> add(identToDecMod(token.name) ?: return this).also { advance() }
         }
+        else -> return this
     }
 }
 
-fun parseFunParam(parser: Parser): FunParam {
-    val modifiers = parseParamModifiers(parser)
-    val pattern = requireDecPattern(parser)
-    val type = requireTypeAnn(parser)
-    val default = parseEqExpr(parser)
+fun Parser.parseFunParam(): FunParam {
+    val modifiers = parseParamModifiers()
+    val pattern = requireDecPattern()
+    val type = requireTypeAnn()
+    val default = parseEqExpr()
     return FunParam(modifiers, pattern, type, default)
 }
 
-fun parseOptionallyTypedFunParam(parser: Parser): OptionallyTypedFunParam {
-    val modifiers = parseParamModifiers(parser)
-    val pattern = requireDecPattern(parser)
-    val type = parseTypeAnn(parser)
-    val default = parseEqExpr(parser)
+fun Parser.parseOptionallyTypedFunParam(): OptionallyTypedFunParam {
+    val modifiers = parseParamModifiers()
+    val pattern = requireDecPattern()
+    val type = parseTypeAnn()
+    val default = parseEqExpr()
     return OptionallyTypedFunParam(modifiers, pattern, type, default)
 }
 
-fun parseFunParams(parser: Parser): List<FunParam> = parser.withFlags(trackNewline = false, excludeCurly = false) {
+fun Parser.parseFunParams(): List<FunParam> =
     recBuildList {
-        if (parser.current == Token.RParen) {
-            parser.advance()
-            return@withFlags this
-        } else {
-            add(parseFunParam(parser))
-            when (parser.current) {
-                Token.Comma -> parser.advance()
-                Token.RParen -> {
-                    parser.advance()
-                    return@withFlags this
-                }
-                else -> parser.err(unclosedParenthesis)
-            }
+        if (current == Token.End)
+            return this
+
+        add(parseFunParam())
+        when (current) {
+            Token.Comma -> advance()
+            Token.End -> return this
+            else -> err("Missing comma")
+        }
+    }
+
+private fun Parser.parseContextParam(): ContextParam {
+    val modifiers = parseParamModifiers()
+    val pattern = if (next == Token.Colon) requireDecPattern().also { advance() } else DecPattern.Wildcard.noPos()
+    val type = requireType()
+    return ContextParam(modifiers, pattern, type)
+}
+
+fun Parser.parseContextParams(): List<ContextParam> = inBracketsOrEmpty {
+    recBuildList {
+        if (current == Token.End)
+            return@inBracketsOrEmpty this
+
+        add(parseContextParam())
+        when (current) {
+            Token.Comma -> advance()
+            Token.End -> return@inBracketsOrEmpty this
+            else -> err("Missing comma")
         }
     }
 }
 
-fun parseFun(parser: Parser, modifiers: List<DecModifier>): Function {
+fun Parser.parseFun(modifiers: List<DecModifier>): Function {
     val constrains = constraints()
-    val typeParams = parseTypeParams(parser, constrains)
-    val name = parseIdent(parser)
+    val name = parseIdent()
+    val typeParams = parseTypeParams(constrains)
+    val context = parseContextParams()
 
-    if (parser.current != Token.LParen) {
-        parser.err(missingFunParams)
+    val params = inParensOr(Parser::parseFunParams) {
+        err("Missing parameters")
+        emptyList()
     }
+    val type = parseTypeAnn()
+    parseWhere(constrains)
+    val expr = parseFunBody()
 
-    val params = parseFunParams(parser.advance())
-    val type = parseTypeAnn(parser)
-    parseWhere(parser, constrains)
-    val expr = parseFunBody(parser)
-
-    return Function(name, modifiers, typeParams, constrains, params, type, expr)
+    return Function(name, modifiers, typeParams, constrains, context, params, type, expr)
 }
 
-fun parseFunBody(parser: Parser) = when (parser.current) {
-    Token.Assign -> parseBinOps(parser.advance())
-    Token.LBrace -> parseScopeExpr(parser)
+fun Parser.parseFunBody(): PExpr? = when (val token = current) {
+    Token.Assign -> advance().parseBinOps()
+    is Token.Braces -> parseScopeBody(token.tokens).map(Expr::Scope)
     else -> null
 }
 
-fun requireFunBody(parser: Parser) = parseFunBody(parser) ?: parser.err(missingExpression)
+fun Parser.requireFunBody() = parseFunBody() ?: run {
+    err("Missing function body")
+    Expr.Error.end()
+}

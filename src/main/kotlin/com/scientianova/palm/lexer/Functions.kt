@@ -4,50 +4,44 @@ import com.scientianova.palm.util.StringPos
 
 tailrec fun Lexer.lexFile(code: String): Lexer {
     return when (val char = code.getOrNull(pos)) {
-        null -> return this
-        '\n' -> Token.EOL.add(pos + 1)
-        '\t', ' ', '\r' -> lexWhitespace(code, pos + 1).add()
+        null -> return this.end()
+        '\n' -> Token.EOL.add()
+        '\t', ' ', '\r' -> lexWhitespace(code, pos + 1)
         '#' -> lexRawString(code, pos + 1)
         '(' -> {
-            val nested = Lexer(pos + 1).lexNested(code, ')')
-            syncErrors(nested).apply {
-                Token.Parens(nested.tokens.buildList()).add(nested.pos)
-            }
+            val nested = Lexer(pos + 1, errors = errors).lexNested(code, ')')
+            Token.Parens(nested.tokens).add(nested.pos)
         }
         '[' -> {
-            val nested = Lexer(pos + 1).lexNested(code, ']')
-            syncErrors(nested).apply {
-                Token.Brackets(nested.tokens.buildList()).add(nested.pos)
-            }
+            val nested = Lexer(pos + 1, errors = errors).lexNested(code, ']')
+            Token.Brackets(nested.tokens).add(nested.pos)
         }
         '{' -> {
-            val nested = Lexer(pos + 1).lexNested(code, '}')
-            syncErrors(nested).apply {
-                Token.Braces(nested.tokens.buildList()).add(nested.pos)
-            }
+            val nested = Lexer(pos + 1, errors = errors).lexNested(code, '}')
+            Token.Braces(nested.tokens).add(nested.pos)
         }
         ')' -> err("Unexpected character", pos)
         ']' -> err("Unexpected character", pos)
         '}' -> err("Unexpected character", pos)
-        ',' -> Token.Comma.add(pos + 1)
-        ';' -> Token.Semicolon.add(pos + 1)
-        '@' -> Token.At.add(pos + 1)
-        '?' -> Token.QuestionMark.add(pos + 1)
+        ',' -> Token.Comma.add()
+        ';' -> Token.Semicolon.add()
+        '@' -> Token.At.add()
+        '?' -> Token.QuestionMark.add()
         ':' -> if (code.getOrNull(pos + 1) == ':') {
             Token.DoubleColon.add(pos + 2)
         } else {
-            Token.Colon.add(pos + 1)
+            Token.Colon.add()
         }
         '.' -> if (code.getOrNull(pos + 1) == '.') {
             Token.RangeTo.add(pos + 2)
         } else {
-            Token.Dot.add(pos + 1)
+            Token.Dot.add()
         }
         '0' -> when (code.getOrNull(pos + 1)) {
-            'b', 'B' -> lexBinaryNumber(code, pos + 2, StringBuilder()).add()
-            'o', 'O' -> lexOctalNumber(code, pos + 2, StringBuilder()).add()
-            'z', 'Z' -> lexDozenalNumber(code, pos + 2, StringBuilder()).add()
-            'x', 'X' -> lexHexNumber(code, pos + 2, StringBuilder()).add()
+            'b', 'B' -> lexBinaryNumber(code, pos + 2, StringBuilder())
+            'o', 'O' -> lexOctalNumber(code, pos + 2, StringBuilder())
+            'z', 'Z' -> lexDozenalNumber(code, pos + 2, StringBuilder())
+            'x', 'X' -> lexHexNumber(code, pos + 2, StringBuilder())
             else -> lexNumber(code, pos + 1, StringBuilder("0"))
         }
         in '1'..'9' -> lexNumber(code, pos + 1, StringBuilder().append(char))
@@ -55,17 +49,17 @@ tailrec fun Lexer.lexFile(code: String): Lexer {
         '\"' -> lexString(code, pos + 1, emptyList(), StringBuilder(), 0)
         '`' -> lexTickedIdent(code, pos + 1, StringBuilder())
         '/' -> when (code.getOrNull(pos + 1)) {
-            '/' -> lexSingleLineComment(code, pos + 2).add()
+            '/' -> lexSingleLineComment(code, pos + 2)
             '*' -> lexMultiLineComment(code, pos + 2)
             else -> lexSymbol(code, pos + 1, '/')
         }
-        in identStartChars -> lexNormalIdent(code, pos + 1, StringBuilder().append(char)).add()
+        in identStartChars -> lexNormalIdent(code, pos + 1, StringBuilder().append(char))
         in symbolChars -> lexSymbol(code, pos + 1, char)
         in confusables -> {
             val confusable = confusables[char]!!
-            Token.Error("Found a ${confusable.first}, which looks like a ${charNames[confusable.second]}").add(pos + 1)
+            Token.Error("Found a ${confusable.first}, which looks like a ${charNames[confusable.second]}").add()
         }
-        else -> Token.Error("Unsupported character").add(pos + 1)
+        else -> Token.Error("Unsupported character").add()
     }.lexFile(code)
 }
 
@@ -76,73 +70,72 @@ internal tailrec fun Lexer.lexNested(
 ): Lexer {
     return when (val char = code.getOrNull(pos)) {
         null -> return err("Missing $endDelim", pos, pos)
-        '\n' -> Token.EOL.add(pos + 1)
-        '\t', ' ', '\r' -> lexWhitespace(code, pos + 1).add()
+        '\n' -> Token.EOL.add()
+        '\t', ' ', '\r' -> lexWhitespace(code, pos + 1)
         '#' -> lexRawString(code, pos + 1)
         '(' -> {
-            val nested = Lexer(pos + 1).lexNested(code, ')')
-            syncErrors(nested).apply {
-                Token.Parens(nested.tokens.buildList()).add(nested.pos)
-            }
+            val nested = Lexer(pos + 1, errors = errors).lexNested(code, ')')
+            Token.Parens(nested.tokens).add(nested.pos)
         }
         '[' -> {
-            val nested = Lexer(pos + 1).lexNested(code, ']')
-            syncErrors(nested).apply {
-                Token.Brackets(nested.tokens.buildList()).add(nested.pos)
-            }
+            val nested = Lexer(pos + 1, errors = errors).lexNested(code, ']')
+            Token.Brackets(nested.tokens).add(nested.pos)
         }
         '{' -> {
-            val nested = Lexer(pos + 1).lexNested(code, '}')
-            syncErrors(nested).apply {
-                Token.Braces(nested.tokens.buildList()).add(nested.pos)
-            }
+            val nested = Lexer(pos + 1, errors = errors).lexNested(code, '}')
+            Token.Braces(nested.tokens).add(nested.pos)
         }
         ')' -> if (endDelim == ')') {
-            return this.copy(pos = pos + 1)
+            return this.end()
         } else err("Unexpected character", pos)
         ']' -> if (endDelim == ']') {
-            return this.copy(pos = pos + 1)
+            return this.end()
         } else err("Unexpected character", pos)
         '}' -> if (endDelim == '}') {
-            return this.copy(pos = pos + 1)
+            return this.end()
         } else err("Unexpected character", pos)
-        ',' -> Token.Comma.add(pos + 1)
-        ';' -> Token.Semicolon.add(pos + 1)
-        '@' -> Token.At.add(pos + 1)
-        '?' -> Token.QuestionMark.add(pos + 1)
+        ',' -> Token.Comma.add()
+        ';' -> Token.Semicolon.add()
+        '@' -> Token.At.add()
+        '?' -> Token.QuestionMark.add()
         ':' -> if (code.getOrNull(pos + 1) == ':') {
             Token.DoubleColon.add(pos + 2)
         } else {
-            Token.Colon.add(pos + 1)
+            Token.Colon.add()
         }
         '.' -> if (code.getOrNull(pos + 1) == '.') {
             Token.RangeTo.add(pos + 2)
         } else {
-            Token.Dot.add(pos + 1)
+            Token.Dot.add()
         }
         '0' -> when (code.getOrNull(pos + 1)) {
-            'b', 'B' -> lexBinaryNumber(code, pos + 2, StringBuilder()).add()
-            'o', 'O' -> lexOctalNumber(code, pos + 2, StringBuilder()).add()
-            'z', 'Z' -> lexDozenalNumber(code, pos + 2, StringBuilder()).add()
-            'x', 'X' -> lexHexNumber(code, pos + 2, StringBuilder()).add()
+            'b', 'B' -> lexBinaryNumber(code, pos + 2, StringBuilder())
+            'o', 'O' -> lexOctalNumber(code, pos + 2, StringBuilder())
+            'z', 'Z' -> lexDozenalNumber(code, pos + 2, StringBuilder())
+            'x', 'X' -> lexHexNumber(code, pos + 2, StringBuilder())
             else -> lexNumber(code, pos + 1, StringBuilder("0"))
         }
         in '1'..'9' -> lexNumber(code, pos + 1, StringBuilder().append(char))
         '\'' -> lexChar(code, pos + 1)
         '\"' -> lexString(code, pos + 1, emptyList(), StringBuilder(), 0)
         '`' -> lexTickedIdent(code, pos + 1, StringBuilder())
-        '/' -> when (code.getOrNull(pos + 1)) {
-            '/' -> lexSingleLineComment(code, pos + 2).add()
-            '*' -> lexMultiLineComment(code, pos + 2)
-            else -> lexSymbol(code, pos + 1, '/')
+        '*' -> when (code.getOrNull(pos + 1)) {
+            '=' -> Token.TimesAssign.add(pos + 2)
+            else -> Token.Times.add()
         }
-        in identStartChars -> lexNormalIdent(code, pos + 1, StringBuilder().append(char)).add()
+        '/' -> when (code.getOrNull(pos + 1)) {
+            '/' -> lexSingleLineComment(code, pos + 2)
+            '*' -> lexMultiLineComment(code, pos + 2)
+            '=' -> Token.DivAssign.add(pos + 2)
+            else -> Token.Div.add()
+        }
+        in identStartChars -> lexNormalIdent(code, pos + 1, StringBuilder().append(char))
         in symbolChars -> lexSymbol(code, pos + 1, char)
         in confusables -> {
             val confusable = confusables[char]!!
-            Token.Error("Found a ${confusable.first}, which looks like a ${charNames[confusable.second]}").add(pos + 1)
+            Token.Error("Found a ${confusable.first}, which looks like a ${charNames[confusable.second]}").add()
         }
-        else -> Token.Error("Unsupported character").add(pos + 1)
+        else -> Token.Error("Unsupported character").add()
     }.lexNested(code, endDelim)
 }
 
@@ -161,27 +154,23 @@ private fun lexSymbolChars(code: String, pos: StringPos, builder: StringBuilder)
 
 private fun Lexer.lexSymbol(code: String, pos: StringPos, first: Char): Lexer =
     when (val symbol = lexSymbolChars(code, pos, StringBuilder().append(first)).toString()) {
-        "+" -> Token.Plus.add(pos + 1)
-        "-" -> Token.Minus.add(pos + 1)
-        "*" -> Token.Times.add(pos + 1)
-        "/" -> Token.Div.add(pos + 1)
-        "%" -> Token.Rem.add(pos + 1)
+        "+" -> Token.Plus.add()
+        "-" -> Token.Minus.add()
+        "%" -> Token.Rem.add()
         "&&" -> Token.And.add(pos + 2)
         "||" -> Token.Or.add(pos + 2)
-        "!" -> Token.ExclamationMark.add(pos + 1)
+        "!" -> Token.ExclamationMark.add()
         "==" -> Token.Eq.add(pos + 2)
         "!=" -> Token.NotEq.add(pos + 2)
         "===" -> Token.RefEq.add(pos + 3)
         "!==" -> Token.NotRefEq.add(pos + 3)
-        "=" -> Token.Assign.add(pos + 1)
+        "=" -> Token.Assign.add()
         "+=" -> Token.PlusAssign.add(pos + 2)
         "-=" -> Token.MinusAssign.add(pos + 2)
-        "*=" -> Token.TimesAssign.add(pos + 2)
-        "/=" -> Token.DivAssign.add(pos + 2)
         "%=" -> Token.RemAssign.add(pos + 2)
-        "->" -> Token.Arrow.add(pos + 1)
-        ">" -> Token.Greater.add(pos + 1)
-        "<" -> Token.Less.add(pos + 1)
+        "->" -> Token.Arrow.add(pos + 2)
+        ">" -> Token.Greater.add()
+        "<" -> Token.Less.add()
         ">=" -> Token.GreaterOrEq.add(pos + 2)
         "<=" -> Token.GreaterOrEq.add(pos + 2)
         else -> addErr("Unknown operator", pos, pos + symbol.length)
@@ -215,69 +204,69 @@ private tailrec fun Lexer.lexDecimalNumber(
         '+', '-' -> {
             val digit = code.getOrNull(pos + 2)
             if (digit?.isDigit() == true)
-                lexDecimalExponent(code, pos + 3, builder.append(exponentStart).append(digit)).add()
+                lexDecimalExponent(code, pos + 3, builder.append(exponentStart).append(digit))
             else addErr("Invalid exponent", pos + 2)
         }
-        in '0'..'9' -> lexDecimalExponent(code, pos + 2, builder.append(exponentStart)).add()
+        in '0'..'9' -> lexDecimalExponent(code, pos + 2, builder.append(exponentStart))
         else -> addErr("Invalid exponent", pos + 1)
     }
     else -> Token.FloatLit(builder.toString().toDouble()).add(pos)
 }
 
-private tailrec fun lexDecimalExponent(
+private tailrec fun Lexer.lexDecimalExponent(
     code: String,
     pos: StringPos,
     builder: StringBuilder,
-): PToken = when (val char = code.getOrNull(pos)) {
+): Lexer = when (val char = code.getOrNull(pos)) {
     in '0'..'9' -> lexDecimalExponent(code, pos + 1, builder.append(char))
     '_' -> lexDecimalExponent(code, pos + 1, builder)
-    else -> Token.FloatLit(builder.toString().toDouble()).till(pos)
+    else -> Token.FloatLit(builder.toString().toDouble()).add(pos)
 }
 
-internal tailrec fun lexBinaryNumber(
+internal tailrec fun Lexer.lexBinaryNumber(
     code: String,
     pos: StringPos,
     builder: StringBuilder,
-): PToken = when (val char = code.getOrNull(pos)) {
+): Lexer = when (val char = code.getOrNull(pos)) {
     '0', '1' ->
         lexBinaryNumber(code, pos + 1, builder.append(char))
     '_' ->
         lexBinaryNumber(code, pos + 1, builder)
-    else -> Token.IntLit(builder.toString().toLong(radix = 2)).till(pos)
+    else -> Token.IntLit(builder.toString().toLong(radix = 2)).add(pos)
 }
 
-internal tailrec fun lexOctalNumber(
+internal tailrec fun Lexer.lexOctalNumber(
     code: String,
     pos: StringPos,
     builder: StringBuilder,
-): PToken = when (val char = code.getOrNull(pos)) {
+): Lexer = when (val char = code.getOrNull(pos)) {
     in '0'..'7' ->
         lexOctalNumber(code, pos + 1, builder.append(char))
     '_' ->
         lexOctalNumber(code, pos + 1, builder)
-    else -> Token.IntLit(builder.toString().toLong(radix = 8)).till(pos)
+    else -> Token.IntLit(builder.toString().toLong(radix = 8)).add(pos)
 }
 
-internal tailrec fun lexDozenalNumber(
+internal tailrec fun Lexer.lexDozenalNumber(
     code: String,
     pos: StringPos,
     builder: StringBuilder,
-): PToken = when (val char = code.getOrNull(pos)) {
+): Lexer = when (val char = code.getOrNull(pos)) {
     in '0'..'9', 'a', 'b', 'A', 'B' ->
         lexDozenalNumber(code, pos + 1, builder.append(char))
     '_' ->
         lexDozenalNumber(code, pos + 1, builder)
-    else -> Token.IntLit(builder.toString().toLong(radix = 12)).till(pos)
+    else -> Token.IntLit(builder.toString().toLong(radix = 12)).add(pos)
 }
 
-internal tailrec fun lexHexNumber(
+internal tailrec fun Lexer.lexHexNumber(
     code: String,
     pos: StringPos,
     builder: StringBuilder,
-): PToken = when (val char = code.getOrNull(pos)) {
+): Lexer = when (val char = code.getOrNull(pos)) {
     in '0'..'9', in 'a'..'f', in 'A'..'F' -> lexHexNumber(code, pos + 1, builder.append(char))
     '_' -> lexHexNumber(code, pos + 1, builder)
-    else -> Token.IntLit(builder.toString().toLong(radix = 16)).till(pos)
+    else -> Token.IntLit(builder.toString().toLong(radix = 16)).add(pos)
 }
 
 internal fun handleEscaped(code: String, pos: StringPos, hashes: Int): LexResult<Char> =
@@ -350,7 +339,7 @@ internal fun Lexer.lexChar(code: String, pos: StringPos): Lexer {
     }
 
     val endChar = code.getOrNull(lastPos)
-    return lexerBeforeEnd.apply {
+    return lexerBeforeEnd.run {
         when {
             endChar == '\'' -> Token.CharLit(contained).add(lastPos + 1)
             endChar == null -> addErr("Unclosed char literal", lastPos)

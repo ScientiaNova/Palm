@@ -2,13 +2,13 @@ package com.scientianova.palm.lexer
 
 import com.scientianova.palm.util.StringPos
 
-internal tailrec fun lexNormalIdent(
+internal tailrec fun Lexer.lexNormalIdent(
     code: String,
     pos: StringPos,
     builder: StringBuilder,
-): PToken = when (val char = code.getOrNull(pos)) {
+): Lexer = when (val char = code.getOrNull(pos)) {
     in identChars -> lexNormalIdent(code, pos + 1, builder.append(char))
-    else -> matchIdentToken(builder.toString()).till(pos)
+    else -> matchIdentToken(builder.toString()).add(pos)
 }
 
 private fun matchIdentToken(ident: String) = when (ident) {
@@ -35,6 +35,14 @@ private fun matchIdentToken(ident: String) = when (ident) {
     "super" -> Token.Super
     "true" -> trueToken
     "false" -> falseToken
+    "where" -> whereIdent
+    "out" -> outIdent
+    "by" -> byIdent
+    "init" -> initIdent
+    "type" -> typeIdent
+    "file" -> fileIdent
+    "get" -> getIdent
+    "set" -> setIdent
     else -> if (ident.all('_'::equals)) {
         Token.Wildcard
     } else {
@@ -52,7 +60,7 @@ internal tailrec fun Lexer.lexTickedIdent(
         err("Unsupported character inside identifier", pos).lexTickedIdent(code, pos, builder)
     '`' -> {
         val ident = builder.toString()
-        if (ident.isBlank()) err("Empty identifier", pos - 1, pos + 1).apply {
+        if (ident.isBlank()) err("Empty identifier", pos - 1, pos + 1).run {
             Token.Ident(ident, true).add(pos + 1)
         } else {
             Token.Ident(ident, true).add(pos + 1)
@@ -60,3 +68,13 @@ internal tailrec fun Lexer.lexTickedIdent(
     }
     else -> lexTickedIdent(code, pos + 1, builder.append(char))
 }
+
+val whereIdent = Token.Ident("where", false)
+val byIdent = Token.Ident("by", false)
+val outIdent = Token.Ident("out", false)
+val initIdent = Token.Ident("init", false)
+val typeIdent = Token.Ident("type", false)
+val implIdent = Token.Ident("impl", false)
+val fileIdent = Token.Ident("file", false)
+val getIdent = Token.Ident("get", false)
+val setIdent = Token.Ident("set", false)

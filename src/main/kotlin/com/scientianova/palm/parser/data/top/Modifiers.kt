@@ -15,21 +15,19 @@ sealed class DecModifier {
     object Abstract : DecModifier()
     object Override : DecModifier()
     object Operator : DecModifier()
-    object In : DecModifier()
-    object Out : DecModifier()
-    object NoInline : DecModifier()
-    object CrossInline : DecModifier()
     object Open : DecModifier()
     object Final : DecModifier()
     object Const : DecModifier()
     object Enum : DecModifier()
     object Sealed : DecModifier()
     object Data : DecModifier()
+    object NoInline : DecModifier()
+    object CrossInline : DecModifier()
     data class Annotation(val annotation: com.scientianova.palm.parser.data.top.Annotation) : DecModifier()
 }
 
 data class Annotation(val path: Path, val args: List<Arg<PExpr>>, val type: AnnotationType)
 
 enum class AnnotationType {
-    Normal, Get, Set, File, Field, Delegate, Property, Param, SetParam, Constructor
+    Normal, Get, Set, File, Field, Delegate, Property, Param, SetParam, Init
 }

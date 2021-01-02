@@ -1,58 +1,43 @@
 package com.scientianova.palm.parser.parsing.top
 
-import com.scientianova.palm.errors.unclosedImportGroup
 import com.scientianova.palm.lexer.Token
 import com.scientianova.palm.parser.Parser
 import com.scientianova.palm.parser.data.top.Import
 import com.scientianova.palm.parser.parseIdent
-import com.scientianova.palm.parser.recBuildList
-import com.scientianova.palm.parser.recBuildListN
 import com.scientianova.palm.util.PString
+import com.scientianova.palm.util.recBuildList
+import com.scientianova.palm.util.recBuildListN
 
-private fun parseImport(parser: Parser): Import = recBuildListN<PString> {
-    when (parser.current) {
-        Token.Wildcard -> return Import.Package(this)
-        Token.LBrace -> {
-            val group = parseImportGroup(parser.advance())
-            parser.advance()
-
-            return Import.Group(this, group)
-        }
-        else -> add(parseIdent(parser))
+fun Parser.parseImport(): Import = recBuildListN<PString> {
+    when (val curr = current) {
+        Token.Times -> return Import.Package(this).also { advance() }
+        is Token.Braces ->
+            return Import.Group(this, scopedOf(curr.tokens).parseImportGroup()).also { advance() }
+        else -> add(parseIdent())
     }
-    add(parseIdent(parser))
-    when (parser.current) {
-        Token.Dot -> parser.advance()
-        Token.As -> return Import.Regular(this, parseIdent(parser.advance()))
+    when (current) {
+        Token.Dot -> advance()
+        Token.As -> return Import.Regular(this, advance().parseIdent())
         else -> return Import.Regular(this, null)
     }
 }
 
-private fun parseImportGroup(parser: Parser): List<Import> = recBuildList {
-    if (parser.current == Token.RBrace) {
-        return this
-    }
+private fun Parser.parseImportGroup(): List<Import> = recBuildList {
+    if (current == Token.End) return this
 
-    add(
-        if (parser.current == Token.This) {
-            parser.advance()
-            Import.Regular(emptyList(), null)
-        } else {
-            parseImport(parser)
-        }
-    )
+    add(parseImport())
 
-    when (parser.current) {
-        Token.Comma -> parser.advance()
-        Token.RBrace -> return this
-        else -> parser.err(unclosedImportGroup)
+    when (current) {
+        Token.Comma -> advance()
+        Token.End -> return this
+        else -> err("Missing comma")
     }
 }
 
-fun parseImports(parser: Parser): List<Import> = recBuildList {
-    when (parser.current) {
-        Token.Semicolon -> parser.advance()
-        Token.Import -> add(parseImport(parser))
+fun Parser.parseImports(): List<Import> = recBuildList {
+    when (current) {
+        Token.Semicolon -> advance()
+        Token.Import -> add(parseImport())
         else -> return this
     }
 }

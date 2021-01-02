@@ -1,84 +1,46 @@
 package com.scientianova.palm.parser.parsing.types
 
-import com.scientianova.palm.errors.unexpectedMember
 import com.scientianova.palm.lexer.Token
+import com.scientianova.palm.lexer.typeIdent
 import com.scientianova.palm.parser.Parser
-import com.scientianova.palm.parser.data.types.ImplStatement
-import com.scientianova.palm.parser.data.types.Implementation
 import com.scientianova.palm.parser.data.types.ImplStmt
+import com.scientianova.palm.parser.data.types.Implementation
 import com.scientianova.palm.parser.parseIdent
 import com.scientianova.palm.parser.parsing.expressions.requireEqType
 import com.scientianova.palm.parser.parsing.expressions.requireType
+import com.scientianova.palm.parser.parsing.top.parseContextParams
 import com.scientianova.palm.parser.parsing.top.parseDecModifiers
 import com.scientianova.palm.parser.parsing.top.parseFun
 import com.scientianova.palm.parser.parsing.top.parseProperty
-import com.scientianova.palm.parser.recBuildList
+import com.scientianova.palm.util.recBuildList
 
-private fun parseImplBody(parser: Parser) = recBuildList<ImplStatement> {
-    when (parser.current) {
-        Token.RBrace -> {
-            parser.advance()
-            return this
-        }
-        Token.Semicolon -> parser.advance()
+private fun Parser.parseImplBody() = recBuildList<ImplStmt> {
+    when (current) {
+        Token.End -> return this
+        Token.Semicolon -> advance()
         else -> {
-            val modifiers = parseDecModifiers(parser)
-            add(
-                when (parser.current) {
-                    Token.Val -> ImplStatement.Property(parseProperty(parser.advance(), modifiers, false))
-                    Token.Var -> ImplStatement.Property(parseProperty(parser.advance(), modifiers, true))
-                    Token.Fun -> ImplStatement.Method(parseFun(parser.advance(), modifiers))
-                    else -> parser.err(unexpectedMember("implementation"))
-                }
-            )
+            val modifiers = parseDecModifiers()
+            when (current) {
+                Token.Val -> add(ImplStmt.Property(advance().parseProperty(modifiers, false)))
+                Token.Var -> add(ImplStmt.Property(advance().parseProperty(modifiers, true)))
+                Token.Fun -> add(ImplStmt.Method(advance().parseFun(modifiers)))
+                typeIdent -> add(parseAssociatedType())
+                else -> err("Expected implementation member").also { advance() }
+            }
         }
     }
 }
 
-private fun parseTraitImplBody(parser: Parser) = recBuildList<ImplStmt> {
-    when (parser.current) {
-        Token.RBrace -> {
-            parser.advance()
-            return this
-        }
-        Token.Semicolon -> parser.advance()
-        else -> {
-            val modifiers = parseDecModifiers(parser)
-            add(
-                when (parser.current) {
-                    Token.Val -> ImplStmt.Property(parseProperty(parser.advance(), modifiers, false))
-                    Token.Var -> ImplStmt.Property(parseProperty(parser.advance(), modifiers, true))
-                    Token.Fun -> ImplStmt.Method(parseFun(parser.advance(), modifiers))
-                    Token.Type -> parseAssociatedType(parser)
-                    else -> parser.err(unexpectedMember("implementation"))
-                }
-            )
-        }
-    }
-}
+private fun Parser.parseAssociatedType(): ImplStmt =
+    ImplStmt.AssociatedType(parseIdent(), requireEqType())
 
-private fun parseAssociatedType(parser: Parser): ImplStmt =
-    ImplStmt.AssociatedType(parseIdent(parser), requireEqType(parser))
-
-fun parseImpl(parser: Parser): Implementation {
+fun Parser.parseImpl(): Implementation {
     val constraints = constraints()
-    val typeParams = parseTypeParams(parser, constraints)
-    val type = requireType(parser)
+    val typeParams = parseTypeParams(constraints)
+    val type = requireType()
+    val context = parseContextParams()
+    parseWhere(constraints)
+    val body = inBracesOrEmpty(Parser::parseImplBody)
 
-    return if (parser.current == Token.For) {
-        val forType = requireType(parser.advance())
-        parseWhere(parser, constraints)
-        val body = if (parser.current == Token.LBrace) {
-            parseTraitImplBody(parser.advance())
-        } else {
-            emptyList()
-        }
-
-        Implementation.Trait(type, forType, typeParams, constraints, body)
-    } else {
-        parseWhere(parser, constraints)
-        val body = parseImplBody(parser.advance())
-
-        Implementation.Inherent(type, typeParams, constraints, body)
-    }
+    return Implementation(type, typeParams, constraints, context, body)
 }

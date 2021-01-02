@@ -1,14 +1,30 @@
 package com.scientianova.palm.lexer
 
+import com.scientianova.palm.parser.Parser
+import com.scientianova.palm.parser.data.expressions.StringPartP
+import com.scientianova.palm.parser.parsing.expressions.parseStatements
+import com.scientianova.palm.util.Positioned
 import com.scientianova.palm.util.StringPos
+import com.scientianova.palm.util.at
 
-sealed class StringPart {
-    data class String(val string: kotlin.String) : StringPart()
-    data class Expr(val expr: List<PToken>) : StringPart()
+sealed class StringPartL {
+    abstract fun parse(parser: Parser): StringPartP
+    data class String(val string: kotlin.String) : StringPartL() {
+        override fun parse(parser: Parser) = StringPartP.String(string)
+    }
+
+    data class Expr(val startPos: StringPos, val tokens: List<PToken>) : StringPartL() {
+        override fun parse(parser: Parser): StringPartP = StringPartP.Expr(
+            com.scientianova.palm.parser.data.expressions.Expr.Scope(parser.scopedOf(tokens).parseStatements())
+                .at(startPos, tokens.last().next)
+        )
+    }
 }
 
 sealed class Token {
     open fun canIgnore() = false
+    open fun afterPostfix() = canIgnore()
+    open fun beforePrefix() = canIgnore()
 
     data class Ident(val name: String, val backticked: Boolean) : Token()
 
@@ -17,17 +33,35 @@ sealed class Token {
     data class CharLit(val value: Char) : Token()
     data class IntLit(val value: Long) : Token()
     data class FloatLit(val value: Double) : Token()
-    data class StrLit(val parts: List<StringPart>) : Token()
+    data class StrLit(val parts: List<StringPartL>) : Token()
 
-    data class Parens(val token: List<PToken>) : Token()
-    data class Brackets(val token: List<PToken>) : Token()
-    data class Braces(val token: List<PToken>) : Token()
+    data class Parens(val tokens: List<PToken>) : Token()
+    data class Brackets(val tokens: List<PToken>) : Token()
+    data class Braces(val tokens: List<PToken>) : Token()
 
     object At : Token()
-    object Dot : Token()
-    object Colon : Token()
-    object DoubleColon : Token()
-    object Semicolon : Token()
+
+    object Dot : Token() {
+        override fun afterPostfix() = true
+    }
+
+    object Colon : Token() {
+        override fun afterPostfix() = true
+    }
+
+    object DoubleColon : Token() {
+        override fun afterPostfix() = true
+    }
+
+    object Semicolon : Token() {
+        override fun afterPostfix() = true
+        override fun beforePrefix() = true
+    }
+
+    object Comma : Token() {
+        override fun afterPostfix() = true
+        override fun beforePrefix() = true
+    }
 
     object Or : Token()
     object And : Token()
@@ -41,7 +75,11 @@ sealed class Token {
     object GreaterOrEq : Token()
     object Is : Token()
     object In : Token()
-    object RangeTo : Token()
+    object RangeTo : Token() {
+        override fun afterPostfix() = true
+        override fun beforePrefix() = true
+    }
+
     object Plus : Token()
     object Minus : Token()
     object Times : Token()
@@ -62,7 +100,6 @@ sealed class Token {
     object Arrow : Token()
     object Spread : Token()
     object Wildcard : Token()
-    object Comma : Token()
 
     object Fun : Token()
     object Val : Token()
@@ -96,13 +133,14 @@ sealed class Token {
         override fun canIgnore() = true
     }
 
-    data class MetadataComment(val content: String) : Token()
+    object End : Token() {
+        override fun afterPostfix() = true
+    }
 
     data class Error(val error: String) : Token()
 }
 
-data class PToken(val token: Token, val next: StringPos)
-fun Token.till(next: StringPos) = PToken(this, next)
+typealias PToken = Positioned<Token>
 
 val trueToken = Token.BoolLit(true)
 val falseToken = Token.BoolLit(false)

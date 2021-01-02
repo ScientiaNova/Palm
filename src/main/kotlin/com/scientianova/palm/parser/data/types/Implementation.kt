@@ -6,8 +6,7 @@ import com.scientianova.palm.parser.data.top.Function
 import com.scientianova.palm.util.PString
 
 data class Implementation(
-    val trait: PType,
-    val on: PType,
+    val type: PType,
     val typeParams: List<PString>,
     val typeConstraints: TypeConstraints,
     val context: List<ContextParam>,

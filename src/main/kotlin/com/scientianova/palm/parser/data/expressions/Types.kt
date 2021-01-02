@@ -17,6 +17,8 @@ sealed class Type {
     data class Annotated(val annotation: Annotation, val type: PType) : Type()
 }
 
+val emptyType = Type.Named(emptyList(), emptyList())
+
 typealias PType = Positioned<Type>
 
 enum class VarianceMod {

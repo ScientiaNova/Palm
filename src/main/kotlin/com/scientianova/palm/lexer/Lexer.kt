@@ -1,25 +1,25 @@
 package com.scientianova.palm.lexer
 
 import com.scientianova.palm.errors.PalmError
-import com.scientianova.palm.util.ListBuilder
 import com.scientianova.palm.util.StringPos
-import com.scientianova.palm.util.plus
+import com.scientianova.palm.util.alsoAdd
 
 data class Lexer(
     val pos: StringPos = 0,
-    val tokens: ListBuilder<PToken> = ListBuilder.Null,
-    val errors: ListBuilder<PalmError> = ListBuilder.Null
+    val tokens: MutableList<PToken> = mutableListOf(),
+    val errors: MutableList<PalmError> = mutableListOf()
 ) {
-    fun PToken.add() = Lexer(this.next, tokens + this, errors)
-    fun Token.add(next: StringPos) = Lexer(next, tokens + this.till(next), errors)
+    fun Token.add(next: StringPos = pos + 1) = Lexer(next, tokens.alsoAdd(PToken(this, pos, next)), errors)
     fun err(error: String, start: StringPos, next: StringPos = start + 1) =
-        Lexer(next, tokens, errors + PalmError(error, start, next))
+        Lexer(next, tokens, errors.alsoAdd(PalmError(error, start, next)))
 
     fun err(error: PalmError) =
-        Lexer(pos, tokens, errors + error)
+        Lexer(pos, tokens, errors.alsoAdd(error))
 
     fun addErr(error: String, start: StringPos, next: StringPos = start + 1) =
-        Lexer(next, tokens + Token.Error(error).till(next), errors + PalmError(error, start, next))
+        Lexer(next, tokens.alsoAdd(PToken(Token.Error(error), pos, next)), errors.alsoAdd(PalmError(error, start, next)))
 
-    fun syncErrors(other: Lexer) = Lexer(pos, tokens, ListBuilder.ConsBranch(other.errors, errors))
+    fun end(): Lexer = Token.End.add()
+
+    fun endHere(): Lexer = Token.End.add(pos)
 }

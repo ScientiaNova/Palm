@@ -11,7 +11,7 @@ data class Function(
     val modifiers: List<DecModifier>,
     val typeParams: List<PString>,
     val constraints: TypeConstraints,
-    val context: List<ContextParam,
+    val context: List<ContextParam>,
     val params: List<FunParam>,
     val type: PType?,
     val expr: PExpr?
@@ -33,7 +33,6 @@ data class OptionallyTypedFunParam(
 
 data class ContextParam(
     val modifiers: List<DecModifier>,
-    val pattern: PDecPattern?,
-    val type: PType,
-    val default: PExpr?
+    val pattern: PDecPattern,
+    val type: PType
 )
