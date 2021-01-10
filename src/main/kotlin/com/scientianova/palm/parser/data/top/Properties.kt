@@ -6,9 +6,9 @@ import com.scientianova.palm.util.PString
 
 data class Property(
     val name: PString,
-    val modifiers: List<DecModifier>,
+    val modifiers: List<PDecMod>,
     val mutable: Boolean,
-    val type: PType,
+    val type: PType?,
     val context: List<ContextParam>,
     val body: PropertyBody
 )
@@ -16,9 +16,9 @@ data class Property(
 sealed class PropertyBody {
     data class Normal(
         val expr: PExpr?,
-        val getterModifiers: List<DecModifier>,
+        val getterModifiers: List<PDecMod>,
         val getter: Getter?,
-        val setterModifiers: List<DecModifier>,
+        val setterModifiers: List<PDecMod>,
         val setter: Setter?
     ) : PropertyBody()
 

@@ -6,9 +6,10 @@ import com.scientianova.palm.parser.Parser
 import com.scientianova.palm.parser.data.top.Annotation
 import com.scientianova.palm.parser.data.top.AnnotationType
 import com.scientianova.palm.parser.data.top.DecModifier
+import com.scientianova.palm.parser.data.top.PDecMod
 import com.scientianova.palm.parser.parseIdent
 import com.scientianova.palm.parser.parsing.expressions.parseCallArgs
-import com.scientianova.palm.util.recBuildList
+import com.scientianova.palm.util.*
 
 fun identToDecMod(string: String) = when (string) {
     "inline" -> DecModifier.Inline
@@ -31,13 +32,13 @@ fun identToDecMod(string: String) = when (string) {
     else -> null
 }
 
-fun Parser.parseDecModifiers(): List<DecModifier> = recBuildList {
+fun Parser.parseDecModifiers(): List<PDecMod> = recBuildList {
     when (val token = current) {
         is Token.Ident -> if (token.backticked) return this else when (next) {
             Token.Colon, Token.End, Token.Comma, Token.Assign -> return this
-            else -> add(identToDecMod(token.name) ?: return this).also { advance() }
+            else -> add(identToDecMod(token.name)?.end() ?: return this).also { advance() }
         }
-        Token.At -> parseAnnotation()?.let { add(DecModifier.Annotation(it)) } ?: return this
+        Token.At -> parseAnnotation()?.let { add(it.map(DecModifier::Annotation)) } ?: return this
         else -> return this
     }
 }
@@ -61,7 +62,7 @@ private fun Parser.parseAnnotationType(ident: String): AnnotationType = if (next
     }
 } else AnnotationType.Normal
 
-fun Parser.parseAnnotation(): Annotation? {
+fun Parser.parseAnnotation(): Positioned<Annotation>?  = withPos { startPos ->
     val start = rawLookup(1)
     if (start is Token.Ident) advance() else {
         err("Missing identifier")
@@ -70,9 +71,21 @@ fun Parser.parseAnnotation(): Annotation? {
 
     val type = if (start.backticked) AnnotationType.Normal else parseAnnotationType(start.name)
     val path = parseAnnotationPath()
-    val args = inParensOrEmpty(Parser::parseCallArgs)
 
-    return Annotation(path, args, type)
+    val end: StringPos
+    val args = current.let { paren ->
+        if (paren is Token.Parens)
+            parenthesizedOf(paren.tokens).parseCallArgs().also {
+                end = nextPos
+                advance()
+            }
+        else {
+            end = path.last().next
+            emptyList()
+        }
+    }
+
+    return Annotation(path, args, type).at(startPos, end)
 }
 
 private fun Parser.parseAnnotationPath() = recBuildList(mutableListOf(parseIdent())) {

@@ -6,8 +6,8 @@ import com.scientianova.palm.parser.Parser
 import com.scientianova.palm.parser.data.expressions.ExprScope
 import com.scientianova.palm.parser.data.expressions.PExprScope
 import com.scientianova.palm.parser.data.expressions.ScopeStmt
-import com.scientianova.palm.parser.data.expressions.Type
 import com.scientianova.palm.parser.data.top.DecModifier
+import com.scientianova.palm.parser.data.top.PDecMod
 import com.scientianova.palm.parser.parsing.top.parseDecModifiers
 import com.scientianova.palm.parser.parsing.top.parseImport
 import com.scientianova.palm.util.recBuildList
@@ -29,9 +29,9 @@ private fun Parser.parseStatement(): ScopeStmt {
     }
 }
 
-private fun Parser.parseVarDec(modifiers: List<DecModifier>, mutable: Boolean): ScopeStmt {
+private fun Parser.parseVarDec(modifiers: List<PDecMod>, mutable: Boolean): ScopeStmt {
     val pattern = advance().requireDecPattern()
-    val type = parseTypeAnn() ?: Type.Infer.noPos()
+    val type = parseTypeAnn()
     val expr = parseEqExpr()
     return ScopeStmt.Dec(modifiers, mutable, pattern, type, expr)
 }

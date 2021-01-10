@@ -8,6 +8,6 @@ typealias PDecPattern = Positioned<DecPattern>
 sealed class DecPattern {
     data class Name(val name: String) : DecPattern()
     data class Components(val elements: List<PDecPattern>) : DecPattern()
-    data class Object(val elements: List<Pair<PString, PDecPattern>>) : DecPattern()
+    data class Object(val elements: List<Pair<PString, PDecPattern?>>) : DecPattern()
     object Wildcard : DecPattern()
 }

@@ -16,12 +16,12 @@ import com.scientianova.palm.util.map
 import com.scientianova.palm.util.recBuildList
 
 
-fun Parser.parseParamModifiers() = recBuildList<DecModifier> {
+fun Parser.parseParamModifiers() = recBuildList<PDecMod> {
     when (val token = current) {
-        Token.At -> parseAnnotation()?.let { add(DecModifier.Annotation(it)) }
+        Token.At -> parseAnnotation()?.let { add(it.map(DecModifier::Annotation)) }
         is Token.Ident -> if (token.backticked) return this else when (next) {
             Token.Colon, Token.End, Token.Comma, Token.Assign -> return this
-            else -> add(identToDecMod(token.name) ?: return this).also { advance() }
+            else -> add(identToDecMod(token.name)?.end() ?: return this)
         }
         else -> return this
     }
@@ -77,7 +77,7 @@ fun Parser.parseContextParams(): List<ContextParam> = inBracketsOrEmpty {
     }
 }
 
-fun Parser.parseFun(modifiers: List<DecModifier>): Function {
+fun Parser.parseFun(modifiers: List<PDecMod>): Function {
     val constrains = constraints()
     val name = parseIdent()
     val typeParams = parseTypeParams(constrains)

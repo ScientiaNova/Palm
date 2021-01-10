@@ -36,24 +36,16 @@ private fun Parser.parseComponentsBody(): List<PDecPattern> = recBuildList {
     }
 }
 
-private fun Parser.parseComponents(tokens: List<PToken>): PDecPattern {
-    val list = parenthesizedOf(tokens).parseComponentsBody()
+private fun Parser.parseComponents(tokens: List<PToken>): PDecPattern =
+    DecPattern.Components(parenthesizedOf(tokens).parseComponentsBody()).end()
 
-    return if (list.size == 1) {
-        advance()
-        list[0]
-    } else {
-        DecPattern.Components(list).end()
-    }
-}
-
-private fun Parser.parseDecObjectBody(): List<Pair<PString, PDecPattern>> = recBuildList {
+private fun Parser.parseDecObjectBody(): List<Pair<PString, PDecPattern?>> = recBuildList {
     if (current == Token.End) {
         return this
     } else {
         val ident = parseIdent()
         add(
-            ident to if (current == Token.Colon) advance().requireDecPattern() else ident.map(DecPattern::Name)
+            ident to if (current == Token.Colon) advance().requireDecPattern() else null
         )
         when (current) {
             Token.Comma -> advance()
@@ -64,4 +56,4 @@ private fun Parser.parseDecObjectBody(): List<Pair<PString, PDecPattern>> = recB
 }
 
 private fun Parser.parseDecObject(tokens: List<PToken>): PDecPattern =
-    DecPattern.Components(parenthesizedOf(tokens).parseComponentsBody()).end()
+    DecPattern.Object(parenthesizedOf(tokens).parseDecObjectBody()).end()

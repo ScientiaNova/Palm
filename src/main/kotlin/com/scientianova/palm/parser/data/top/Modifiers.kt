@@ -3,6 +3,7 @@ package com.scientianova.palm.parser.data.top
 import com.scientianova.palm.parser.data.expressions.Arg
 import com.scientianova.palm.parser.data.expressions.PExpr
 import com.scientianova.palm.parser.data.expressions.Path
+import com.scientianova.palm.util.Positioned
 
 sealed class DecModifier {
     object Public : DecModifier()
@@ -25,6 +26,8 @@ sealed class DecModifier {
     object CrossInline : DecModifier()
     data class Annotation(val annotation: com.scientianova.palm.parser.data.top.Annotation) : DecModifier()
 }
+
+typealias PDecMod = Positioned<DecModifier>
 
 data class Annotation(val path: Path, val args: List<Arg<PExpr>>, val type: AnnotationType)
 

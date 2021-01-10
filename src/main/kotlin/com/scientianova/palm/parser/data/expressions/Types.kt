@@ -14,7 +14,7 @@ sealed class Type {
     data class Tuple(val types: List<PType>) : Type()
     data class Function(val context: List<PType>, val params: List<PType>, val returnType: PType) : Type()
     data class Nullable(val type: PType) : Type()
-    data class Annotated(val annotation: Annotation, val type: PType) : Type()
+    data class Annotated(val annotation: Positioned<Annotation>, val type: PType) : Type()
 }
 
 val emptyType = Type.Named(emptyList(), emptyList())

@@ -8,7 +8,7 @@ import com.scientianova.palm.util.PString
 
 data class Function(
     val name: PString,
-    val modifiers: List<DecModifier>,
+    val modifiers: List<PDecMod>,
     val typeParams: List<PString>,
     val constraints: TypeConstraints,
     val context: List<ContextParam>,
@@ -18,21 +18,21 @@ data class Function(
 )
 
 data class FunParam(
-    val modifiers: List<DecModifier>,
+    val modifiers: List<PDecMod>,
     val pattern: PDecPattern,
     val type: PType,
     val default: PExpr?
 )
 
 data class OptionallyTypedFunParam(
-    val modifiers: List<DecModifier>,
+    val modifiers: List<PDecMod>,
     val pattern: PDecPattern,
     val type: PType?,
     val default: PExpr?
 )
 
 data class ContextParam(
-    val modifiers: List<DecModifier>,
+    val modifiers: List<PDecMod>,
     val pattern: PDecPattern,
     val type: PType
 )

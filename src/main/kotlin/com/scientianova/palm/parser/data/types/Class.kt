@@ -1,8 +1,7 @@
 package com.scientianova.palm.parser.data.types
 
 import com.scientianova.palm.parser.data.expressions.*
-import com.scientianova.palm.parser.data.top.DecModifier
-import com.scientianova.palm.parser.data.top.FunParam
+import com.scientianova.palm.parser.data.top.*
 import com.scientianova.palm.parser.data.top.Function
 import com.scientianova.palm.util.PString
 import com.scientianova.palm.util.Positioned
@@ -19,7 +18,7 @@ sealed class SuperType {
 typealias PSuperType = Positioned<SuperType>
 
 data class PrimaryParam(
-    val modifiers: List<DecModifier>,
+    val modifiers: List<PDecMod>,
     val decHandling: DecHandling,
     val name: PString,
     val type: PType,
@@ -28,19 +27,28 @@ data class PrimaryParam(
 
 sealed class ClassStmt {
     data class Constructor(
-        val modifiers: List<DecModifier>,
+        val modifiers: List<PDecMod>,
         val params: List<FunParam>,
         val primaryCall: List<Arg<PExpr>>?,
         val body: PExprScope?
     ) : ClassStmt()
 
     data class Initializer(val scope: PExprScope) : ClassStmt()
-    data class Method(val function: Function) : ClassStmt()
-    data class Property(val property: com.scientianova.palm.parser.data.top.Property) : ClassStmt()
-    data class NestedDec(val dec: TypeDec) : ClassStmt()
+    data class Item(val item: com.scientianova.palm.parser.data.top.Item) : ClassStmt()
 }
 
 data class ClassTypeParam(val type: PString, val variance: VarianceMod)
 typealias PClassTypeParam = Positioned<ClassTypeParam>
 
 typealias TypeConstraints = List<Pair<PString, List<PType>>>
+
+data class Class(
+    val name: PString,
+    val modifiers: List<PDecMod>,
+    val constructorModifiers: List<PDecMod>,
+    val primaryConstructor: List<PrimaryParam>?,
+    val typeParams: List<PClassTypeParam>,
+    val typeConstraints: TypeConstraints,
+    val superTypes: List<PSuperType>,
+    val statements: List<ClassStmt>
+)

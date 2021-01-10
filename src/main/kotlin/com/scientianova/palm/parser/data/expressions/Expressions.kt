@@ -76,7 +76,7 @@ data class CallArgs(val args: List<Arg<PExpr>> = emptyList(), val trailing: List
 
 data class Catch(val dec: PDecPattern, val type: PType, val body: PExprScope)
 
-data class LambdaParams(val context: List<Pair<PDecPattern, PType>>, val explicit: List<Pair<PDecPattern, PType>>)
+data class LambdaParams(val context: List<Pair<PDecPattern, PType?>>, val explicit: List<Pair<PDecPattern, PType?>>)
 
 data class WhenBranch(val pattern: Pattern, val guard: BranchGuard?, val res: BranchRes)
 data class BranchGuard(val expr: PExpr)

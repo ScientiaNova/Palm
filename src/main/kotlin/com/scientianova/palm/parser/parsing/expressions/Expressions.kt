@@ -334,16 +334,8 @@ private fun Parser.parseTupleBody(): List<PExpr> = recBuildList {
     }
 }
 
-private fun Parser.parseTuple(tokens: List<PToken>): PExpr {
-    val list = parenthesizedOf(tokens).parseTupleBody()
-
-    return if (list.size == 1) {
-        advance()
-        list[0]
-    } else {
-        Expr.Tuple(list).end()
-    }
-}
+private fun Parser.parseTuple(tokens: List<PToken>): PExpr =
+    Expr.Tuple(parenthesizedOf(tokens).parseTupleBody()).end()
 
 private fun Parser.parseWhenBranch(): WhenBranch {
     val pattern = parsePattern()
@@ -486,9 +478,9 @@ private fun Parser.parseGet(on: PExpr, tokens: List<PToken>): PExpr {
     }
 }
 
-private fun Parser.parseOptionallyTypedParams() = recBuildList<Pair<PDecPattern, PType>> {
+private fun Parser.parseOptionallyTypedParams() = recBuildList<Pair<PDecPattern, PType?>> {
     if (current == Token.End) return this
-    add(requireDecPattern() to (parseTypeAnn() ?: Type.Infer.noPos()))
+    add(requireDecPattern() to parseTypeAnn())
     when (current) {
         Token.Comma -> advance()
         Token.End -> return this

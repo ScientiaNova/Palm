@@ -6,11 +6,14 @@ import com.scientianova.palm.lexer.initIdent
 import com.scientianova.palm.lexer.outIdent
 import com.scientianova.palm.parser.Parser
 import com.scientianova.palm.parser.data.expressions.VarianceMod
-import com.scientianova.palm.parser.data.top.DecModifier
+import com.scientianova.palm.parser.data.top.PDecMod
 import com.scientianova.palm.parser.data.types.*
 import com.scientianova.palm.parser.parseIdent
 import com.scientianova.palm.parser.parsing.expressions.*
-import com.scientianova.palm.parser.parsing.top.*
+import com.scientianova.palm.parser.parsing.top.parseDecModifiers
+import com.scientianova.palm.parser.parsing.top.parseFunParams
+import com.scientianova.palm.parser.parsing.top.parseItem
+import com.scientianova.palm.parser.parsing.top.parseParamModifiers
 import com.scientianova.palm.util.at
 import com.scientianova.palm.util.recBuildList
 
@@ -78,7 +81,7 @@ private fun Parser.parsePrimaryParams() =
     }
 
 
-fun Parser.parseClass(modifiers: List<DecModifier>): TypeDec {
+fun Parser.parseClass(modifiers: List<PDecMod>): Class {
     val name = parseIdent()
 
     val constraints = constraints()
@@ -103,7 +106,7 @@ fun Parser.parseClass(modifiers: List<DecModifier>): TypeDec {
 
     val body = inBracesOrEmpty(Parser::parseClassBody)
 
-    return TypeDec.Class(
+    return Class(
         name,
         modifiers,
         constructorModifiers,
@@ -159,16 +162,13 @@ private fun Parser.parseClassBody() = recBuildList<ClassStmt> {
             val modifiers = parseDecModifiers()
             when (current) {
                 initIdent -> add(advance().parseConstructorOrInit(modifiers))
-                Token.Val -> add(ClassStmt.Property(advance().parseProperty(modifiers, false)))
-                Token.Var -> add(ClassStmt.Property(advance().parseProperty(modifiers, true)))
-                Token.Fun -> add(ClassStmt.Method(advance().parseFun(modifiers)))
-                else -> parseTypeDec(modifiers)?.let { add(ClassStmt.NestedDec(it)) }
+                else -> parseItem(modifiers)?.let { add(ClassStmt.Item(it)) }
             }
         }
     }
 }
 
-private fun Parser.parseConstructorOrInit(modifiers: List<DecModifier>): ClassStmt {
+private fun Parser.parseConstructorOrInit(modifiers: List<PDecMod>): ClassStmt {
     val params = when (val token = current) {
         is Token.Braces -> return ClassStmt.Initializer(parseScopeBody(token.tokens)).also { advance() }
         is Token.Parens -> parenthesizedOf(token.tokens).parseFunParams().also { advance() }
