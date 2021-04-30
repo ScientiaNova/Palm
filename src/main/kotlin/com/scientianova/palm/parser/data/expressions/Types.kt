@@ -1,10 +1,8 @@
 package com.scientianova.palm.parser.data.expressions
 
 import com.scientianova.palm.parser.data.top.Annotation
-import com.scientianova.palm.util.PString
+import com.scientianova.palm.util.Path
 import com.scientianova.palm.util.Positioned
-
-typealias Path = List<PString>
 
 sealed class Type {
     object Infer : Type()

@@ -20,7 +20,7 @@ fun Parser.parseDecPattern(): PDecPattern? = when (val token = current) {
 
 fun Parser.requireDecPattern() = parseDecPattern() ?: run {
     err("Invalid pattern")
-    DecPattern.Wildcard.noPos()
+    DecPattern.Wildcard.noPos().also { advance() }
 }
 
 private fun Parser.parseComponentsBody(): List<PDecPattern> = recBuildList {

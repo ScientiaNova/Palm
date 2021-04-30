@@ -98,10 +98,10 @@ data class Segment(
 	val startStepCount: Int,
 	val minX: Int = min(start.x, end.x),
 	val maxX: Int = max(start.x, end.x),
-	val xRange: ClosedRange[Int] = minX..maxX,
+	val xRange: ClosedRange<Int> = minX..maxX,
 	val minY: Int = min(start.y, end.y),
 	val maxY: Int = max(start.y, end.y),
-	val yRange: ClosedRange[Int] = minY..maxY,
+	val yRange: ClosedRange<Int> = minY..maxY,
 )
 
 impl Segment {
@@ -110,9 +110,9 @@ impl Segment {
 		
 		val xs = max(minX, other.minX)..min(maxX, other.maxX)
 		val ys = max(minY, other.minY)..min(maxY, other.maxY)
-		return xs.flatMap { x ->
-			ys.map { y -> Vector2(x, y) }
-		}.map { (it, steps(to = it) + other.steps(to = it)) }
+		return xs.flatMap { (x) ->
+			ys.map { (y) -> Vector2(x, y) }
+		}.map { (it, steps(to: it) + other.steps(to: it)) }
 	}
 	
 	fun intersects(other: Segment): Bool =
@@ -126,10 +126,10 @@ val instructions = input().lines().map {
 	it.components(separatedBy = ",").map(::Instruction)
 }
 
-val paths: [[Segment]] = instructions.map { path ->
+val paths: [[Segment]] = instructions.map { (path) ->
 	var position = Vector2.Zero
 	var stepCount = 0
-	return path.map { segment ->
+	return path.map { (segment) ->
 		val endPosition = position + segment.vector
 		defer {
 			position = endPosition

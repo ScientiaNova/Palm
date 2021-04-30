@@ -1,5 +1,6 @@
 package com.scientianova.palm.parser.parsing.expressions
 
+import com.scientianova.palm.errors.PalmError
 import com.scientianova.palm.lexer.PToken
 import com.scientianova.palm.lexer.Token
 import com.scientianova.palm.parser.Parser
@@ -7,6 +8,7 @@ import com.scientianova.palm.parser.data.expressions.*
 import com.scientianova.palm.parser.parseIdent
 import com.scientianova.palm.parser.parsing.types.parseClassSuperTypes
 import com.scientianova.palm.parser.parsing.types.parseObjectBody
+import com.scientianova.palm.queries.ItemId
 import com.scientianova.palm.util.*
 
 private fun Parser.parseTerm(): PExpr? = when (val token = current) {
@@ -490,13 +492,17 @@ private fun Parser.parseOptionallyTypedParams() = recBuildList<Pair<PDecPattern,
 
 private fun Parser.parseLambdaParams(): LambdaParams? {
     val startIndex = index
-    val contextParams = inBracketsOrEmpty(Parser::parseOptionallyTypedParams)
-    val mainParams = inParensOr(Parser::parseOptionallyTypedParams) {
+    val tempErrors = mutableListOf<PalmError>()
+    val contextParams = inBracketsOrEmpty(tempErrors, Parser::parseOptionallyTypedParams)
+    val mainParams = inParensOr(tempErrors, Parser::parseOptionallyTypedParams) {
         index = startIndex
         return null
     }
 
-    if (current == Token.Arrow) advance() else {
+    if (current == Token.Arrow) {
+        errors.addAll(tempErrors)
+        advance()
+    } else {
         index = startIndex
         return null
     }
@@ -552,10 +558,11 @@ private fun Parser.parseObject(): PExpr = withPos { start ->
     val afterObj = nextPos
     val superTypes = advance().parseClassSuperTypes()
     val nextPos: StringPos
+    val id = ItemId()
 
     val body = current.let { braces ->
         if (braces is Token.Braces) {
-            scopedOf(braces.tokens).parseObjectBody().also {
+            scopedOf(braces.tokens).parseObjectBody(id).also {
                 nextPos = this.nextPos
                 advance()
             }
@@ -566,5 +573,5 @@ private fun Parser.parseObject(): PExpr = withPos { start ->
         }
     }
 
-    return Expr.Object(superTypes, body).at(start, nextPos)
+    return Expr.Object(id, superTypes, body).at(start, nextPos)
 }

@@ -36,7 +36,7 @@ fun Parser.parseDecModifiers(): List<PDecMod> = recBuildList {
     when (val token = current) {
         is Token.Ident -> if (token.backticked) return this else when (next) {
             Token.Colon, Token.End, Token.Comma, Token.Assign -> return this
-            else -> add(identToDecMod(token.name)?.end() ?: return this).also { advance() }
+            else -> add(identToDecMod(token.name)?.end() ?: return this)
         }
         Token.At -> parseAnnotation()?.let { add(it.map(DecModifier::Annotation)) } ?: return this
         else -> return this
@@ -100,7 +100,7 @@ fun Parser.parseFileAnnotations(): List<Annotation> = recBuildList {
     val startIdent = index
     if (current == Token.At && rawLookup(1) === fileIdent && advance().advance().current == Token.Colon) {
         val path = advance().parseAnnotationPath()
-        val args = inParensOrEmpty(Parser::parseCallArgs).also { advance() }
+        val args = inParensOrEmpty(fn = Parser::parseCallArgs).also { advance() }
         add(Annotation(path, args, AnnotationType.File))
     } else {
         index = startIdent

@@ -2,7 +2,7 @@ package com.scientianova.palm.parser.data.top
 
 import com.scientianova.palm.parser.data.expressions.Arg
 import com.scientianova.palm.parser.data.expressions.PExpr
-import com.scientianova.palm.parser.data.expressions.Path
+import com.scientianova.palm.util.Path
 import com.scientianova.palm.util.Positioned
 
 sealed class DecModifier {

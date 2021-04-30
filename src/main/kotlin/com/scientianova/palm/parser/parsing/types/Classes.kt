@@ -1,19 +1,16 @@
 package com.scientianova.palm.parser.parsing.types
 
-import com.scientianova.palm.lexer.Token
-import com.scientianova.palm.lexer.byIdent
-import com.scientianova.palm.lexer.initIdent
-import com.scientianova.palm.lexer.outIdent
+import com.scientianova.palm.lexer.*
 import com.scientianova.palm.parser.Parser
 import com.scientianova.palm.parser.data.expressions.VarianceMod
+import com.scientianova.palm.parser.data.top.ItemKind
 import com.scientianova.palm.parser.data.top.PDecMod
 import com.scientianova.palm.parser.data.types.*
 import com.scientianova.palm.parser.parseIdent
 import com.scientianova.palm.parser.parsing.expressions.*
-import com.scientianova.palm.parser.parsing.top.parseDecModifiers
-import com.scientianova.palm.parser.parsing.top.parseFunParams
-import com.scientianova.palm.parser.parsing.top.parseItem
-import com.scientianova.palm.parser.parsing.top.parseParamModifiers
+import com.scientianova.palm.parser.parsing.top.*
+import com.scientianova.palm.queries.ItemId
+import com.scientianova.palm.queries.superItems
 import com.scientianova.palm.util.at
 import com.scientianova.palm.util.recBuildList
 
@@ -81,7 +78,7 @@ private fun Parser.parsePrimaryParams() =
     }
 
 
-fun Parser.parseClass(modifiers: List<PDecMod>): Class {
+fun Parser.parseClass(modifiers: List<PDecMod>) = registerParsedItem { id ->
     val name = parseIdent()
 
     val constraints = constraints()
@@ -104,9 +101,10 @@ fun Parser.parseClass(modifiers: List<PDecMod>): Class {
 
     parseWhere(constraints)
 
-    val body = inBracesOrEmpty(Parser::parseClassBody)
+    val constructors = mutableListOf<Constructor>()
+    val body = inBracesOrEmpty { parseClassBody(id, constructors) }
 
-    return Class(
+    ItemKind.Class(
         name,
         modifiers,
         constructorModifiers,
@@ -114,6 +112,7 @@ fun Parser.parseClass(modifiers: List<PDecMod>): Class {
         typeParams,
         constraints,
         superTypes,
+        constructors,
         body
     )
 }
@@ -154,29 +153,26 @@ fun Parser.parseClassTypeParams(constraints: MutableConstraints): List<PClassTyp
     }
 } else emptyList()
 
-private fun Parser.parseClassBody() = recBuildList<ClassStmt> {
+private fun Parser.parseClassBody(id: ItemId, constructors: MutableList<Constructor>) = recBuildList<ItemId> {
     when (current) {
         Token.End -> return this
         Token.Semicolon -> advance()
         else -> {
             val modifiers = parseDecModifiers()
             when (current) {
-                initIdent -> add(advance().parseConstructorOrInit(modifiers))
-                else -> parseItem(modifiers)?.let { add(ClassStmt.Item(it)) }
+                initIdent -> when (val next = next) {
+                    is Token.Braces -> parseInitializer().let { add(it); superItems[id] = it }
+                    is Token.Parens -> constructors.add(parseConstructor(next.tokens, modifiers))
+                    else -> err("Missing parameters")
+                }
+                else -> parseItem(modifiers)?.let { add(it); superItems[id] = it }
             }
         }
     }
 }
 
-private fun Parser.parseConstructorOrInit(modifiers: List<PDecMod>): ClassStmt {
-    val params = when (val token = current) {
-        is Token.Braces -> return ClassStmt.Initializer(parseScopeBody(token.tokens)).also { advance() }
-        is Token.Parens -> parenthesizedOf(token.tokens).parseFunParams().also { advance() }
-        else -> {
-            err("Missing parameters")
-            emptyList()
-        }
-    }
+private fun Parser.parseConstructor(paramTokens: List<PToken>, modifiers: List<PDecMod>): Constructor {
+    val params = parenthesizedOf(paramTokens).parseFunParams().also { advance() }
 
     val primaryCall = if (current == Token.Colon) {
         if (current != initIdent) {
@@ -194,5 +190,5 @@ private fun Parser.parseConstructorOrInit(modifiers: List<PDecMod>): ClassStmt {
 
     val body = parseScope()
 
-    return ClassStmt.Constructor(modifiers, params, primaryCall, body)
+    return Constructor(modifiers, params, primaryCall, body)
 }

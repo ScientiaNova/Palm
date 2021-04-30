@@ -172,7 +172,7 @@ private fun Parser.parseTypeList(tokens: List<PToken>): PType = with(parenthesiz
             val firstType = requireType()
             when (current) {
                 Token.Comma -> return parseFunType(parseTypeTupleBody(mutableListOf(firstType)))
-                Token.Colon -> Type.Dict(firstType, requireType())
+                Token.Colon -> Type.Dict(firstType, advance().requireType())
                 Token.End -> Type.Lis(firstType)
                 else -> {
                     err("Missing comma")

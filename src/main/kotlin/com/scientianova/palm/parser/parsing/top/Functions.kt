@@ -6,7 +6,6 @@ import com.scientianova.palm.parser.data.expressions.DecPattern
 import com.scientianova.palm.parser.data.expressions.Expr
 import com.scientianova.palm.parser.data.expressions.PExpr
 import com.scientianova.palm.parser.data.top.*
-import com.scientianova.palm.parser.data.top.Function
 import com.scientianova.palm.parser.parseIdent
 import com.scientianova.palm.parser.parsing.expressions.*
 import com.scientianova.palm.parser.parsing.types.constraints
@@ -77,7 +76,7 @@ fun Parser.parseContextParams(): List<ContextParam> = inBracketsOrEmpty {
     }
 }
 
-fun Parser.parseFun(modifiers: List<PDecMod>): Function {
+fun Parser.parseFun(modifiers: List<PDecMod>) = registerParsedItem {
     val constrains = constraints()
     val name = parseIdent()
     val typeParams = parseTypeParams(constrains)
@@ -91,7 +90,7 @@ fun Parser.parseFun(modifiers: List<PDecMod>): Function {
     parseWhere(constrains)
     val expr = parseFunBody()
 
-    return Function(name, modifiers, typeParams, constrains, context, params, type, expr)
+    ItemKind.Function(name, modifiers, typeParams, constrains, context, params, type, expr)
 }
 
 fun Parser.parseFunBody(): PExpr? = when (val token = current) {

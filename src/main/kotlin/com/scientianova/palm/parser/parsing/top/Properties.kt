@@ -12,14 +12,14 @@ import com.scientianova.palm.parser.parsing.expressions.parseEqExpr
 import com.scientianova.palm.parser.parsing.expressions.parseTypeAnn
 import com.scientianova.palm.parser.parsing.expressions.requireBinOps
 
-fun Parser.parseProperty(modifiers: List<PDecMod>, mutable: Boolean): Property {
+fun Parser.parseProperty(modifiers: List<PDecMod>, mutable: Boolean) = registerParsedItem {
     val name = parseIdent()
     val context = parseContextParams()
     val type = parseTypeAnn() ?: Type.Infer.noPos()
 
     if (current === byIdent) {
         val delegate = advance().requireBinOps()
-        return Property(name, modifiers, mutable, type, context, PropertyBody.Delegate(delegate))
+        return@registerParsedItem ItemKind.Property(name, modifiers, mutable, type, context, PropertyBody.Delegate(delegate))
     }
 
     val expr = parseEqExpr()
@@ -78,7 +78,7 @@ fun Parser.parseProperty(modifiers: List<PDecMod>, mutable: Boolean): Property {
         }
     }
 
-    return Property(
+    ItemKind.Property(
         name,
         modifiers,
         mutable,

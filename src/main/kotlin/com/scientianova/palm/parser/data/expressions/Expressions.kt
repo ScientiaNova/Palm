@@ -1,7 +1,7 @@
 package com.scientianova.palm.parser.data.expressions
 
-import com.scientianova.palm.parser.data.types.ObjStmt
 import com.scientianova.palm.parser.data.types.PSuperType
+import com.scientianova.palm.queries.ItemId
 import com.scientianova.palm.util.PString
 import com.scientianova.palm.util.Positioned
 
@@ -61,8 +61,9 @@ sealed class Expr {
     data class Spread(val expr: PExpr) : Expr()
 
     data class Object(
+        val id: ItemId,
         val superTypes: List<PSuperType>,
-        val statements: List<ObjStmt>
+        val statements: List<ItemId>
     ) : Expr()
 }
 

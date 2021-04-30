@@ -51,30 +51,36 @@ sealed class Parser(protected val stream: List<PToken>, val errors: MutableList<
     fun currentInfix() =
         (stream.getOrNull(index - 1)?.value?.beforePrefix() ?: true) == stream[index + 1].value.afterPostfix()
 
-    fun parenthesizedOf(stream: List<PToken>) = ParenthesizedParser(stream, errors)
-    fun scopedOf(stream: List<PToken>) = ScopedParser(stream, errors)
+    fun parenthesizedOf(stream: List<PToken>, errors: MutableList<PalmError> = this.errors) = ParenthesizedParser(stream, errors)
+    fun scopedOf(stream: List<PToken>, errors: MutableList<PalmError> = this.errors) = ScopedParser(stream, errors)
 
-    inline fun <T> inParensOrEmpty(crossinline fn: Parser.() -> List<T>) = current.let { paren ->
+    inline fun <T> inParensOrEmpty(errors: MutableList<PalmError> = this.errors, crossinline fn: Parser.() -> List<T>) = current.let { paren ->
         if (paren is Token.Parens)
-            parenthesizedOf(paren.tokens).fn().also { advance() }
+            parenthesizedOf(paren.tokens, errors).fn().also { advance() }
         else emptyList()
     }
 
-    inline fun <T> inBracesOrEmpty(crossinline fn: Parser.() -> List<T>) = current.let { brace ->
+    inline fun <T> inBracesOrEmpty(errors: MutableList<PalmError> = this.errors, crossinline fn: Parser.() -> List<T>) = current.let { brace ->
         if (brace is Token.Braces)
-            scopedOf(brace.tokens).fn().also { advance() }
+            scopedOf(brace.tokens, errors).fn().also { advance() }
         else emptyList()
     }
 
-    inline fun <T> inBracketsOrEmpty(crossinline fn: Parser.() -> List<T>) = current.let { bracket ->
+    inline fun <T> inBracketsOrEmpty(errors: MutableList<PalmError> = this.errors, crossinline fn: Parser.() -> List<T>) = current.let { bracket ->
         if (bracket is Token.Brackets)
-            parenthesizedOf(bracket.tokens).fn().also { advance() }
+            parenthesizedOf(bracket.tokens, errors).fn().also { advance() }
         else emptyList()
     }
 
     inline fun <T> inParensOr(crossinline fn: Parser.() -> T, or: () -> T) = current.let { paren ->
         if (paren is Token.Parens)
             parenthesizedOf(paren.tokens).fn().also { advance() }
+        else or()
+    }
+
+    inline fun <T> inParensOr(errors: MutableList<PalmError>, crossinline fn: Parser.() -> T, or: () -> T) = current.let { paren ->
+        if (paren is Token.Parens)
+            parenthesizedOf(paren.tokens, errors).fn().also { advance() }
         else or()
     }
 
