@@ -1,26 +1,22 @@
 package com.scientianova.palm.parser.parsing.top
 
 import com.scientianova.palm.lexer.Token
-import com.scientianova.palm.lexer.byIdent
 import com.scientianova.palm.lexer.getIdent
 import com.scientianova.palm.lexer.setIdent
 import com.scientianova.palm.parser.Parser
 import com.scientianova.palm.parser.data.expressions.Type
-import com.scientianova.palm.parser.data.top.*
+import com.scientianova.palm.parser.data.top.Getter
+import com.scientianova.palm.parser.data.top.ItemKind
+import com.scientianova.palm.parser.data.top.PDecMod
+import com.scientianova.palm.parser.data.top.Setter
 import com.scientianova.palm.parser.parseIdent
 import com.scientianova.palm.parser.parsing.expressions.parseEqExpr
 import com.scientianova.palm.parser.parsing.expressions.parseTypeAnn
-import com.scientianova.palm.parser.parsing.expressions.requireBinOps
 
 fun Parser.parseProperty(modifiers: List<PDecMod>, mutable: Boolean) = registerParsedItem {
     val name = parseIdent()
     val context = parseContextParams()
     val type = parseTypeAnn() ?: Type.Infer.noPos()
-
-    if (current === byIdent) {
-        val delegate = advance().requireBinOps()
-        return@registerParsedItem ItemKind.Property(name, modifiers, mutable, type, context, PropertyBody.Delegate(delegate))
-    }
 
     val expr = parseEqExpr()
 
@@ -84,7 +80,11 @@ fun Parser.parseProperty(modifiers: List<PDecMod>, mutable: Boolean) = registerP
         mutable,
         type,
         context,
-        PropertyBody.Normal(expr, getterModifiers, getter, setterModifiers, setter)
+        expr,
+        getterModifiers,
+        getter,
+        setterModifiers,
+        setter
     )
 }
 

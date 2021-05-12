@@ -73,13 +73,15 @@ fun Parser.parseNestedTypeArgs(): List<Arg<PNestedType>> = recBuildList {
     if (typeStart == Token.Greater)
         return this
 
-    add(if (typeStart is Token.Ident && next == Token.Colon) {
-        val ident = typeStart.name.end()
-        val type = advance().parseNestedType()
-        Arg(ident, type)
-    } else {
-        Arg(null, parseNestedType())
-    })
+    add(
+        if (typeStart is Token.Ident && next == Token.Colon) {
+            val ident = typeStart.name.end()
+            val type = advance().parseNestedType()
+            Arg(ident, type)
+        } else {
+            Arg(null, parseNestedType())
+        }
+    )
 
     when (current) {
         Token.Comma -> advance()
@@ -93,13 +95,15 @@ fun Parser.parseTypeArgs(): List<Arg<PType>> = recBuildList {
     if (typeStart == Token.Greater)
         return this
 
-    add(if (typeStart is Token.Ident && next == Token.Colon) {
-        val ident = typeStart.name.end()
-        val type = advance().requireType()
-        Arg(ident, type)
-    } else {
-        Arg(null, requireType())
-    })
+    add(
+        if (typeStart is Token.Ident && next == Token.Colon) {
+            val ident = typeStart.name.end()
+            val type = advance().requireType()
+            Arg(ident, type)
+        } else {
+            Arg(null, requireType())
+        }
+    )
 
     when (current) {
         Token.Comma -> advance()

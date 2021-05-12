@@ -18,17 +18,16 @@ fun identToDecMod(string: String) = when (string) {
     "final" -> DecModifier.Final
     "public" -> DecModifier.Public
     "protected" -> DecModifier.Protected
-    "internal" -> DecModifier.Internal
-    "private" -> DecModifier.Private
+    "private" -> DecModifier.Private(PathType.Module, emptyList())
     "abstract" -> DecModifier.Abstract
     "data" -> DecModifier.Data
     "annotation" -> DecModifier.Ann
-    "enum" -> DecModifier.Enum
-    "sealed" -> DecModifier.Sealed
+    "sealed" -> DecModifier.Sealed(PathType.Module, emptyList())
     "const" -> DecModifier.Const
     "lateinit" -> DecModifier.Lateinit
     "noinline" -> DecModifier.NoInline
     "crossinline" -> DecModifier.CrossInline
+    "leaf" -> DecModifier.Leaf
     else -> null
 }
 

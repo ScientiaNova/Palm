@@ -2,7 +2,6 @@ package com.scientianova.palm.parser.parsing.top
 
 import com.scientianova.palm.lexer.Token
 import com.scientianova.palm.parser.Parser
-import com.scientianova.palm.parser.data.expressions.DecPattern
 import com.scientianova.palm.parser.data.expressions.Expr
 import com.scientianova.palm.parser.data.expressions.PExpr
 import com.scientianova.palm.parser.data.top.*
@@ -55,26 +54,7 @@ fun Parser.parseFunParams(): List<FunParam> =
         }
     }
 
-private fun Parser.parseContextParam(): ContextParam {
-    val modifiers = parseParamModifiers()
-    val pattern = if (next == Token.Colon) requireDecPattern().also { advance() } else DecPattern.Wildcard.noPos()
-    val type = requireType()
-    return ContextParam(modifiers, pattern, type)
-}
-
-fun Parser.parseContextParams(): List<ContextParam> = inBracketsOrEmpty {
-    recBuildList {
-        if (current == Token.End)
-            return@inBracketsOrEmpty this
-
-        add(parseContextParam())
-        when (current) {
-            Token.Comma -> advance()
-            Token.End -> return@inBracketsOrEmpty this
-            else -> err("Missing comma")
-        }
-    }
-}
+fun Parser.parseContextParams(): List<FunParam> = inBracketsOrEmpty(Parser::parseFunParams)
 
 fun Parser.parseFun(modifiers: List<PDecMod>) = registerParsedItem {
     val constrains = constraints()

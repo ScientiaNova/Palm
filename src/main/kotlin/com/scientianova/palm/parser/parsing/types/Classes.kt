@@ -3,9 +3,7 @@ package com.scientianova.palm.parser.parsing.types
 import com.scientianova.palm.lexer.*
 import com.scientianova.palm.parser.Parser
 import com.scientianova.palm.parser.data.expressions.VarianceMod
-import com.scientianova.palm.parser.data.top.ItemKind
-import com.scientianova.palm.parser.data.top.PDecMod
-import com.scientianova.palm.parser.data.types.*
+import com.scientianova.palm.parser.data.top.*
 import com.scientianova.palm.parser.parseIdent
 import com.scientianova.palm.parser.parsing.expressions.*
 import com.scientianova.palm.parser.parsing.top.*
@@ -17,15 +15,11 @@ import com.scientianova.palm.util.recBuildList
 private fun Parser.parseSuperType(): PSuperType {
     val type = requireType()
     return when (val curr = current) {
-        byIdent -> {
-            val delegate = advance().parseIdent()
-            SuperType.Interface(type, delegate).at(type.start, delegate.next)
-        }
         is Token.Parens -> {
             val args = parenthesizedOf(curr.tokens).parseCallArgs()
             SuperType.Class(type, args).end(type.start)
         }
-        else -> SuperType.Interface(type, null).at(type.start, type.next)
+        else -> SuperType.Interface(type).at(type.start, type.next)
     }
 }
 

@@ -3,7 +3,6 @@ package com.scientianova.palm.parser.data.top
 import com.scientianova.palm.parser.data.expressions.PExpr
 import com.scientianova.palm.parser.data.expressions.PExprScope
 import com.scientianova.palm.parser.data.expressions.PType
-import com.scientianova.palm.parser.data.types.*
 import com.scientianova.palm.queries.ItemId
 import com.scientianova.palm.util.PString
 
@@ -13,8 +12,12 @@ sealed class ItemKind {
         val modifiers: List<PDecMod>,
         val mutable: Boolean,
         val type: PType?,
-        val context: List<ContextParam>,
-        val body: PropertyBody
+        val context: List<FunParam>,
+        val expr: PExpr?,
+        val getterModifiers: List<PDecMod>,
+        val getter: Getter?,
+        val setterModifiers: List<PDecMod>,
+        val setter: Setter?
     ) : ItemKind()
 
     data class Function(
@@ -22,7 +25,7 @@ sealed class ItemKind {
         val modifiers: List<PDecMod>,
         val typeParams: List<PString>,
         val constraints: TypeConstraints,
-        val context: List<ContextParam>,
+        val context: List<FunParam>,
         val params: List<FunParam>,
         val type: PType?,
         val expr: PExpr?
@@ -69,7 +72,7 @@ sealed class ItemKind {
         val type: PType,
         val typeParams: List<PString>,
         val typeConstraints: TypeConstraints,
-        val context: List<ContextParam>,
+        val context: List<FunParam>,
         val items: List<ItemId>
     ) : ItemKind()
 

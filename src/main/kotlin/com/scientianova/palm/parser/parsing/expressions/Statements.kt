@@ -6,10 +6,8 @@ import com.scientianova.palm.parser.Parser
 import com.scientianova.palm.parser.data.expressions.ExprScope
 import com.scientianova.palm.parser.data.expressions.PExprScope
 import com.scientianova.palm.parser.data.expressions.ScopeStmt
-import com.scientianova.palm.parser.data.top.DecModifier
 import com.scientianova.palm.parser.data.top.PDecMod
 import com.scientianova.palm.parser.parsing.top.parseDecModifiers
-import com.scientianova.palm.parser.parsing.top.parseImport
 import com.scientianova.palm.util.recBuildList
 
 private fun Parser.parseStatement(): ScopeStmt {
@@ -21,7 +19,6 @@ private fun Parser.parseStatement(): ScopeStmt {
         else -> {
             index = startIndex
             when (current) {
-                Token.Import -> ScopeStmt.Imp(advance().parseImport())
                 Token.Defer -> ScopeStmt.Defer(advance().requireScope())
                 else -> ScopeStmt.Expr(requireBinOps())
             }

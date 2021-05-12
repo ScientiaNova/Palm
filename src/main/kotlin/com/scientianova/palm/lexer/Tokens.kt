@@ -121,6 +121,9 @@ sealed class Token {
 
     object Import : Token()
 
+    object Mod : Token()
+    object Crate : Token()
+
     object Whitespace : Token() {
         override fun canIgnore() = true
     }

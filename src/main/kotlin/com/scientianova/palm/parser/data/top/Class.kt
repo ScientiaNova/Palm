@@ -1,8 +1,6 @@
-package com.scientianova.palm.parser.data.types
+package com.scientianova.palm.parser.data.top
 
 import com.scientianova.palm.parser.data.expressions.*
-import com.scientianova.palm.parser.data.top.FunParam
-import com.scientianova.palm.parser.data.top.PDecMod
 import com.scientianova.palm.util.PString
 import com.scientianova.palm.util.Positioned
 
@@ -12,7 +10,7 @@ enum class DecHandling {
 
 sealed class SuperType {
     data class Class(val type: PType, val args: List<Arg<PExpr>>) : SuperType()
-    data class Interface(val type: PType, val delegate: PString?) : SuperType()
+    data class Interface(val type: PType) : SuperType()
 }
 
 typealias PSuperType = Positioned<SuperType>

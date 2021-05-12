@@ -74,7 +74,6 @@ private fun Parser.parseTerm(): PExpr? = when (val token = current) {
     Token.When -> parseWhen()
     Token.Throw -> withPos { advance().requireBinOps().let { expr -> Expr.Throw(expr).at(it, expr.next) } }
     Token.Do -> withPos { advance().requireScope().let { scope -> Expr.Do(scope, parseCatches()).at(it, scope.next) } }
-    Token.Object -> parseObject()
     Token.Spread -> withPos { advance().requireSubExpr().let { expr -> Expr.Spread(expr).at(it, expr.next) } }
     Token.DoubleColon -> parseFreeFunRef()
     Token.Plus -> parsePrefix(UnOp.Not)
@@ -552,26 +551,4 @@ private fun Parser.parseContextCall(on: PExpr, tokens: List<PToken>): PExpr {
 private fun Parser.parseTurbofish(on: PExpr): PExpr {
     val args = advance().parseTypeArgs()
     return Expr.Turbofish(on, args).end(on.start)
-}
-
-private fun Parser.parseObject(): PExpr = withPos { start ->
-    val afterObj = nextPos
-    val superTypes = advance().parseClassSuperTypes()
-    val nextPos: StringPos
-    val id = ItemId()
-
-    val body = current.let { braces ->
-        if (braces is Token.Braces) {
-            scopedOf(braces.tokens).parseObjectBody(id).also {
-                nextPos = this.nextPos
-                advance()
-            }
-        } else {
-            nextPos = superTypes.lastOrNull()?.next ?: afterObj
-            err("Missing object body")
-            emptyList()
-        }
-    }
-
-    return Expr.Object(id, superTypes, body).at(start, nextPos)
 }

@@ -66,11 +66,13 @@ sealed class Parser(protected val stream: List<PToken>, val errors: MutableList<
         else emptyList()
     }
 
-    inline fun <T> inBracketsOrEmpty(errors: MutableList<PalmError> = this.errors, crossinline fn: Parser.() -> List<T>) = current.let { bracket ->
+    inline fun <T> inBracketsOrEmpty(errors: MutableList<PalmError>, crossinline fn: Parser.() -> List<T>) = current.let { bracket ->
         if (bracket is Token.Brackets)
             parenthesizedOf(bracket.tokens, errors).fn().also { advance() }
         else emptyList()
     }
+
+    inline fun <T> inBracketsOrEmpty(crossinline fn: Parser.() -> List<T>) = inBracketsOrEmpty(this.errors, fn)
 
     inline fun <T> inParensOr(crossinline fn: Parser.() -> T, or: () -> T) = current.let { paren ->
         if (paren is Token.Parens)

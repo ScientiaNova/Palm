@@ -5,13 +5,13 @@ import com.scientianova.palm.parser.data.top.*
 import com.scientianova.palm.parser.data.top.Annotation
 import com.scientianova.palm.parser.data.top.AnnotationType.*
 import com.scientianova.palm.parser.data.top.AnnotationType.Set
-import com.scientianova.palm.parser.data.types.*
 import com.scientianova.palm.queries.FileId
 import com.scientianova.palm.queries.fileIdToParsed
 import com.scientianova.palm.queries.fileToItems
 import com.scientianova.palm.queries.itemIdToParsedKind
 import com.scientianova.palm.util.PString
 import com.scientianova.palm.util.Path
+import com.scientianova.palm.util.PathType
 
 fun <T> T?.mapTo(fn: (T) -> String) = if (this == null) "" else fn(this)
 
@@ -107,17 +107,29 @@ fun NestedType.toCodeString(indent: Int) = when (this) {
 
 fun Path.path() = joinToString(".") { it.value }
 
-fun Import.toCodeString(): String = "import " + when (this) {
-    is Import.Regular -> path + alias.mapTo { " as $it" }
-    is Import.Package -> "${path.path()}._"
-    is Import.Group -> "${start.path()}.{ ${members.joinToString { it.toCodeString() }} }"
+fun Import.toCodeString(): String = "import " + when (pathType) {
+    PathType.Module -> "mod."
+    PathType.Crate -> "crate."
+    PathType.Super -> "super."
+    PathType.Root -> ""
+} + body.toCodeString()
+
+fun ImportBody.toCodeString(): String = when (this) {
+    is ImportBody.Qualified -> path.path() + " as " + alias.value
+    is ImportBody.File -> path.path()
+    is ImportBody.Group -> "${start.path()}.{ ${
+        members.joinToString {
+            if (it is ImportBody.File && it.path.isEmpty()) "mod" else it.toCodeString()
+        }
+    } }"
+    is ImportBody.Show -> "${path.path()} show { ${items.joinToString { it.first.value + it.second.mapTo { alias -> " as $alias" } }} }"
+    is ImportBody.Hide -> "${path.path()} hide { ${items.joinToString { it.value }} }"
 }
 
 fun DecModifier.toCodeString(indent: Int): String = when (this) {
     DecModifier.Public -> "public"
     DecModifier.Protected -> "protected"
-    DecModifier.Internal -> "internal"
-    DecModifier.Private -> "private"
+    is DecModifier.Private -> "private"
     DecModifier.Lateinit -> "lateinit"
     DecModifier.Inline -> "inline"
     DecModifier.Ann -> "annotation"
@@ -128,11 +140,11 @@ fun DecModifier.toCodeString(indent: Int): String = when (this) {
     DecModifier.Open -> "open"
     DecModifier.Final -> "final"
     DecModifier.Const -> "const"
-    DecModifier.Enum -> "enum"
-    DecModifier.Sealed -> "sealed"
+    is DecModifier.Sealed -> "sealed"
     DecModifier.Data -> "data"
     DecModifier.NoInline -> "noinline"
     DecModifier.CrossInline -> "crossinline"
+    DecModifier.Leaf -> "leaf"
 }
 
 @JvmName("decModifiersToCodeString")
@@ -155,7 +167,7 @@ fun propertyType(mutable: Boolean) = if (mutable) "var" else "val"
 
 fun SuperType.toCodeString(indent: Int) = when (this) {
     is SuperType.Class -> type.toCodeString(indent) + args.toCodeString(indent)
-    is SuperType.Interface -> type.toCodeString(indent) + delegate.mapTo { "by $it" }
+    is SuperType.Interface -> type.toCodeString(indent)
 }
 
 @JvmName("superTypesToCodeString")
@@ -265,8 +277,6 @@ ${indent(indent)}}
     }
     is Expr.FunRef -> on.mapTo { it.toCodeString(indent) } + "::$value"
     is Expr.Spread -> "*${expr.toCodeString(indent)}"
-    is Expr.Object -> "object ${superTypes.toCodeString(indent)}" +
-            scopeCodeString(statements, indent) { itemIdToParsedKind[it]!!.toCodeString(indent + 1) }
     is Expr.Get -> expr.toCodeString(indent) + "[${args.joinToString { it.toCodeString(indent) }}]"
     is Expr.Throw -> "throw ${expr.toCodeString(indent)}"
     is Expr.Do -> "do ${scope.toCodeString(indent)}" + if (catches.isEmpty()) "" else " " + catches.joinToString(" ") {
@@ -352,17 +362,15 @@ fun Constructor.toCodeString(indent: Int) =
 
 fun ItemKind.toCodeString(indent: Int): String = when (this) {
     is ItemKind.Property -> modifiers.toCodeString(indent) + propertyType(mutable) + " $name" +
-            context.toCodeString(indent) + typeAnn(type, indent) + when (val bod = body) {
-        is PropertyBody.Normal -> eqExpr(bod.expr, indent) +
-                (if (bod.getterModifiers.isEmpty() && bod.getter == null) "" else '\n' + indent(indent + 1) +
-                        bod.getterModifiers.toCodeString(indent) + "get") + bod.getter.toCodeString(indent) +
-                (if (bod.setterModifiers.isEmpty() && bod.setter == null) "" else '\n' + indent(indent + 1) +
-                        bod.setterModifiers.toCodeString(indent) + "set") + bod.setter.toCodeString(indent)
-        is PropertyBody.Delegate -> " by ${bod.expr.toCodeString(indent)}"
-    }
+            context.contextParams(indent) + typeAnn(type, indent) + eqExpr(expr, indent) +
+            (if (getterModifiers.isEmpty() && getter == null) "" else '\n' + indent(indent + 1) +
+                    getterModifiers.toCodeString(indent) + "get") + getter.toCodeString(indent) +
+            (if (setterModifiers.isEmpty() && setter == null) "" else '\n' + indent(indent + 1) +
+                    setterModifiers.toCodeString(indent) + "set") + setter.toCodeString(indent)
+
     is ItemKind.Function -> modifiers.toCodeString(indent) + "fun $name" +
             typeParams.typeParams() +
-            context.toCodeString(indent) +
+            context.contextParams(indent) +
             "(${params.toCodeString(indent)})" +
             typeAnn(type, indent) +
             constraints.toCodeString(indent) +
@@ -387,7 +395,7 @@ fun ItemKind.toCodeString(indent: Int): String = when (this) {
     is ItemKind.Implementation ->
         "impl " + (if (typeParams.isEmpty()) "" else typeParams.typeParams() + " ") +
                 type.toCodeString(indent) +
-                context.toCodeString(indent) +
+                context.contextParams(indent) +
                 typeConstraints.toCodeString(indent) +
                 scopeCodeStringOrNone(items, indent) { itemIdToParsedKind[it]!!.toCodeString(indent + 1) }
     is ItemKind.TypeAlias -> modifiers.toCodeString(indent) + "type $name${params.typeParams()}" +
@@ -403,13 +411,7 @@ fun ScopeStmt.toCodeString(indent: Int): String = when (this) {
             typeAnn(type, indent) + eqExpr(expr, indent)
 }
 
-fun ContextParam.toCodeString(indent: Int) =
-    modifiers.toCodeString(indent) +
-            (if (pattern.value is DecPattern.Wildcard) "" else pattern.toCodeString() + ": ") +
-            type.toCodeString(indent)
-
-@JvmName("contextToCodeString")
-fun List<ContextParam>.toCodeString(indent: Int) =
+fun List<FunParam>.contextParams(indent: Int) =
     if (isEmpty()) "" else "[" + joinToString { it.toCodeString(indent) } + "]"
 
 fun FileScope.toCodeString(indent: Int) =

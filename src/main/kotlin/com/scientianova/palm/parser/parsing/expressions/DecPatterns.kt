@@ -7,7 +7,6 @@ import com.scientianova.palm.parser.data.expressions.DecPattern
 import com.scientianova.palm.parser.data.expressions.PDecPattern
 import com.scientianova.palm.parser.parseIdent
 import com.scientianova.palm.util.PString
-import com.scientianova.palm.util.map
 import com.scientianova.palm.util.recBuildList
 
 fun Parser.parseDecPattern(): PDecPattern? = when (val token = current) {
