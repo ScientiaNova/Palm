@@ -19,7 +19,7 @@ fun Parser.parseParamModifiers() = recBuildList<PDecMod> {
         Token.At -> parseAnnotation()?.let { add(it.map(DecModifier::Annotation)) }
         is Token.Ident -> if (token.backticked) return this else when (next) {
             Token.Colon, Token.End, Token.Comma, Token.Assign -> return this
-            else -> add(identToDecMod(token.name)?.end() ?: return this)
+            else -> add(identToDecMod(token.name) ?: return this)
         }
         else -> return this
     }

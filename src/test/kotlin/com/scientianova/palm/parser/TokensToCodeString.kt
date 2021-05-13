@@ -80,6 +80,8 @@ fun Token.toCodeString(indent: Int): String = when (this) {
     Token.Comment -> "// Comment"
     Token.End -> "*End*"
     is Token.Error -> "!!!error!!!"
+    Token.Crate -> "crate"
+    Token.Mod -> "mod"
 }
 
 fun StringPartL.toCodeString(indent: Int) = when (this) {

@@ -107,17 +107,21 @@ fun NestedType.toCodeString(indent: Int) = when (this) {
 
 fun Path.path() = joinToString(".") { it.value }
 
-fun Import.toCodeString(): String = "import " + when (pathType) {
+fun PathType.toCodeString(): String = when (this) {
     PathType.Module -> "mod."
     PathType.Crate -> "crate."
     PathType.Super -> "super."
     PathType.Root -> ""
-} + body.toCodeString()
+}
+
+fun Import.toCodeString(): String = "import " + pathType.toCodeString() +
+        (if (pathType != PathType.Root && body !is ImportBody.Group && body.path.isNotEmpty()) "." else "") +
+        body.toCodeString()
 
 fun ImportBody.toCodeString(): String = when (this) {
     is ImportBody.Qualified -> path.path() + " as " + alias.value
     is ImportBody.File -> path.path()
-    is ImportBody.Group -> "${start.path()}.{ ${
+    is ImportBody.Group -> "${path.path()}.{ ${
         members.joinToString {
             if (it is ImportBody.File && it.path.isEmpty()) "mod" else it.toCodeString()
         }
@@ -129,7 +133,9 @@ fun ImportBody.toCodeString(): String = when (this) {
 fun DecModifier.toCodeString(indent: Int): String = when (this) {
     DecModifier.Public -> "public"
     DecModifier.Protected -> "protected"
-    is DecModifier.Private -> "private"
+    is DecModifier.Private -> "private" + if (pathType == PathType.Root && path.isEmpty()) "" else "(${
+        pathType.toCodeString() + (if (pathType != PathType.Root && path.isNotEmpty()) "." else "") + path.path()
+    })"
     DecModifier.Lateinit -> "lateinit"
     DecModifier.Inline -> "inline"
     DecModifier.Ann -> "annotation"
@@ -140,7 +146,9 @@ fun DecModifier.toCodeString(indent: Int): String = when (this) {
     DecModifier.Open -> "open"
     DecModifier.Final -> "final"
     DecModifier.Const -> "const"
-    is DecModifier.Sealed -> "sealed"
+    is DecModifier.Sealed -> "sealed" + if (pathType == PathType.Root && path.isEmpty()) "" else "(${
+        pathType.toCodeString() + (if (pathType != PathType.Root && path.isNotEmpty()) "." else "") + path.path()
+    })"
     DecModifier.Data -> "data"
     DecModifier.NoInline -> "noinline"
     DecModifier.CrossInline -> "crossinline"
@@ -406,7 +414,6 @@ fun ItemKind.toCodeString(indent: Int): String = when (this) {
 fun ScopeStmt.toCodeString(indent: Int): String = when (this) {
     is ScopeStmt.Expr -> value.toCodeString(indent)
     is ScopeStmt.Defer -> "defer " + body.toCodeString(indent)
-    is ScopeStmt.Imp -> import.toCodeString()
     is ScopeStmt.Dec -> propertyType(mutable) + " " + pattern.toCodeString() +
             typeAnn(type, indent) + eqExpr(expr, indent)
 }
