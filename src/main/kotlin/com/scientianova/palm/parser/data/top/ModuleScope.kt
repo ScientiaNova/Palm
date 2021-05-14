@@ -1,6 +1,6 @@
 package com.scientianova.palm.parser.data.top
 
-data class FileScope(
+data class ModuleScope(
     val annotations: List<Annotation>,
     val imports: List<Import>
 )

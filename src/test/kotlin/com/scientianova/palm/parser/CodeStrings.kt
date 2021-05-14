@@ -5,10 +5,10 @@ import com.scientianova.palm.parser.data.top.*
 import com.scientianova.palm.parser.data.top.Annotation
 import com.scientianova.palm.parser.data.top.AnnotationType.*
 import com.scientianova.palm.parser.data.top.AnnotationType.Set
-import com.scientianova.palm.queries.FileId
-import com.scientianova.palm.queries.fileIdToParsed
-import com.scientianova.palm.queries.fileToItems
+import com.scientianova.palm.queries.ModuleId
 import com.scientianova.palm.queries.itemIdToParsedKind
+import com.scientianova.palm.queries.moduleIdToParsed
+import com.scientianova.palm.queries.moduleToItems
 import com.scientianova.palm.util.PString
 import com.scientianova.palm.util.Path
 import com.scientianova.palm.util.PathType
@@ -364,10 +364,6 @@ fun CallArgs.toCodeString(indent: Int): String =
 
 private fun init(scope: PExprScope, indent: Int) = "init " + scope.toCodeString(indent)
 
-fun Constructor.toCodeString(indent: Int) =
-    modifiers.toCodeString(indent) + "constructor" + params.toCodeString(indent) + " " +
-            primaryCall.mapTo { ": this${it.toCodeString(indent)} " } + body.mapTo { it.toCodeString(indent) }
-
 fun ItemKind.toCodeString(indent: Int): String = when (this) {
     is ItemKind.Property -> modifiers.toCodeString(indent) + propertyType(mutable) + " $name" +
             context.contextParams(indent) + typeAnn(type, indent) + eqExpr(expr, indent) +
@@ -409,6 +405,8 @@ fun ItemKind.toCodeString(indent: Int): String = when (this) {
     is ItemKind.TypeAlias -> modifiers.toCodeString(indent) + "type $name${params.typeParams()}" +
             typeBound(bound, indent) + eqType(actual, indent)
     is ItemKind.Initializer -> init(scope, indent)
+    is ItemKind.Constructor -> modifiers.toCodeString(indent) + "init" + params.toCodeString(indent) + " " +
+            primaryCall.mapTo { ": init${it.toCodeString(indent)} " } + body.mapTo { it.toCodeString(indent) }
 }
 
 fun ScopeStmt.toCodeString(indent: Int): String = when (this) {
@@ -421,9 +419,9 @@ fun ScopeStmt.toCodeString(indent: Int): String = when (this) {
 fun List<FunParam>.contextParams(indent: Int) =
     if (isEmpty()) "" else "[" + joinToString { it.toCodeString(indent) } + "]"
 
-fun FileScope.toCodeString(indent: Int) =
+fun ModuleScope.toCodeString(indent: Int) =
     annotations.joinToString("\n") { it.toCodeString(indent) } + (if (annotations.isEmpty()) "" else "\n") +
             imports.joinToString("\n") { it.toCodeString() } + (if (imports.isEmpty()) "" else "\n\n")
 
-fun FileId.toCodeString(indent: Int) = fileIdToParsed[this]!!.toCodeString(indent) +
-        fileToItems[this]!!.joinToString("\n\n") { itemIdToParsedKind[it]!!.toCodeString(indent) }
+fun ModuleId.toCodeString(indent: Int) = moduleIdToParsed[this]!!.toCodeString(indent) +
+        moduleToItems[this]!!.joinToString("\n\n") { itemIdToParsedKind[it]!!.toCodeString(indent) }

@@ -23,13 +23,6 @@ data class PrimaryParam(
     val default: PExpr?
 )
 
-data class Constructor(
-    val modifiers: List<PDecMod>,
-    val params: List<FunParam>,
-    val primaryCall: List<Arg<PExpr>>?,
-    val body: PExprScope?
-)
-
 data class ClassTypeParam(val type: PString, val variance: VarianceMod)
 typealias PClassTypeParam = Positioned<ClassTypeParam>
 

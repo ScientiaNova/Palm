@@ -1,5 +1,6 @@
 package com.scientianova.palm.errors
 
-import com.scientianova.palm.util.Positioned
+import com.scientianova.palm.util.StringPos
+import java.net.URL
 
-typealias PalmError = Positioned<String>
+data class PalmError(val msg: String, val file: URL, val start: StringPos, val next: StringPos)

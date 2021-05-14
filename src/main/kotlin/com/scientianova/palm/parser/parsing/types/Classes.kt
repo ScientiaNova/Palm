@@ -1,6 +1,9 @@
 package com.scientianova.palm.parser.parsing.types
 
-import com.scientianova.palm.lexer.*
+import com.scientianova.palm.lexer.PToken
+import com.scientianova.palm.lexer.Token
+import com.scientianova.palm.lexer.initIdent
+import com.scientianova.palm.lexer.outIdent
 import com.scientianova.palm.parser.Parser
 import com.scientianova.palm.parser.data.expressions.VarianceMod
 import com.scientianova.palm.parser.data.top.*
@@ -95,8 +98,7 @@ fun Parser.parseClass(modifiers: List<PDecMod>) = registerParsedItem { id ->
 
     parseWhere(constraints)
 
-    val constructors = mutableListOf<Constructor>()
-    val body = inBracesOrEmpty { parseClassBody(id, constructors) }
+    val body = inBracesOrEmpty { parseClassBody(id) }
 
     ItemKind.Class(
         name,
@@ -106,7 +108,6 @@ fun Parser.parseClass(modifiers: List<PDecMod>) = registerParsedItem { id ->
         typeParams,
         constraints,
         superTypes,
-        constructors,
         body
     )
 }
@@ -147,16 +148,16 @@ fun Parser.parseClassTypeParams(constraints: MutableConstraints): List<PClassTyp
     }
 } else emptyList()
 
-private fun Parser.parseClassBody(id: ItemId, constructors: MutableList<Constructor>) = recBuildList<ItemId> {
+private fun Parser.parseClassBody(id: ItemId) = recBuildList<ItemId> {
     when (current) {
         Token.End -> return this
         Token.Semicolon -> advance()
         else -> {
             val modifiers = parseDecModifiers()
             when (current) {
-                initIdent -> when (val next = next) {
+                initIdent -> when (val next = advance().current) {
                     is Token.Braces -> parseInitializer().let { add(it); superItems[id] = it }
-                    is Token.Parens -> constructors.add(parseConstructor(next.tokens, modifiers))
+                    is Token.Parens -> parseConstructor(next.tokens, modifiers).let { add(it); superItems[id] = it }
                     else -> err("Missing parameters")
                 }
                 else -> parseItem(modifiers)?.let { add(it); superItems[id] = it }
@@ -165,10 +166,10 @@ private fun Parser.parseClassBody(id: ItemId, constructors: MutableList<Construc
     }
 }
 
-private fun Parser.parseConstructor(paramTokens: List<PToken>, modifiers: List<PDecMod>): Constructor {
-    val params = parenthesizedOf(paramTokens).parseFunParams().also { advance() }
+private fun Parser.parseConstructor(paramTokens: List<PToken>, modifiers: List<PDecMod>) = registerParsedItem {
+    val params = parenthesizedOf(paramTokens).parseFunParams()
 
-    val primaryCall = if (current == Token.Colon) {
+    val primaryCall = if (advance().current == Token.Colon) {
         if (current != initIdent) {
             err("Missing `init`")
         }
@@ -184,5 +185,5 @@ private fun Parser.parseConstructor(paramTokens: List<PToken>, modifiers: List<P
 
     val body = parseScope()
 
-    return Constructor(modifiers, params, primaryCall, body)
+    ItemKind.Constructor(modifiers, params, primaryCall, body)
 }

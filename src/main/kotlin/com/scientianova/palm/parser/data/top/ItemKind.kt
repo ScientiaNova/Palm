@@ -1,5 +1,6 @@
 package com.scientianova.palm.parser.data.top
 
+import com.scientianova.palm.parser.data.expressions.Arg
 import com.scientianova.palm.parser.data.expressions.PExpr
 import com.scientianova.palm.parser.data.expressions.PExprScope
 import com.scientianova.palm.parser.data.expressions.PType
@@ -39,7 +40,6 @@ sealed class ItemKind {
         val typeParams: List<PClassTypeParam>,
         val typeConstraints: TypeConstraints,
         val superTypes: List<PSuperType>,
-        val secondaryConstructor: List<Constructor>,
         val items: List<ItemId>
     ) : ItemKind()
 
@@ -82,6 +82,13 @@ sealed class ItemKind {
         val params: List<PString>,
         val bound: List<PType>,
         val actual: PType?
+    ) : ItemKind()
+
+    data class Constructor(
+        val modifiers: List<PDecMod>,
+        val params: List<FunParam>,
+        val primaryCall: List<Arg<PExpr>>?,
+        val body: PExprScope?
     ) : ItemKind()
 
     data class Initializer(val scope: PExprScope) : ItemKind()

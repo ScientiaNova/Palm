@@ -1,166 +1,3 @@
-package com.scientianova.palm.parser
-
-const val oldExample = """
-    if (state.char?.isSymbolPart() == true) {
-        val op = handleSymbol(state)
-        if (op.value.isPostfixOp(afterOp)) {
-            list.map(op.area) { (expr) ->
-                PostfixOpExpr(op, expr).at(expr.area.first..op.area.last).succTo(afterOp)
-            }.flatMap { (newList, next) ->
-                return handleInlinedBinOps(next, start, excludeCurly, newList)
-            }
-        } else { 
-            handleSubexpr(afterOp.actual, false).flatMap { (sub, next) ->
-              return handleInlinedBinOps(next, start, excludeCurly, list.appendSymbol(op, sub))
-            } 
-        }
-    } else {
-        val actual = state.actual
-        when (actual.char) {
-            null -> finishBinOps(start, list, state)
-            in identStartChars -> {
-                val infix = handleIdent(actual)
-                when (infix.value) {
-                    in keywords -> finishBinOps(start, list, state)
-                    "is" -> handleType(afterInfix.actual, false).flatMap { (type, next) ->
-                        return handleInlinedBinOps(next, start, excludeCurly, list.appendIs(type))
-                    }
-                    "as" -> {
-                        val handling = when (afterInfix.char) {
-                            '!' -> AsHandling.Unsafe.to(afterInfix.nextActual)
-                            '?' -> AsHandling.Nullable.to(afterInfix.nextActual)
-                            _ -> AsHandling.Safe.to(afterInfix.actual)
-                        }
-                        handleType(typeStart, false).flatMap { (type, next) ->
-                            return handleInlinedBinOps(next, start, excludeCurly, list.appendAs(type, handling))
-                        }
-                    }
-                    _ -> handleSubexpr(afterInfix.actual, false).flatMap { (part, next) ->
-                        return handleInlinedBinOps(next, start, excludeCurly, list.appendIdent(infix, part))
-                    }
-                }
-            }
-            '`' -> handleBacktickedIdent(actual.next).flatMap { (infix, afterInfix) ->
-                handleSubexpr(afterInfix.nextActual, false).flatMap { (part, next) ->
-                    return handleInlinedBinOps(next, start, excludeCurly, list.appendIdent(infix, part))
-                }
-            }
-            in symbolChars -> {
-                val op = handleSymbol(state)
-                val symbol = op.value
-                if (!(symbol.endsWith('.') && symbol.length <= 2) || afterOp.char?.isWhitespace() == false) {
-                    invalidPrefixOperatorError.errAt(afterOp.pos)
-                } else {
-                    when (symbol) {
-                        "->" -> finishBinOps(start, list, state)
-                        _ -> handleSubexpr(afterOp.actual, false).flatMap { (part, next) ->
-                            return handleInlinedBinOps(next.actual, start, excludeCurly, list.appendSymbol(op, part))
-                        }
-                    }
-                }
-            }
-            '(' -> list.map(state.pos) { (expr) -> handleCall(state, expr, excludeCurly) }.flatMap { (newList, next) ->
-                return handleInlinedBinOps(next, start, excludeCurly, newList)
-            }
-            '{' -> if (excludeCurly) {
-                finishBinOps(start, list, state)
-            } else { 
-                list.map(state.pos) { (expr) ->
-                    handleLambda(state.nextActual, state.pos).map { (lambda) ->
-                        CallExpr(expr, CallParams(listOf(lambda))).at(expr.area.first..lambda.area.first)
-                    }
-                }
-            }.flatMap { (nextList, next) -> return handleInlinedBinOps(next, start, excludeCurly, nextList) }
-            _ -> finishBinOps(start, list, state)
-        }
-    }
-"""
-
-const val aocExample = """ 
-private val mapping: [Char: Direction] = [
-	"U": Direction.Up,
-	"R": Direction.Right,
-	"D": Direction.Down,
-	"L": Direction.Left
-]
-	
-fun directionFromChar(raw: Char) = mapping[raw]!
-
-data class Instruction(
-	val direction: Direction,
-	val length: Int,
-	val vector: Vector2,
-)
-
-data class Segment(
-	val start: Vector2,
-	val end: Vector2,
-	val startStepCount: Int,
-	val minX: Int = min(start.x, end.x),
-	val maxX: Int = max(start.x, end.x),
-	val xRange: ClosedRange<Int> = minX..maxX,
-	val minY: Int = min(start.y, end.y),
-	val maxY: Int = max(start.y, end.y),
-	val yRange: ClosedRange<Int> = minY..maxY,
-)
-
-impl Segment {
-	fun intersections(other: Segment): [(Vector2, Int)] {
-		if (!intersects(other)) return []
-		
-		val xs = max(minX, other.minX)..min(maxX, other.maxX)
-		val ys = max(minY, other.minY)..min(maxY, other.maxY)
-		return xs.flatMap { (x) ->
-			ys.map { (y) -> Vector2(x, y) }
-		}.map { (it, steps(to: it) + other.steps(to: it)) }
-	}
-	
-	fun intersects(other: Segment): Bool =
-      xRange.overlaps(other.xRange) && yRange.overlaps(other.yRange)
-	
-	fun steps(position: Vector2): Int =
-		startStepCount + abs(position.x - start.x) + abs(position.y - start.y)
-}
-
-val instructions = input().lines().map {
-	it.components(separatedBy = ",").map(::Instruction)
-}
-
-val paths: [[Segment]] = instructions.map { (path) ->
-	var position = Vector2.Zero
-	var stepCount = 0
-	return path.map { (segment) ->
-		val endPosition = position + segment.vector
-		defer {
-			position = endPosition
-			stepCount += segment.length
-		}
-		Instruction(start = position, end = endPosition, startStepCount = stepCount)
-	}
-}
- 
-val path1 = paths[0]
-val path2 = paths[1]
-
-val intersections = path1
-	.flatMap { path2.flatMap(it.intersections()) }
-	.filter { it.position != Vector2.Zero }
-
-val closestIntersection = intersections
-	.map { it.position.absolute }
-	.min()!
-
-val bestIntersection = intersections
-	.map { it.stepCount }
-	.min()!
-
-fun main() { 
-  println("closest intersection: ${'$'}closestIntersection")
-  println("best intersection: ${'$'}bestIntersection")
-}
-"""
-
-const val implTest = """
 data class Builder(
     internal val kind: Kind,
     internal val enableIO: Bool,
@@ -183,12 +20,12 @@ enum class Kind {
 
 fun createCurrentThread(): Builder =
     Builder(Kind.CurrentThread)
-    
+
 fun createMultiThread(): Builder =
     Builder(Kind.MultiThread)
-    
+
 fun create(kind: Kind): Builder = Builder(
-    kind, 
+    kind,
     enableIO: false,
     enableTime: false,
     workerThreads: None,
@@ -215,14 +52,14 @@ fun threadName[Builder](value: Into<String>): T {
 }
 
 fun threadNameFn[Builder](f: () -> String): T = this.copyWith(threadName: f)
-    
+
 fun threadStackSize[Builder](value: Int): T = this.copyWith(threadStackSize: Some(value))
-    
+
 fun onThreadStart[Builder](f: () -> Send) = this.copyWith(afterStart: Some(f))
 
 fun onThreadStop[Builder](f: () -> Send) = this.copyWith(beforeStop: Some(f))
 
-fun build[Builder](): Result<Runtime> = when (kind) { 
+fun build[Builder](): Result<Runtime> = when (kind) {
     CurrentThread -> {
         buildBasicRuntime()
     }
@@ -233,17 +70,17 @@ fun build[Builder](): Result<Runtime> = when (kind) {
 
 val cfg[Builder]: driver.Cfg get() = driver.Cfg(
     enableIO: enableIO,
-    enableTime: enableTime, 
+    enableTime: enableTime,
 )
 
 fun threadKeepAlive[Builder](duration: Duration) = this.copyWith(keepAlive: Some(duration))
 
 fun buildBasicRuntime[Builder](): io.Result<Runtime> {
     val (driver, resources) = driver.Driver(cfg);
-      
+
     val scheduler = BasicScheduler(driver);
     val spawner = Spawner.Basic(scheduler.spawner());
-        
+
     val blockingPool = blocking.createBlockingPool(this, maxThreads);
     val blockingSpawner = blockingPool.spawner();
 
@@ -372,4 +209,3 @@ fun parseOp[Parser](): PBinOp? = when (current) {
     is Token.Ident(val name) if !lastNewline -> Infix(token.name).end()
     _ -> null
 }
-""".trimIndent()

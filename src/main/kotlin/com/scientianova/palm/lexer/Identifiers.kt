@@ -3,11 +3,10 @@ package com.scientianova.palm.lexer
 import com.scientianova.palm.util.StringPos
 
 internal tailrec fun Lexer.lexNormalIdent(
-    code: String,
     pos: StringPos,
     builder: StringBuilder,
 ): Lexer = when (val char = code.getOrNull(pos)) {
-    in identChars -> lexNormalIdent(code, pos + 1, builder.append(char))
+    in identChars -> lexNormalIdent(pos + 1, builder.append(char))
     else -> matchIdentToken(builder.toString()).add(pos)
 }
 
@@ -54,13 +53,12 @@ private fun matchIdentToken(ident: String) = when (ident) {
 }
 
 internal tailrec fun Lexer.lexTickedIdent(
-    code: String,
     pos: StringPos,
     builder: StringBuilder
 ): Lexer = when (val char = code.getOrNull(pos)) {
     null -> addErr("Unclosed identifier", this.pos + 1, pos)
     '/', '\\', '.', ';', ':', '<', '>', '[', ']' ->
-        err("Unsupported character inside identifier", pos).lexTickedIdent(code, pos, builder)
+        err("Unsupported character inside identifier", pos).lexTickedIdent(pos, builder)
     '`' -> {
         val ident = builder.toString()
         if (ident.isBlank()) err("Empty identifier", pos - 1, pos + 1).run {
@@ -69,7 +67,7 @@ internal tailrec fun Lexer.lexTickedIdent(
             Token.Ident(ident, true).add(pos + 1)
         }
     }
-    else -> lexTickedIdent(code, pos + 1, builder.append(char))
+    else -> lexTickedIdent(pos + 1, builder.append(char))
 }
 
 val whereIdent = Token.Ident("where", false)

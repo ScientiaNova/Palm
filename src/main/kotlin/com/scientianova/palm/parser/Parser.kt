@@ -4,13 +4,13 @@ import com.scientianova.palm.errors.PalmError
 import com.scientianova.palm.lexer.Lexer
 import com.scientianova.palm.lexer.PToken
 import com.scientianova.palm.lexer.Token
-import com.scientianova.palm.lexer.lexFile
 import com.scientianova.palm.util.PString
 import com.scientianova.palm.util.Positioned
 import com.scientianova.palm.util.StringPos
+import java.net.URL
 
-sealed class Parser(protected val stream: List<PToken>, val errors: MutableList<PalmError>) {
-    constructor(lexer: Lexer) : this(lexer.tokens, lexer.errors)
+sealed class Parser(private val filePath: URL, protected val stream: List<PToken>, val errors: MutableList<PalmError>) {
+    constructor(lexer: Lexer) : this(lexer.filePath, lexer.tokens, lexer.errors)
 
     var index = nextIndex(0)
 
@@ -28,7 +28,7 @@ sealed class Parser(protected val stream: List<PToken>, val errors: MutableList<
 
     fun err(error: PalmError): Parser = also { errors += error }
     fun err(error: String, startPos: StringPos = pos, nextPos: StringPos = this.nextPos): Parser =
-        also { errors += PalmError(error, startPos, nextPos) }
+        also { errors += PalmError(error, filePath, startPos, nextPos) }
 
     private tailrec fun nextIndex(newIndex: Int): Int = if (stream[newIndex].value.canIgnore()) {
         nextIndex(newIndex + 1)
@@ -51,26 +51,32 @@ sealed class Parser(protected val stream: List<PToken>, val errors: MutableList<
     fun currentInfix() =
         (stream.getOrNull(index - 1)?.value?.beforePrefix() ?: true) == stream[index + 1].value.afterPostfix()
 
-    fun parenthesizedOf(stream: List<PToken>, errors: MutableList<PalmError> = this.errors) = ParenthesizedParser(stream, errors)
-    fun scopedOf(stream: List<PToken>, errors: MutableList<PalmError> = this.errors) = ScopedParser(stream, errors)
+    fun parenthesizedOf(stream: List<PToken>, errors: MutableList<PalmError> = this.errors) =
+        ParenthesizedParser(filePath, stream, errors)
 
-    inline fun <T> inParensOrEmpty(errors: MutableList<PalmError> = this.errors, crossinline fn: Parser.() -> List<T>) = current.let { paren ->
-        if (paren is Token.Parens)
-            parenthesizedOf(paren.tokens, errors).fn().also { advance() }
-        else emptyList()
-    }
+    fun scopedOf(stream: List<PToken>, errors: MutableList<PalmError> = this.errors) =
+        ScopedParser(filePath, stream, errors)
 
-    inline fun <T> inBracesOrEmpty(errors: MutableList<PalmError> = this.errors, crossinline fn: Parser.() -> List<T>) = current.let { brace ->
-        if (brace is Token.Braces)
-            scopedOf(brace.tokens, errors).fn().also { advance() }
-        else emptyList()
-    }
+    inline fun <T> inParensOrEmpty(errors: MutableList<PalmError> = this.errors, crossinline fn: Parser.() -> List<T>) =
+        current.let { paren ->
+            if (paren is Token.Parens)
+                parenthesizedOf(paren.tokens, errors).fn().also { advance() }
+            else emptyList()
+        }
 
-    inline fun <T> inBracketsOrEmpty(errors: MutableList<PalmError>, crossinline fn: Parser.() -> List<T>) = current.let { bracket ->
-        if (bracket is Token.Brackets)
-            parenthesizedOf(bracket.tokens, errors).fn().also { advance() }
-        else emptyList()
-    }
+    inline fun <T> inBracesOrEmpty(errors: MutableList<PalmError> = this.errors, crossinline fn: Parser.() -> List<T>) =
+        current.let { brace ->
+            if (brace is Token.Braces)
+                scopedOf(brace.tokens, errors).fn().also { advance() }
+            else emptyList()
+        }
+
+    inline fun <T> inBracketsOrEmpty(errors: MutableList<PalmError>, crossinline fn: Parser.() -> List<T>) =
+        current.let { bracket ->
+            if (bracket is Token.Brackets)
+                parenthesizedOf(bracket.tokens, errors).fn().also { advance() }
+            else emptyList()
+        }
 
     inline fun <T> inBracketsOrEmpty(crossinline fn: Parser.() -> List<T>) = inBracketsOrEmpty(this.errors, fn)
 
@@ -80,11 +86,12 @@ sealed class Parser(protected val stream: List<PToken>, val errors: MutableList<
         else or()
     }
 
-    inline fun <T> inParensOr(errors: MutableList<PalmError>, crossinline fn: Parser.() -> T, or: () -> T) = current.let { paren ->
-        if (paren is Token.Parens)
-            parenthesizedOf(paren.tokens, errors).fn().also { advance() }
-        else or()
-    }
+    inline fun <T> inParensOr(errors: MutableList<PalmError>, crossinline fn: Parser.() -> T, or: () -> T) =
+        current.let { paren ->
+            if (paren is Token.Parens)
+                parenthesizedOf(paren.tokens, errors).fn().also { advance() }
+            else or()
+        }
 
     inline fun <T> inBracesOr(crossinline fn: Parser.() -> T, or: () -> T) = current.let { brace ->
         if (brace is Token.Braces)
@@ -99,11 +106,13 @@ sealed class Parser(protected val stream: List<PToken>, val errors: MutableList<
     }
 }
 
-class ParenthesizedParser(stream: List<PToken>, errors: MutableList<PalmError>) : Parser(stream, errors) {
+class ParenthesizedParser(filePath: URL, stream: List<PToken>, errors: MutableList<PalmError>) :
+    Parser(filePath, stream, errors) {
     override val lastNewline get() = false
 }
 
-class ScopedParser(stream: List<PToken>, errors: MutableList<PalmError>) : Parser(stream, errors) {
+class ScopedParser(filePath: URL, stream: List<PToken>, errors: MutableList<PalmError>) :
+    Parser(filePath, stream, errors) {
     override val lastNewline get() = lastNewLine(index - 1)
 
     private tailrec fun lastNewLine(index: Int): Boolean {
@@ -114,12 +123,6 @@ class ScopedParser(stream: List<PToken>, errors: MutableList<PalmError>) : Parse
             else -> false
         }
     }
-}
-
-fun parserFor(code: String): Parser {
-    val lexer = Lexer()
-    lexer.lexFile(code)
-    return ScopedParser(lexer.tokens, lexer.errors)
 }
 
 fun Parser.parseIdent(): PString {
