@@ -62,7 +62,6 @@ inline fun Parser.parseModifierParam(fn: (PathType, Path) -> Positioned<DecModif
     when (val curr = current) {
         Token.Mod -> advance().parseModifierPath(mutableListOf())?.let { path -> fn(PathType.Module, path) }
         Token.Super -> advance().parseModifierPath(mutableListOf())?.let { path -> fn(PathType.Super, path) }
-        Token.Crate -> advance().parseModifierPath(mutableListOf())?.let { path -> fn(PathType.Crate, path) }
         is Token.Ident -> parseModifierPath(mutableListOf(curr.name.end()))?.let { path -> fn(PathType.Root, path) }
         else -> null
     }

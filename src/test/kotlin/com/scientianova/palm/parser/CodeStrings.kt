@@ -109,7 +109,6 @@ fun Path.path() = joinToString(".") { it.value }
 
 fun PathType.toCodeString(): String = when (this) {
     PathType.Module -> "mod."
-    PathType.Crate -> "crate."
     PathType.Super -> "super."
     PathType.Root -> ""
 }

@@ -14,7 +14,6 @@ import com.scientianova.palm.util.recBuildListN
 
 fun Parser.parseImport(): Import = when (current) {
     Token.Mod -> Import(PathType.Module, advance().parseImportPath(mutableListOf()))
-    Token.Crate -> Import(PathType.Crate, advance().parseImportPath(mutableListOf()))
     Token.Super -> Import(PathType.Super, advance().parseImportPath(mutableListOf()))
     else -> Import(PathType.Root, parseImportPath(mutableListOf(parseIdent())))
 }

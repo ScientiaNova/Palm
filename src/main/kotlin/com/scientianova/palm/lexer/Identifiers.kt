@@ -33,7 +33,6 @@ private fun matchIdentToken(ident: String) = when (ident) {
     "null" -> Token.NullLit
     "super" -> Token.Super
     "mod" -> Token.Mod
-    "crate" -> Token.Crate
     "true" -> trueToken
     "false" -> falseToken
     "where" -> whereIdent
