@@ -13,7 +13,7 @@ import com.scientianova.palm.parser.parseIdent
 import com.scientianova.palm.parser.parsing.expressions.parseEqExpr
 import com.scientianova.palm.parser.parsing.expressions.parseTypeAnn
 
-fun Parser.parseProperty(modifiers: List<PDecMod>, mutable: Boolean) = registerParsedItem {
+fun Parser.parseProperty(modifiers: List<PDecMod>, mutable: Boolean): ItemKind {
     val name = parseIdent()
     val context = parseContextParams()
     val type = parseTypeAnn() ?: Type.Infer.noPos()
@@ -74,7 +74,7 @@ fun Parser.parseProperty(modifiers: List<PDecMod>, mutable: Boolean) = registerP
         }
     }
 
-    ItemKind.Property(
+    return ItemKind.Property(
         name,
         modifiers,
         mutable,

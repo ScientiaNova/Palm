@@ -9,16 +9,13 @@ import com.scientianova.palm.parser.parseIdent
 import com.scientianova.palm.parser.parsing.expressions.requireType
 import com.scientianova.palm.parser.parsing.top.parseDecModifiers
 import com.scientianova.palm.parser.parsing.top.parseItem
-import com.scientianova.palm.parser.parsing.top.registerParsedItem
-import com.scientianova.palm.queries.ItemId
-import com.scientianova.palm.queries.superItems
 import com.scientianova.palm.util.recBuildList
 
-fun Parser.parseInterfaceBody(id: ItemId) = recBuildList<ItemId> {
+fun Parser.parseInterfaceBody() = recBuildList<ItemKind> {
     when (current) {
         Token.End -> return this
         Token.Semicolon -> advance()
-        else -> parseItem(parseDecModifiers())?.let { add(it); superItems[id] = it }
+        else -> parseItem(parseDecModifiers())?.let(::add)
     }
 }
 
@@ -35,13 +32,12 @@ fun Parser.parseInterfaceSuperTypes(): List<PType> = if (current == Token.Colon)
     emptyList()
 }
 
-fun Parser.parseInterface(modifiers: List<PDecMod>) = registerParsedItem { id ->
+fun Parser.parseInterface(modifiers: List<PDecMod>): ItemKind {
     val name = parseIdent()
-    val constraints = constraints()
-    val typeParams = inParensOrEmpty { parseClassTypeParams(constraints) }
+    val typeParams = parseTypeParams()
     val superTypes = parseInterfaceSuperTypes()
-    parseWhere(constraints)
-    val body = inBracesOrEmpty { parseInterfaceBody(id) }
+    val constraints = parseWhere()
+    val body = inBracesOrEmpty { parseInterfaceBody() }
 
-    ItemKind.Interface(name, modifiers, typeParams, constraints, superTypes, body)
+    return ItemKind.Interface(name, modifiers, typeParams, constraints, superTypes, body)
 }

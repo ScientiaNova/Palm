@@ -9,12 +9,9 @@ import com.scientianova.palm.parser.parseIdent
 import com.scientianova.palm.parser.parsing.top.parseDecModifiers
 import com.scientianova.palm.parser.parsing.top.parseInitializer
 import com.scientianova.palm.parser.parsing.top.parseItem
-import com.scientianova.palm.parser.parsing.top.registerParsedItem
-import com.scientianova.palm.queries.ItemId
-import com.scientianova.palm.queries.superItems
 import com.scientianova.palm.util.recBuildList
 
-fun Parser.parseObjectBody(id: ItemId) = recBuildList<ItemId> {
+fun Parser.parseObjectBody() = recBuildList<ItemKind> {
     when (current) {
         Token.End -> return this
         Token.Semicolon -> advance()
@@ -23,16 +20,16 @@ fun Parser.parseObjectBody(id: ItemId) = recBuildList<ItemId> {
             val modifiers = parseDecModifiers()
             when (current) {
                 initIdent -> add(parseInitializer())
-                else -> parseItem(modifiers)?.let { add(it); superItems[id] = it }
+                else -> parseItem(modifiers)?.let(::add)
             }
         }
     }
 }
 
-fun Parser.parseObject(modifiers: List<PDecMod>) = registerParsedItem { id ->
+fun Parser.parseObject(modifiers: List<PDecMod>): ItemKind {
     val name = parseIdent()
     val superTypes = parseClassSuperTypes()
-    val body = inBracesOrEmpty { parseObjectBody(id) }
+    val body = inBracesOrEmpty { parseObjectBody() }
 
-    ItemKind.Object(name, modifiers, superTypes, body)
+    return ItemKind.Object(name, modifiers, superTypes, body)
 }

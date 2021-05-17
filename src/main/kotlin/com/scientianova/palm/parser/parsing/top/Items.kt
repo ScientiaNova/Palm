@@ -6,16 +6,14 @@ import com.scientianova.palm.parser.Parser
 import com.scientianova.palm.parser.data.top.ItemKind
 import com.scientianova.palm.parser.data.top.PDecMod
 import com.scientianova.palm.parser.parsing.types.*
-import com.scientianova.palm.queries.ItemId
-import com.scientianova.palm.queries.itemIdToParsedKind
 
-fun Parser.parseItem(modifiers: List<PDecMod> = parseDecModifiers()): ItemId? = when (current) {
+fun Parser.parseItem(modifiers: List<PDecMod> = parseDecModifiers()): ItemKind? = when (current) {
     Token.Fun -> advance().parseFun(modifiers)
     Token.Val -> advance().parseProperty(modifiers, false)
     Token.Var -> advance().parseProperty(modifiers, true)
     typeIdent -> when (advance().current) {
         Token.Class -> advance().parseTypeClass(modifiers)
-        else -> registerParsedItem { parseTpeAlias(modifiers) }
+        else -> parseTpeAlias(modifiers)
     }
     Token.Class -> advance().parseClass(modifiers)
     Token.Object -> advance().parseObject(modifiers)
@@ -29,5 +27,3 @@ fun Parser.parseItem(modifiers: List<PDecMod> = parseDecModifiers()): ItemId? = 
         null
     }
 }
-
-inline fun registerParsedItem(kind: (ItemId) -> ItemKind): ItemId = ItemId().also { itemIdToParsedKind[it] = kind(it) }

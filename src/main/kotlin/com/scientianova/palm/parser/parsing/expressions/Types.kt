@@ -159,14 +159,10 @@ private fun Parser.parseTypeTupleBody(list: MutableList<PType> = mutableListOf()
 private fun Parser.parseTypeTuple(tokens: List<PToken>): PType = withPos { start ->
     val list = parenthesizedOf(tokens).parseTypeTupleBody()
     val afterTokens = nextPos
-    return when {
-        advance().current == Token.Arrow -> {
-            val returnType = advance().requireType()
-            Type.Function(emptyList(), list, returnType).at(start, returnType.next)
-        }
-        list.size == 1 -> list.first()
-        else -> Type.Tuple(list).at(start, afterTokens)
-    }
+    return if (advance().current == Token.Arrow) {
+        val returnType = advance().requireType()
+        Type.Function(emptyList(), list, returnType).at(start, returnType.next)
+    } else Type.Tuple(list).at(start, afterTokens)
 }
 
 private fun Parser.parseTypeList(tokens: List<PToken>): PType = with(parenthesizedOf(tokens)) {

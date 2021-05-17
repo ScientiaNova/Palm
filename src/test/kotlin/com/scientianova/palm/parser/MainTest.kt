@@ -1,6 +1,5 @@
 package com.scientianova.palm.parser
 
-import com.scientianova.palm.queries.moduleNames
 import com.scientianova.palm.util.Positioned
 import java.net.URL
 import kotlin.system.measureTimeMillis
@@ -8,8 +7,7 @@ import kotlin.system.measureTimeMillis
 fun resource(name: String): URL = Positioned::class.java.getResource("/test_code/$name")!!
 
 fun main() {
-    testParseCrate(resource("crate"))
-    moduleNames.values.forEach(::println)
+    testParseFile(resource("aoc_example.palm"))
 }
 
 inline fun benchmark(times: Int, block: () -> Unit) {

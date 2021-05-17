@@ -4,7 +4,6 @@ import com.scientianova.palm.parser.data.expressions.Arg
 import com.scientianova.palm.parser.data.expressions.PExpr
 import com.scientianova.palm.parser.data.expressions.PExprScope
 import com.scientianova.palm.parser.data.expressions.PType
-import com.scientianova.palm.queries.ItemId
 import com.scientianova.palm.util.PString
 
 sealed class ItemKind {
@@ -24,8 +23,8 @@ sealed class ItemKind {
     data class Function(
         val name: PString,
         val modifiers: List<PDecMod>,
-        val typeParams: List<PString>,
-        val constraints: TypeConstraints,
+        val typeParams: List<PTypeParam>,
+        val constraints: WhereClause,
         val context: List<FunParam>,
         val params: List<FunParam>,
         val type: PType?,
@@ -37,43 +36,43 @@ sealed class ItemKind {
         val modifiers: List<PDecMod>,
         val constructorModifiers: List<PDecMod>,
         val primaryConstructor: List<PrimaryParam>?,
-        val typeParams: List<PClassTypeParam>,
-        val typeConstraints: TypeConstraints,
+        val typeParams: List<PTypeParam>,
+        val typeConstraints: WhereClause,
         val superTypes: List<PSuperType>,
-        val items: List<ItemId>
+        val items: List<ItemKind>
     ) : ItemKind()
 
     data class Interface(
         val name: PString,
         val modifiers: List<PDecMod>,
-        val typeParams: List<PClassTypeParam>,
-        val typeConstraints: TypeConstraints,
+        val typeParams: List<PTypeParam>,
+        val typeConstraints: WhereClause,
         val superTypes: List<PType>,
-        val items: List<ItemId>
+        val items: List<ItemKind>
     ) : ItemKind()
 
     data class Object(
         val name: PString,
         val modifiers: List<PDecMod>,
         val superTypes: List<PSuperType>,
-        val statements: List<ItemId>
+        val statements: List<ItemKind>
     ) : ItemKind()
 
     data class TypeClass(
         val name: PString,
         val modifiers: List<PDecMod>,
-        val typeParams: List<PString>,
-        val typeConstraints: TypeConstraints,
+        val typeParams: List<PTypeParam>,
+        val typeConstraints: WhereClause,
         val superTypes: List<PType>,
-        val items: List<ItemId>
+        val items: List<ItemKind>
     ) : ItemKind()
 
     data class Implementation(
         val type: PType,
-        val typeParams: List<PString>,
-        val typeConstraints: TypeConstraints,
+        val typeParams: List<PTypeParam>,
+        val typeConstraints: WhereClause,
         val context: List<FunParam>,
-        val items: List<ItemId>
+        val kind: ImplementationKind
     ) : ItemKind()
 
     data class TypeAlias(

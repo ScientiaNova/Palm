@@ -14,7 +14,6 @@ sealed class DecModifier {
     object Ann : DecModifier()
     object Abstract : DecModifier()
     object Override : DecModifier()
-    object Operator : DecModifier()
     object Open : DecModifier()
     object Final : DecModifier()
     object Const : DecModifier()

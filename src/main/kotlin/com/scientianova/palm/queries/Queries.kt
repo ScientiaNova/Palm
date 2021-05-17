@@ -1,18 +1,11 @@
 package com.scientianova.palm.queries
 
-import com.scientianova.palm.parser.data.top.ModuleScope
-import com.scientianova.palm.parser.data.top.ItemKind
+data class InputQueryValue<T>(val value: T, val changed: Revision)
+data class ComputeQueryValue<T>(val value: T, val changed: Revision, val checked: Revision)
 
-val moduleToItems = HashMap<ModuleId, List<ItemId>>()
-val itemToModule = HashMap<ItemId, ModuleId>()
-val superItems = HashMap<ItemId, ItemId>()
+class InputQuery<K, V> {
+    private val map = hashMapOf<K, InputQueryValue<V>>()
+    operator fun set(key: K, value: V) {
 
-val itemTypes = HashMap<ItemId, TypeId>()
-val typeItems = HashMap<TypeId, ItemId>()
-
-val itemIdToParsedKind = HashMap<ItemId, ItemKind>()
-val moduleIdToParsed = HashMap<ModuleId, ModuleScope>()
-
-val parentModule = HashMap<ModuleId, ModuleId?>()
-val moduleToSubmodules = HashMap<ModuleId?, HashMap<String, ModuleId>>()
-val moduleNames = HashMap<ModuleId, String>()
+    }
+}

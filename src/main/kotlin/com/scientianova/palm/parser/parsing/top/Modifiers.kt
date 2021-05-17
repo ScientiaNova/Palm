@@ -13,7 +13,7 @@ import com.scientianova.palm.util.*
 
 fun Parser.identToDecMod(string: String): Positioned<DecModifier>? = when (string) {
     "inline" -> DecModifier.Inline.end()
-    "override" -> DecModifier.Inline.end()
+    "override" -> DecModifier.Override.end()
     "open" -> DecModifier.Open.end()
     "final" -> DecModifier.Final.end()
     "public" -> DecModifier.Public.end()

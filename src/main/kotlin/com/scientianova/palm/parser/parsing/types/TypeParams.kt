@@ -1,9 +1,13 @@
 package com.scientianova.palm.parser.parsing.types
 
 import com.scientianova.palm.lexer.Token
+import com.scientianova.palm.lexer.outIdent
 import com.scientianova.palm.lexer.whereIdent
 import com.scientianova.palm.parser.Parser
 import com.scientianova.palm.parser.data.expressions.PType
+import com.scientianova.palm.parser.data.expressions.VarianceMod
+import com.scientianova.palm.parser.data.top.PTypeParam
+import com.scientianova.palm.parser.data.top.TypeParam
 import com.scientianova.palm.parser.parseIdent
 import com.scientianova.palm.parser.parsing.expressions.requireType
 import com.scientianova.palm.util.PString
@@ -13,7 +17,7 @@ typealias MutableConstraints = MutableList<Pair<PString, List<PType>>>
 
 fun constraints(): MutableConstraints = mutableListOf()
 
-fun Parser.parseTypeParams(constraints: MutableConstraints): List<PString> = if (current == Token.Less) {
+fun Parser.parseTypeParams(): List<PTypeParam> = if (current == Token.Less) {
     advance()
     recBuildList {
         if (current == Token.Greater) {
@@ -21,9 +25,21 @@ fun Parser.parseTypeParams(constraints: MutableConstraints): List<PString> = if 
             return this
         }
 
+        val start = pos
+        val variance = when (current) {
+            Token.In -> {
+                advance()
+                VarianceMod.In
+            }
+            outIdent -> {
+                advance()
+                VarianceMod.Out
+            }
+            else -> VarianceMod.None
+        }
+
         val param = parseIdent()
-        if (current == Token.Colon) constraints.add(param to advance().parseTypeBound())
-        add(param)
+        add(TypeParam(param, variance, if (current == Token.Colon) advance().parseTypeBound() else emptyList()).end(start))
 
         when (current) {
             Token.Comma -> advance()
@@ -34,14 +50,12 @@ fun Parser.parseTypeParams(constraints: MutableConstraints): List<PString> = if 
             else -> err("Unclosed angle bracket")
         }
     }
-} else {
-    emptyList()
-}
+} else emptyList()
 
-fun Parser.parseWhere(constraints: MutableList<Pair<PString, List<PType>>>) {
-    if (current === whereIdent) advance() else return
+fun Parser.parseWhere(): List<Pair<PString, List<PType>>> {
+    if (current === whereIdent) advance() else return emptyList()
 
-    recBuildList(constraints) {
+    return recBuildList {
         val name = parseIdent()
         if (current == Token.Colon) advance() else err("Missing colon")
         val type = parseTypeBound()
@@ -50,7 +64,7 @@ fun Parser.parseWhere(constraints: MutableList<Pair<PString, List<PType>>>) {
         if (current == Token.Comma) {
             advance()
         } else {
-            return
+            return this
         }
     }
 }

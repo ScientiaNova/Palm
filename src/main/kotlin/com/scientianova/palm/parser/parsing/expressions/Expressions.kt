@@ -6,9 +6,6 @@ import com.scientianova.palm.lexer.Token
 import com.scientianova.palm.parser.Parser
 import com.scientianova.palm.parser.data.expressions.*
 import com.scientianova.palm.parser.parseIdent
-import com.scientianova.palm.parser.parsing.types.parseClassSuperTypes
-import com.scientianova.palm.parser.parsing.types.parseObjectBody
-import com.scientianova.palm.queries.ItemId
 import com.scientianova.palm.util.*
 
 private fun Parser.parseTerm(): PExpr? = when (val token = current) {
@@ -68,11 +65,12 @@ private fun Parser.parseTerm(): PExpr? = when (val token = current) {
     is Token.Parens -> parseTuple(token.tokens)
     Token.NullLit -> Expr.Null.end()
     Token.Super -> Expr.Super.end()
+    Token.Mod -> Expr.Module.end()
     Token.Return -> parseReturn()
     Token.Break -> parseBreak()
     Token.If -> parseIf()
     Token.When -> parseWhen()
-    Token.Throw -> withPos { advance().requireBinOps().let { expr -> Expr.Throw(expr).at(it, expr.next) } }
+    Token.Throw -> withPos { advance().requireExpr().let { expr -> Expr.Throw(expr).at(it, expr.next) } }
     Token.Do -> withPos { advance().requireScope().let { scope -> Expr.Do(scope, parseCatches()).at(it, scope.next) } }
     Token.Spread -> withPos { advance().requireSubExpr().let { expr -> Expr.Spread(expr).at(it, expr.next) } }
     Token.DoubleColon -> parseFreeFunRef()
@@ -312,38 +310,38 @@ tailrec fun Parser.parseBinOps(left: PExpr, op: PBinOp, minPrecedence: Int): Pai
     } else left to op
 }
 
-fun Parser.requireBinOps(): PExpr =
+fun Parser.requireExpr(): PExpr =
     parseBinOps() ?: expectedExpression()
 
-fun Parser.requireScopeOrBinOps(): PExpr = parseScope()?.map(Expr::Scope) ?: requireBinOps()
+fun Parser.requireScopeOrBinOps(): PExpr = parseScope()?.map(Expr::Scope) ?: requireExpr()
 
 fun Parser.parseEqExpr(): PExpr? = if (current == Token.Assign) {
-    advance().requireBinOps()
+    advance().requireExpr()
 } else {
     null
 }
 
-private fun Parser.parseTupleBody(): List<PExpr> = recBuildList {
+private fun Parser.parseTupleBody(): Expr = recBuildListN<PExpr> {
     if (current == Token.End)
-        return this
+        return Expr.Tuple(this)
 
-    add(requireBinOps())
+    add(requireExpr())
     when (current) {
         Token.Comma -> advance()
-        Token.End -> return this
+        Token.End -> return Expr.Tuple(this)
         else -> err("Missing comma")
     }
 }
 
 private fun Parser.parseTuple(tokens: List<PToken>): PExpr =
-    Expr.Tuple(parenthesizedOf(tokens).parseTupleBody()).end()
+    parenthesizedOf(tokens).parseTupleBody().end()
 
 private fun Parser.parseWhenBranch(): WhenBranch {
     val pattern = parsePattern()
-    val guard = if (current == Token.If) BranchGuard(advance().requireBinOps()) else null
+    val guard = if (current == Token.If) BranchGuard(advance().requireExpr()) else null
     val res = when (current) {
         Token.When -> {
-            val expr = advance().inParensOr(Parser::requireBinOps) { null }
+            val expr = advance().inParensOr(Parser::requireExpr) { null }
             val branches = inBracesOr(Parser::parseWhenBranches) {
                 err("Missing when body")
                 emptyList()
@@ -376,7 +374,7 @@ fun Parser.parseWhenBranches(): List<WhenBranch> = recBuildList {
 }
 
 private fun Parser.parseWhen(): PExpr = withPos { start ->
-    val expr = advance().inParensOr(Parser::requireBinOps) { null }
+    val expr = advance().inParensOr(Parser::requireExpr) { null }
     val afterBranches = nextPos
     val branches = inBracesOr(Parser::parseWhenBranches) {
         err("Missing when body")
@@ -388,7 +386,7 @@ private fun Parser.parseWhen(): PExpr = withPos { start ->
 
 
 private fun Parser.parseIf(): PExpr = withPos { start ->
-    val condition = advance().inParensOr(Parser::requireBinOps) {
+    val condition = advance().inParensOr(Parser::requireExpr) {
         err("Missing condition")
         Expr.Error.noPos()
     }
@@ -402,14 +400,14 @@ private fun Parser.parseIf(): PExpr = withPos { start ->
     return Expr.If(condition, ifScope, elseScope).at(start, elseScope?.next ?: ifScope.next)
 }
 
-private fun Parser.parseListBody(list: MutableList<PExpr>): List<PExpr> = recBuildList(list) {
+private fun Parser.parseListBody(list: MutableList<PExpr>): Expr = recBuildListN(list) {
     if (current == Token.End) {
-        return this
+        return Expr.Lis(this)
     } else {
-        add(requireBinOps())
+        add(requireExpr())
         when (current) {
             Token.Comma -> advance()
-            Token.End -> return this
+            Token.End -> return Expr.Lis(this)
             else -> err("Missing comma")
         }
     }
@@ -420,18 +418,18 @@ inline fun <T> Parser.missingComma(fn: () -> T): T {
     return fn()
 }
 
-private fun Parser.parseMapBody(list: MutableList<Pair<PExpr, PExpr>>) = recBuildList(list) {
+private fun Parser.parseMapBody(list: MutableList<Pair<PExpr, PExpr>>): Expr = recBuildListN(list) {
     if (current == Token.End) {
-        return this
+        return Expr.Map(this)
     } else {
-        val first = requireBinOps()
+        val first = requireExpr()
         if (current == Token.Colon) advance() else err("Missing colon")
-        val second = requireBinOps()
+        val second = requireExpr()
         add(first to second)
 
         when (current) {
             Token.Comma -> advance()
-            Token.End -> return this
+            Token.End -> return Expr.Map(this)
             else -> err("Missing comma")
         }
     }
@@ -446,22 +444,22 @@ private fun Parser.parseListOrMap(tokens: List<PToken>): PExpr =
                 Expr.Map(emptyList())
             }
             else -> {
-                val first = requireBinOps()
+                val first = requireExpr()
                 when (current) {
-                    Token.Comma -> Expr.Lis(advance().parseListBody(mutableListOf(first)))
+                    Token.Comma -> advance().parseListBody(mutableListOf(first))
                     Token.Colon -> {
-                        val second = advance().requireBinOps()
+                        val second = advance().requireExpr()
                         when (current) {
-                            Token.Comma -> Expr.Map(advance().parseMapBody(mutableListOf(first to second)))
+                            Token.Comma -> advance().parseMapBody(mutableListOf(first to second))
                             Token.End -> Expr.Map(listOf(first to second))
                             else -> missingComma {
-                                Expr.Map(advance().parseMapBody(mutableListOf(first to second)))
+                                advance().parseMapBody(mutableListOf(first to second))
                             }
                         }
                     }
                     Token.End -> Expr.Lis(listOf(first))
                     else -> missingComma {
-                        Expr.Lis(advance().parseListBody(mutableListOf(first)))
+                        advance().parseListBody(mutableListOf(first))
                     }
                 }
             }
@@ -469,14 +467,9 @@ private fun Parser.parseListOrMap(tokens: List<PToken>): PExpr =
     }.end()
 
 private fun Parser.parseGet(on: PExpr, tokens: List<PToken>): PExpr {
-    val list = parenthesizedOf(tokens).parseListBody(mutableListOf())
+    val arg = parenthesizedOf(tokens).requireExpr()
 
-    return if (list.isEmpty()) {
-        err("Empty get").advance()
-        on
-    } else {
-        Expr.Get(on, list).end(on.start)
-    }
+    return Expr.Get(on, arg).end(on.start)
 }
 
 private fun Parser.parseOptionallyTypedParams() = recBuildList<Pair<PDecPattern, PType?>> {
@@ -489,7 +482,7 @@ private fun Parser.parseOptionallyTypedParams() = recBuildList<Pair<PDecPattern,
     }
 }
 
-private fun Parser.parseLambdaParams(): LambdaParams? {
+private fun Parser.parseLambdaHeader(): LambdaHeader? {
     val startIndex = index
     val tempErrors = mutableListOf<PalmError>()
     val contextParams = inBracketsOrEmpty(tempErrors, Parser::parseOptionallyTypedParams)
@@ -497,6 +490,7 @@ private fun Parser.parseLambdaParams(): LambdaParams? {
         index = startIndex
         return null
     }
+    val returnType = parseTypeAnn()
 
     if (current == Token.Arrow) {
         errors.addAll(tempErrors)
@@ -506,11 +500,11 @@ private fun Parser.parseLambdaParams(): LambdaParams? {
         return null
     }
 
-    return LambdaParams(contextParams, mainParams)
+    return LambdaHeader(contextParams, mainParams, returnType)
 }
 
 private fun Parser.parseLambda(label: PString?, tokens: List<PToken>): PExpr = with(scopedOf(tokens)) {
-    val params = parseLambdaParams()
+    val params = parseLambdaHeader()
     val body = parseStatements()
     Expr.Lambda(label, params, body)
 }.end()
@@ -520,13 +514,15 @@ fun Parser.parseCallArgs(): List<Arg<PExpr>> =
         val exprStart = current
         if (exprStart == Token.End) return this
 
-        add(if (exprStart is Token.Ident && next == Token.Colon) {
-            val ident = exprStart.name.end()
-            val expr = advance().requireBinOps()
-            Arg(ident, expr)
-        } else {
-            Arg(null, requireBinOps())
-        })
+        add(
+            if (exprStart is Token.Ident && next == Token.Colon) {
+                val ident = exprStart.name.end()
+                val expr = advance().requireExpr()
+                Arg(ident, expr)
+            } else {
+                Arg(null, requireExpr())
+            }
+        )
 
         when (current) {
             Token.Comma -> advance()

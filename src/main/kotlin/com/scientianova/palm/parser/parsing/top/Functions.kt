@@ -7,7 +7,6 @@ import com.scientianova.palm.parser.data.expressions.PExpr
 import com.scientianova.palm.parser.data.top.*
 import com.scientianova.palm.parser.parseIdent
 import com.scientianova.palm.parser.parsing.expressions.*
-import com.scientianova.palm.parser.parsing.types.constraints
 import com.scientianova.palm.parser.parsing.types.parseTypeParams
 import com.scientianova.palm.parser.parsing.types.parseWhere
 import com.scientianova.palm.util.map
@@ -56,10 +55,9 @@ fun Parser.parseFunParams(): List<FunParam> =
 
 fun Parser.parseContextParams(): List<FunParam> = inBracketsOrEmpty(Parser::parseFunParams)
 
-fun Parser.parseFun(modifiers: List<PDecMod>) = registerParsedItem {
-    val constrains = constraints()
+fun Parser.parseFun(modifiers: List<PDecMod>): ItemKind {
     val name = parseIdent()
-    val typeParams = parseTypeParams(constrains)
+    val typeParams = parseTypeParams()
     val context = parseContextParams()
 
     val params = inParensOr(Parser::parseFunParams) {
@@ -67,10 +65,10 @@ fun Parser.parseFun(modifiers: List<PDecMod>) = registerParsedItem {
         emptyList()
     }
     val type = parseTypeAnn()
-    parseWhere(constrains)
+    val constrains = parseWhere()
     val expr = parseFunBody()
 
-    ItemKind.Function(name, modifiers, typeParams, constrains, context, params, type, expr)
+    return ItemKind.Function(name, modifiers, typeParams, constrains, context, params, type, expr)
 }
 
 fun Parser.parseFunBody(): PExpr? = when (val token = current) {

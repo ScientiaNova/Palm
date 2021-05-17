@@ -23,7 +23,7 @@ data class PrimaryParam(
     val default: PExpr?
 )
 
-data class ClassTypeParam(val type: PString, val variance: VarianceMod)
-typealias PClassTypeParam = Positioned<ClassTypeParam>
+data class TypeParam(val type: PString, val variance: VarianceMod, val lowerBound: List<PType>)
+typealias PTypeParam = Positioned<TypeParam>
 
-typealias TypeConstraints = List<Pair<PString, List<PType>>>
+typealias WhereClause = List<Pair<PString, List<PType>>>

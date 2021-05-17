@@ -11,7 +11,7 @@ sealed class Expr {
 
     data class Safe(val expr: Expr) : Expr()
     data class Call(val expr: PExpr, val args: CallArgs) : Expr()
-    data class Lambda(val label: PString?, val params: LambdaParams?, val scope: ExprScope) : Expr()
+    data class Lambda(val label: PString?, val header: LambdaHeader?, val scope: ExprScope) : Expr()
 
     data class If(val cond: PExpr, val ifTrue: PExpr, val ifFalse: PExpr?) : Expr()
     data class When(val comparing: PExpr?, val branches: List<WhenBranch>) : Expr()
@@ -41,7 +41,7 @@ sealed class Expr {
     data class Lis(val elements: List<PExpr>) : Expr()
     data class Map(val elements: List<Pair<PExpr, PExpr>>) : Expr()
 
-    data class Get(val expr: PExpr, val args: List<PExpr>) : Expr()
+    data class Get(val expr: PExpr, val arg: PExpr) : Expr()
 
     data class TypeCheck(val expr: PExpr, val type: PType, val destructuring: Destructuring?) : Expr()
     data class TypeInfo(val expr: PExpr, val type: PType) : Expr()
@@ -57,6 +57,8 @@ sealed class Expr {
 
     data class FunRef(val on: PExpr?, val value: PString) : Expr()
     data class Spread(val expr: PExpr) : Expr()
+
+    object Module : Expr()
 }
 
 sealed class StringPartP {
@@ -69,7 +71,11 @@ data class CallArgs(val args: List<Arg<PExpr>> = emptyList(), val trailing: List
 
 data class Catch(val dec: PDecPattern, val type: PType, val body: PExprScope)
 
-data class LambdaParams(val context: List<Pair<PDecPattern, PType?>>, val explicit: List<Pair<PDecPattern, PType?>>)
+data class LambdaHeader(
+    val context: List<Pair<PDecPattern, PType?>>,
+    val explicit: List<Pair<PDecPattern, PType?>>,
+    val returnType: PType?
+)
 
 data class WhenBranch(val pattern: Pattern, val guard: BranchGuard?, val res: BranchRes)
 data class BranchGuard(val expr: PExpr)

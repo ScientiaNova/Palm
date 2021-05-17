@@ -20,7 +20,7 @@ private fun Parser.parseStatement(): ScopeStmt {
             index = startIndex
             when (current) {
                 Token.Defer -> ScopeStmt.Defer(advance().requireScope())
-                else -> ScopeStmt.Expr(requireBinOps())
+                else -> ScopeStmt.Expr(requireExpr())
             }
         }
     }
