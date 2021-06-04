@@ -9,7 +9,7 @@ val identStartChars = CharGroup(Char::isIdentifierStart)
 val identChars = CharGroup(Char::isIdentifierPart)
 val symbolChars = CharGroup {
     when (this) {
-        '+', '-', '%', '=', '>', '<', '!', '&', '|' -> true
+        '+', '-', '%', '=', '>', '<', '!', '&', '|', '?', ':' -> true
         else -> false
     }
 }

@@ -26,12 +26,6 @@ tailrec fun Lexer.lexFile(): Lexer {
         ',' -> Token.Comma.add()
         ';' -> Token.Semicolon.add()
         '@' -> Token.At.add()
-        '?' -> Token.QuestionMark.add()
-        ':' -> if (code.getOrNull(pos + 1) == ':') {
-            Token.DoubleColon.add(pos + 2)
-        } else {
-            Token.Colon.add()
-        }
         '.' -> if (code.getOrNull(pos + 1) == '.') {
             Token.RangeTo.add(pos + 2)
         } else {
@@ -94,12 +88,6 @@ internal tailrec fun Lexer.lexNested(endDelim: Char): Lexer {
         ',' -> Token.Comma.add()
         ';' -> Token.Semicolon.add()
         '@' -> Token.At.add()
-        '?' -> Token.QuestionMark.add()
-        ':' -> if (code.getOrNull(pos + 1) == ':') {
-            Token.DoubleColon.add(pos + 2)
-        } else {
-            Token.Colon.add()
-        }
         '.' -> if (code.getOrNull(pos + 1) == '.') {
             Token.RangeTo.add(pos + 2)
         } else {
@@ -154,8 +142,10 @@ private fun Lexer.lexSymbol(pos: StringPos, first: Char): Lexer =
         "+" -> Token.Plus.add()
         "-" -> Token.Minus.add()
         "%" -> Token.Rem.add()
-        "&&" -> Token.And.add(pos + 2)
-        "||" -> Token.Or.add(pos + 2)
+        "&" -> Token.And.add()
+        "|" -> Token.Pipe.add()
+        "&&" -> Token.LogicalAnd.add(pos + 2)
+        "||" -> Token.LogicalOr.add(pos + 2)
         "!" -> Token.ExclamationMark.add()
         "==" -> Token.Eq.add(pos + 2)
         "!=" -> Token.NotEq.add(pos + 2)
@@ -170,6 +160,10 @@ private fun Lexer.lexSymbol(pos: StringPos, first: Char): Lexer =
         "<" -> Token.Less.add()
         ">=" -> Token.GreaterOrEq.add(pos + 2)
         "<=" -> Token.GreaterOrEq.add(pos + 2)
+        ":" -> Token.Colon.add()
+        "::" -> Token.DoubleColon.add(pos + 2)
+        "?" -> Token.QuestionMark.add()
+        "?:" -> Token.Elvis.add(pos + 2)
         else -> addErr("Unknown operator", pos, pos + symbol.length)
     }
 

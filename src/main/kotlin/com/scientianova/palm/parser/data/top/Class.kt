@@ -5,7 +5,7 @@ import com.scientianova.palm.util.PString
 import com.scientianova.palm.util.Positioned
 
 enum class DecHandling {
-    None, Val, Var
+    None, Umm, Mut
 }
 
 sealed class SuperType {

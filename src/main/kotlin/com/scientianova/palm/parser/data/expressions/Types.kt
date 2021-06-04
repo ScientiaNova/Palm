@@ -27,5 +27,5 @@ typealias PNestedType = Positioned<NestedType>
 
 sealed class NestedType {
     data class Normal(val type: PType, val variance: VarianceMod) : NestedType()
-    object Wildcard : NestedType()
+    object Star : NestedType()
 }

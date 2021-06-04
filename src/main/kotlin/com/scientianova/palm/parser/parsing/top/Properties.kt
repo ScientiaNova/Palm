@@ -4,19 +4,18 @@ import com.scientianova.palm.lexer.Token
 import com.scientianova.palm.lexer.getIdent
 import com.scientianova.palm.lexer.setIdent
 import com.scientianova.palm.parser.Parser
-import com.scientianova.palm.parser.data.expressions.Type
+import com.scientianova.palm.parser.data.expressions.Statement
 import com.scientianova.palm.parser.data.top.Getter
-import com.scientianova.palm.parser.data.top.ItemKind
 import com.scientianova.palm.parser.data.top.PDecMod
 import com.scientianova.palm.parser.data.top.Setter
-import com.scientianova.palm.parser.parseIdent
 import com.scientianova.palm.parser.parsing.expressions.parseEqExpr
 import com.scientianova.palm.parser.parsing.expressions.parseTypeAnn
+import com.scientianova.palm.parser.parsing.expressions.requireEqExpr
+import com.scientianova.palm.util.PString
 
-fun Parser.parseProperty(modifiers: List<PDecMod>, mutable: Boolean): ItemKind {
-    val name = parseIdent()
+fun Parser.parseProperty(modifiers: List<PDecMod>, mutable: Boolean, name: PString): Statement {
     val context = parseContextParams()
-    val type = parseTypeAnn() ?: Type.Infer.noPos()
+    val type = parseTypeAnn()
 
     val expr = parseEqExpr()
 
@@ -74,7 +73,7 @@ fun Parser.parseProperty(modifiers: List<PDecMod>, mutable: Boolean): ItemKind {
         }
     }
 
-    return ItemKind.Property(
+    return Statement.Property(
         name,
         modifiers,
         mutable,
@@ -96,7 +95,7 @@ private fun Parser.parseGetter(): Getter? {
         }
 
         val type = advance().parseTypeAnn()
-        val expr = requireFunBody()
+        val expr = requireEqExpr()
 
         Getter(type, expr)
     } else {
@@ -113,7 +112,7 @@ private fun Parser.parseSetter(): Setter? {
         advance()
 
         val type = parseTypeAnn()
-        val expr = requireFunBody()
+        val expr = requireEqExpr()
 
         Setter(param, type, expr)
     } else {

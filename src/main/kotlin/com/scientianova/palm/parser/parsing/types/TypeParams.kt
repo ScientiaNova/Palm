@@ -1,6 +1,7 @@
 package com.scientianova.palm.parser.parsing.types
 
 import com.scientianova.palm.lexer.Token
+import com.scientianova.palm.lexer.inIdent
 import com.scientianova.palm.lexer.outIdent
 import com.scientianova.palm.lexer.whereIdent
 import com.scientianova.palm.parser.Parser
@@ -13,10 +14,6 @@ import com.scientianova.palm.parser.parsing.expressions.requireType
 import com.scientianova.palm.util.PString
 import com.scientianova.palm.util.recBuildList
 
-typealias MutableConstraints = MutableList<Pair<PString, List<PType>>>
-
-fun constraints(): MutableConstraints = mutableListOf()
-
 fun Parser.parseTypeParams(): List<PTypeParam> = if (current == Token.Less) {
     advance()
     recBuildList {
@@ -27,7 +24,7 @@ fun Parser.parseTypeParams(): List<PTypeParam> = if (current == Token.Less) {
 
         val start = pos
         val variance = when (current) {
-            Token.In -> {
+            inIdent -> {
                 advance()
                 VarianceMod.In
             }
@@ -71,7 +68,7 @@ fun Parser.parseWhere(): List<Pair<PString, List<PType>>> {
 
 fun Parser.parseTypeBound(): List<PType> = recBuildList {
     add(requireType())
-    if (current == Token.Plus) {
+    if (current == Token.And) {
         advance()
     } else {
         return this

@@ -1,13 +1,14 @@
 package com.scientianova.palm.parser.parsing.types
 
-import com.scientianova.palm.lexer.PToken
 import com.scientianova.palm.lexer.Token
-import com.scientianova.palm.lexer.initIdent
 import com.scientianova.palm.parser.Parser
+import com.scientianova.palm.parser.data.expressions.Statement
 import com.scientianova.palm.parser.data.top.*
 import com.scientianova.palm.parser.parseIdent
 import com.scientianova.palm.parser.parsing.expressions.*
-import com.scientianova.palm.parser.parsing.top.*
+import com.scientianova.palm.parser.parsing.top.parseDecModifiers
+import com.scientianova.palm.parser.parsing.top.parseFunParams
+import com.scientianova.palm.parser.parsing.top.parseParamModifiers
 import com.scientianova.palm.util.at
 import com.scientianova.palm.util.recBuildList
 
@@ -38,17 +39,11 @@ fun Parser.parseClassSuperTypes(): List<PSuperType> = if (current == Token.Colon
 
 private fun Parser.parsePrimaryParam(): PrimaryParam {
     val modifiers = parseParamModifiers()
-    val decHandling = when (current) {
-        Token.Val -> {
-            advance()
-            DecHandling.Val
-        }
-        Token.Var -> {
-            advance()
-            DecHandling.Var
-        }
-        else -> DecHandling.None
-    }
+    val decHandling =
+        if (current == Token.Def)
+            if (advance().current == Token.Mut) DecHandling.Mut.also { advance() }
+            else DecHandling.Umm
+        else DecHandling.None
     val name = parseIdent()
     val type = requireTypeAnn()
     val default = parseEqExpr()
@@ -71,13 +66,13 @@ private fun Parser.parsePrimaryParams() =
     }
 
 
-fun Parser.parseClass(modifiers: List<PDecMod>): ItemKind {
+fun Parser.parseClass(modifiers: List<PDecMod>): Statement {
     val name = parseIdent()
 
     val typeParams = parseTypeParams()
 
     val constructorModifiers = parseDecModifiers()
-    val atConstructor = current === initIdent
+    val atConstructor = current == Token.Constructor
 
     if (!(constructorModifiers.isEmpty() || atConstructor)) {
         err("Missing constructor")
@@ -90,9 +85,9 @@ fun Parser.parseClass(modifiers: List<PDecMod>): ItemKind {
     val primaryConstructor = inParensOr(Parser::parsePrimaryParams) { null }
     val superTypes = parseClassSuperTypes()
     val constraints = parseWhere()
-    val body = inBracesOrEmpty { parseClassBody() }
+    val body = inBracesOrEmpty { parseStatements() }
 
-    return ItemKind.Class(
+    return Statement.Class(
         name,
         modifiers,
         constructorModifiers,
@@ -104,32 +99,13 @@ fun Parser.parseClass(modifiers: List<PDecMod>): ItemKind {
     )
 }
 
-private fun Parser.parseClassBody() = recBuildList<ItemKind> {
-    when (current) {
-        Token.End -> return this
-        Token.Semicolon -> advance()
-        else -> {
-            val modifiers = parseDecModifiers()
-            when (current) {
-                initIdent -> when (val next = advance().current) {
-                    is Token.Braces -> add(parseInitializer())
-                    is Token.Parens -> add(parseConstructor(next.tokens, modifiers))
-                    else -> err("Missing parameters")
-                }
-                else -> parseItem(modifiers)?.let(::add)
-            }
-        }
+fun Parser.parseConstructor(modifiers: List<PDecMod>): Statement {
+    val params = inParensOr(Parser::parseFunParams) {
+        err("Missing params")
+        emptyList()
     }
-}
-
-private fun Parser.parseConstructor(paramTokens: List<PToken>, modifiers: List<PDecMod>): ItemKind {
-    val params = parenthesizedOf(paramTokens).parseFunParams()
 
     val primaryCall = if (advance().current == Token.Colon) {
-        if (current != initIdent) {
-            err("Missing `init`")
-        }
-
         if (advance().current !is Token.Parens) {
             err("Expected (")
         }
@@ -141,5 +117,5 @@ private fun Parser.parseConstructor(paramTokens: List<PToken>, modifiers: List<P
 
     val body = parseScope()
 
-    return ItemKind.Constructor(modifiers, params, primaryCall, body)
+    return Statement.Constructor(modifiers, params, primaryCall, body)
 }

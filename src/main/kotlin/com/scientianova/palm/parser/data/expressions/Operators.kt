@@ -84,8 +84,6 @@ object Is : BinOp(5) {
     }
 }
 
-object In : ExprOp(5)
-
 
 object Less : ExprOp(4)
 object Greater : ExprOp(4)

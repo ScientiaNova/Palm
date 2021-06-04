@@ -13,10 +13,9 @@ sealed class StringPartL {
         override fun parse(parser: Parser) = StringPartP.String(string)
     }
 
-    data class Expr(val startPos: StringPos, val tokens: List<PToken>) : StringPartL() {
-        override fun parse(parser: Parser): StringPartP = StringPartP.Expr(
-            com.scientianova.palm.parser.data.expressions.Expr.Scope(parser.scopedOf(tokens).parseStatements())
-                .at(startPos, tokens.last().next)
+    data class Scope(val startPos: StringPos, val tokens: List<PToken>) : StringPartL() {
+        override fun parse(parser: Parser): StringPartP = StringPartP.Scope(
+            parser.scopedOf(tokens).parseStatements().at(startPos, tokens.last().next)
         )
     }
 }
@@ -63,8 +62,10 @@ sealed class Token {
         override fun beforePrefix() = true
     }
 
-    object Or : Token()
+    object Pipe : Token()
     object And : Token()
+    object LogicalOr : Token()
+    object LogicalAnd : Token()
     object Eq : Token()
     object NotEq : Token()
     object RefEq : Token()
@@ -74,11 +75,12 @@ sealed class Token {
     object LessOrEq : Token()
     object GreaterOrEq : Token()
     object Is : Token()
-    object In : Token()
     object RangeTo : Token() {
         override fun afterPostfix() = true
         override fun beforePrefix() = true
     }
+
+    object Elvis : Token()
 
     object Plus : Token()
     object Minus : Token()
@@ -101,17 +103,18 @@ sealed class Token {
     object Spread : Token()
     object Wildcard : Token()
 
-    object Fun : Token()
-    object Val : Token()
-    object Var : Token()
+    object Def : Token()
+    object Let : Token()
+    object Mut : Token()
     object Class : Token()
     object Object : Token()
     object Interface : Token()
+    object Type : Token()
+    object Constructor : Token()
+    object Impl : Token()
 
     object Super : Token()
     object When : Token()
-    object If : Token()
-    object Else : Token()
     object Do : Token()
     object Catch : Token()
     object Defer : Token()

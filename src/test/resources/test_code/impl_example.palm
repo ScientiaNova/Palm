@@ -1,30 +1,30 @@
 data class Builder(
-    internal val kind: Kind,
-    internal val enableIO: Bool,
-    internal val enableTime: Bool,
-    internal val workerThreads: Option<Int>,
-    internal val maxThreads: Int,
-    internal val threadName: ThreadNameFn,
-    internal val threadStackSize: Option<Int>,
-    internal val afterStart: Option<Callback>,
-    internal val beforeStop: Option<Callback>,
-    internal val keepAlive: Option<Duration>,
+    private def kind: Kind,
+    private def enableIO: Bool,
+    private def enableTime: Bool,
+    private def workerThreads: Option<Int>,
+    private def maxThreads: Int,
+    private def threadName: ThreadNameFn,
+    private def threadStackSize: Option<Int>,
+    private def afterStart: Option<Callback>,
+    private def beforeStop: Option<Callback>,
+    private def keepAlive: Option<Duration>,
 )
 
 type ThreadNameFn = () -> String
 
-enum class Kind {
-    object CurrentThread : Kind()
-    object MultiThread : Kind()
+sealed class Kind {
+    leaf object CurrentThread : Kind()
+    leaf object MultiThread : Kind()
 }
 
-fun createCurrentThread(): Builder =
+def createCurrentThread(): Builder =
     Builder(Kind.CurrentThread)
 
-fun createMultiThread(): Builder =
+def createMultiThread(): Builder =
     Builder(Kind.MultiThread)
 
-fun create(kind: Kind): Builder = Builder(
+def create(kind: Kind): Builder = Builder(
     kind,
     enableIO: false,
     enableTime: false,
@@ -37,29 +37,29 @@ fun create(kind: Kind): Builder = Builder(
     keepAlive: None,
 )
 
-fun enableAll[Builder]() = this.enableIO().enableTime()
+def enableAll[this: Builder]() = this.enableIO().enableTime()
 
-fun workerThreads[Builder](value: Int): T {
+def workerThreads[this: Builder](value: Int): T = do {
     assertTrue(value > 0, "Worker threads cannot be set to 0")
     this.copyWith(workerThreads: Some(value))
 }
 
-fun maxThreads[Builder](value: Int): T = this.copyWith(maxThreads: value)
+def maxThreads[this: Builder](value: Int): T = this.copyWith(maxThreads: value)
 
-fun threadName[Builder](value: Into<String>): T {
-    val value = value.into()
+def threadName[this: Builder](value: Into<String>): T = do {
+    let value = value.into()
     this.copyWith(threadName: { value })
 }
 
-fun threadNameFn[Builder](f: () -> String): T = this.copyWith(threadName: f)
+def threadNameFn[this: Builder](f: () -> String): T = this.copyWith(threadName: f)
 
-fun threadStackSize[Builder](value: Int): T = this.copyWith(threadStackSize: Some(value))
+def threadStackSize[this: Builder](value: Int): T = this.copyWith(threadStackSize: Some(value))
 
-fun onThreadStart[Builder](f: () -> Send) = this.copyWith(afterStart: Some(f))
+def onThreadStart[this: Builder](f: () -> Send) = this.copyWith(afterStart: Some(f))
 
-fun onThreadStop[Builder](f: () -> Send) = this.copyWith(beforeStop: Some(f))
+def onThreadStop[this: Builder](f: () -> Send) = this.copyWith(beforeStop: Some(f))
 
-fun build[Builder](): Result<Runtime> = when (kind) {
+def build[this: Builder](): Result<Runtime> = when (kind) {
     CurrentThread -> {
         buildBasicRuntime()
     }
@@ -68,21 +68,21 @@ fun build[Builder](): Result<Runtime> = when (kind) {
     }
 }
 
-val cfg[Builder]: driver.Cfg get() = driver.Cfg(
+def cfg[this: Builder]: driver.Cfg get() = driver.Cfg(
     enableIO: enableIO,
     enableTime: enableTime,
 )
 
-fun threadKeepAlive[Builder](duration: Duration) = this.copyWith(keepAlive: Some(duration))
+def threadKeepAlive[this: Builder](duration: Duration) = this.copyWith(keepAlive: Some(duration))
 
-fun buildBasicRuntime[Builder](): io.Result<Runtime> {
-    val (driver, resources) = driver.Driver(cfg);
+def buildBasicRuntime[this: Builder](): io.Result<Runtime> = do {
+    let (driver, resources) = driver.Driver(cfg);
 
-    val scheduler = BasicScheduler(driver);
-    val spawner = Spawner.Basic(scheduler.spawner());
+    let scheduler = BasicScheduler(driver);
+    let spawner = Spawner.Basic(scheduler.spawner());
 
-    val blockingPool = blocking.createBlockingPool(this, maxThreads);
-    val blockingSpawner = blockingPool.spawner();
+    let blockingPool = blocking.createBlockingPool(this, maxThreads);
+    let blockingSpawner = blockingPool.spawner();
 
     return Result.Ok(Runtime(
         kind: Kind.CurrentThread(scheduler),
@@ -98,23 +98,23 @@ fun buildBasicRuntime[Builder](): io.Result<Runtime> {
     ))
 }
 
-fun enableIO[Builder]() = this.copyWith(enableIO: true)
+def enableIO[this: Builder]() = this.copyWith(enableIO: true)
 
-fun enableTime[Builder]() = this.copyWith(enableTime: true)
+def enableTime[this: Builder]() = this.copyWith(enableTime: true)
 
-fun buildThreadedRuntime[Builder](): io.Result<Runtime> {
-    val coreThreads = workerThreads.unwrapOrElse { min(maxThreads, numCpus()) }
+def buildThreadedRuntime[this: Builder](): io.Result<Runtime>  = do {
+    let coreThreads = workerThreads.unwrapOrElse { min(maxThreads, numCpus()) }
     assertTrue(core_threads <= self.max_threads, "Core threads number cannot be above max limit");
 
-    val (driver, resources) = driver.Driver(crg);
+    let (driver, resources) = driver.Driver(crg);
 
-    val (scheduler, launch) = ThreadPool(core_threads, Parker(driver))
-    val spawner = Spawner.ThreadPool(scheduler.spawner())
+    let (scheduler, launch) = ThreadPool(core_threads, Parker(driver))
+    let spawner = Spawner.ThreadPool(scheduler.spawner())
 
-    val blockingPool = blocking.createBlockingPool(this, maxThreads)
-    val blockingSpawner = blockingPool.spawner()
+    let blockingPool = blocking.createBlockingPool(this, maxThreads)
+    let blockingSpawner = blockingPool.spawner()
 
-    val handle = Handle(
+    let handle = Handle(
         spawner,
         ioHandle: resources.ioHandle,
         timeHandle: resources.timeHandle,
@@ -123,7 +123,7 @@ fun buildThreadedRuntime[Builder](): io.Result<Runtime> {
         blockingSpawner,
     )
 
-    val _enter = enter(handle)
+    let _enter = enter(handle)
     launch.launch()
 
     Result.Ok(Runtime(
@@ -134,7 +134,7 @@ fun buildThreadedRuntime[Builder](): io.Result<Runtime> {
 }
 
 impl Debug<Builder> {
-    fun fmt[Builder](fmt: fmt.Formatter<*>): fmt.Result =
+    def fmt[this: Builder](fmt: fmt.Formatter<*>): fmt.Result =
         fmt.debug_struct("Builder")
             .field("worker_threads", workerThreads)
             .field("max_threads", maxThreads)
@@ -143,69 +143,4 @@ impl Debug<Builder> {
             .field("after_start", afterStart.map { "..." })
             .field("before_stop", beforeStop.map { "..." })
             .finish()
-}
-"""
-
-val branchesExample = """
-fun parseOp[Parser](): PBinOp? = when (current) {
-    Token.Plus if currentInfix() -> Plus.end()
-    Token.Minus if currentInfix() -> Minus.end()
-    Token.Times -> Times.end()
-    Token.Div -> Div.end()
-    Token.Rem -> Rem.end()
-    Token.RangeTo -> RangeTo.end()
-    Token.Eq -> Eq.end()
-    Token.RefEq -> RefEq.end()
-    Token.NotEq -> Eq.end().let { Not(it).at(it.start, it.next) }
-    Token.NotRefEq -> RefEq.end().let { Not(it).at(it.start, it.next) }
-    Token.As when (rawLookup(1)) {
-        Token.QuestionMark -> {
-            val asStart = pos
-            advance()
-            NullableAs.end(asStart)
-        }
-        Token.ExclamationMark -> {
-            val asStart = pos
-            advance()
-            UnsafeAs.end(asStart)
-        }
-        _ -> As.end()
-    }
-    Token.Is if !lastNewline -> Is.end()
-    Token.In if !lastNewline -> In.end()
-    Token.QuestionMark if rawLookup(1) == Token.Colon -> {
-        advance()
-        Elvis.end(pos - 1)
-    }
-    Token.Greater -> Greater.end()
-    Token.Less -> Less.end()
-    Token.GreaterOrEq -> GreaterOrEq.end()
-    Token.LessOrEq -> LessOrEq.end()
-    Token.And -> And.end()
-    Token.Or -> Or.end()
-    Token.Assign -> Assign.end()
-    Token.PlusAssign -> PlusAssign.end()
-    Token.MinusAssign -> MinusAssign.end()
-    Token.TimesAssign -> TimesAssign.end()
-    Token.DivAssign -> DivAssign.end()
-    Token.RemAssign -> RemAssign.end()
-    Token.ExclamationMark if !lastNewline when (rawLookup(1)) {
-        is Token.Is -> {
-            val start = pos
-            advance()
-            Is.end().let { Not(it).at(start, it.next) }
-        }
-        is Token.In -> {
-            val start = pos
-            advance()
-            In.end().let { Not(it).at(start, it.next) }
-        }
-        is Token.Ident(val name) -> {
-            val start = pos
-            advance()
-            Infix(name).end().let { Not(it).at(start, it.next) }
-        }
-    }
-    is Token.Ident(val name) if !lastNewline -> Infix(token.name).end()
-    _ -> null
 }

@@ -18,8 +18,8 @@ fun Token.toCodeString(indent: Int): String = when (this) {
     Token.Colon -> ":"
     Token.DoubleColon -> "::"
     Token.Semicolon -> ";"
-    Token.And -> "&&"
-    Token.Or -> "||"
+    Token.LogicalAnd -> "&&"
+    Token.LogicalOr -> "||"
     Token.Less -> "<"
     Token.Greater -> ">"
     Token.LessOrEq -> "<="
@@ -45,15 +45,13 @@ fun Token.toCodeString(indent: Int): String = when (this) {
     Token.Wildcard -> "_"
     Token.Comma -> ","
     Token.At -> "@"
-    Token.Fun -> "fun"
-    Token.Val -> "val"
-    Token.Var -> "var"
+    Token.Def -> "def"
+    Token.Let -> "let"
+    Token.Mut -> "mut"
     Token.Object -> "object"
     Token.Super -> "super"
     Token.NullLit -> "null"
     Token.When -> "when"
-    Token.If -> "if"
-    Token.Else -> "else"
     Token.Do -> "do"
     Token.Break -> "break"
     Token.Return -> "return"
@@ -68,7 +66,6 @@ fun Token.toCodeString(indent: Int): String = when (this) {
             parts.joinToString("\n" + indent(indent + 1)) { it.toCodeString(indent + 1) } +
             "\n${indent(indent)}"
     Token.Is -> "is"
-    Token.In -> "in"
     Token.ExclamationMark -> "!"
     Token.Class -> "class"
     Token.Interface -> "interface"
@@ -81,11 +78,17 @@ fun Token.toCodeString(indent: Int): String = when (this) {
     Token.End -> "*End*"
     is Token.Error -> "!!!error!!!"
     Token.Mod -> "mod"
+    Token.And -> "&"
+    Token.Constructor -> "constructor"
+    Token.Elvis -> "?:"
+    Token.Impl -> "impl"
+    Token.Pipe -> "|"
+    Token.Type -> "type"
 }
 
 fun StringPartL.toCodeString(indent: Int) = when (this) {
     is StringPartL.String -> "\"$string\""
-    is StringPartL.Expr -> "\${\n" + indent(indent + 1) +
+    is StringPartL.Scope -> "\${\n" + indent(indent + 1) +
             tokens.joinToString("\n" + indent(indent + 1)) { it.value.toCodeString(indent + 1) } +
             "\n${indent(indent)}}"
 }

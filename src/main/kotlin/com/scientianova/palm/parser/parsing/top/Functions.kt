@@ -2,13 +2,18 @@ package com.scientianova.palm.parser.parsing.top
 
 import com.scientianova.palm.lexer.Token
 import com.scientianova.palm.parser.Parser
-import com.scientianova.palm.parser.data.expressions.Expr
-import com.scientianova.palm.parser.data.expressions.PExpr
-import com.scientianova.palm.parser.data.top.*
-import com.scientianova.palm.parser.parseIdent
-import com.scientianova.palm.parser.parsing.expressions.*
+import com.scientianova.palm.parser.data.expressions.Statement
+import com.scientianova.palm.parser.data.top.DecModifier
+import com.scientianova.palm.parser.data.top.FunParam
+import com.scientianova.palm.parser.data.top.OptionallyTypedFunParam
+import com.scientianova.palm.parser.data.top.PDecMod
+import com.scientianova.palm.parser.parsing.expressions.parseEqExpr
+import com.scientianova.palm.parser.parsing.expressions.parseTypeAnn
+import com.scientianova.palm.parser.parsing.expressions.requireDecPattern
+import com.scientianova.palm.parser.parsing.expressions.requireTypeAnn
 import com.scientianova.palm.parser.parsing.types.parseTypeParams
 import com.scientianova.palm.parser.parsing.types.parseWhere
+import com.scientianova.palm.util.PString
 import com.scientianova.palm.util.map
 import com.scientianova.palm.util.recBuildList
 
@@ -55,8 +60,7 @@ fun Parser.parseFunParams(): List<FunParam> =
 
 fun Parser.parseContextParams(): List<FunParam> = inBracketsOrEmpty(Parser::parseFunParams)
 
-fun Parser.parseFun(modifiers: List<PDecMod>): ItemKind {
-    val name = parseIdent()
+fun Parser.parseFun(modifiers: List<PDecMod>, local: Boolean, name: PString): Statement {
     val typeParams = parseTypeParams()
     val context = parseContextParams()
 
@@ -66,18 +70,7 @@ fun Parser.parseFun(modifiers: List<PDecMod>): ItemKind {
     }
     val type = parseTypeAnn()
     val constrains = parseWhere()
-    val expr = parseFunBody()
+    val expr = parseEqExpr()
 
-    return ItemKind.Function(name, modifiers, typeParams, constrains, context, params, type, expr)
-}
-
-fun Parser.parseFunBody(): PExpr? = when (val token = current) {
-    Token.Assign -> advance().parseBinOps()
-    is Token.Braces -> parseScopeBody(token.tokens).map(Expr::Scope)
-    else -> null
-}
-
-fun Parser.requireFunBody() = parseFunBody() ?: run {
-    err("Missing function body")
-    Expr.Error.end()
+    return Statement.Function(local, name, modifiers, typeParams, constrains, context, params, type, expr)
 }

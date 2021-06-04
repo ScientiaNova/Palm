@@ -1,57 +1,57 @@
-private val mapping: [Char: Direction] = [
+private def mapping: [Char: Direction] = [
 	"U": Direction.Up,
 	"R": Direction.Right,
 	"D": Direction.Down,
 	"L": Direction.Left
 ]
 
-fun directionFromChar(raw: Char) = mapping[raw]!
+def directionFromChar(raw: Char) = mapping[raw]!
 
 data class Instruction(
-	val direction: Direction,
-	val length: Int,
-	val vector: Vector2,
+	def direction: Direction,
+	def length: Int,
+	def vector: Vector2,
 )
 
 data class Segment(
-	val start: Vector2,
-	val end: Vector2,
-	val startStepCount: Int,
-	val minX: Int = min(start.x, end.x),
-	val maxX: Int = max(start.x, end.x),
-	val xRange: ClosedRange<Int> = minX..maxX,
-	val minY: Int = min(start.y, end.y),
-	val maxY: Int = max(start.y, end.y),
-	val yRange: ClosedRange<Int> = minY..maxY,
+	def start: Vector2,
+	def end: Vector2,
+	def startStepCount: Int,
+	def minX: Int = min(start.x, end.x),
+	def maxX: Int = max(start.x, end.x),
+	def xRange: ClosedRange<Int> = minX..maxX,
+	def minY: Int = min(start.y, end.y),
+	def maxY: Int = max(start.y, end.y),
+	def yRange: ClosedRange<Int> = minY..maxY,
 )
 
 impl Segment {
-	fun intersections(other: Segment): [(Vector2, Int)] {
-		if (!intersects(other)) return []
+	def intersections(other: Segment): [(Vector2, Int)] = do {
+		if (!intersects(other)) { return [] }
 
-		val xs = max(minX, other.minX)..min(maxX, other.maxX)
-		val ys = max(minY, other.minY)..min(maxY, other.maxY)
+		let xs = max(minX, other.minX)..min(maxX, other.maxX)
+		let ys = max(minY, other.minY)..min(maxY, other.maxY)
 		return xs.flatMap { (x) ->
 			ys.map { (y) -> Vector2(x, y) }
 		}.map { (it, steps(to: it) + other.steps(to: it)) }
 	}
 
-	fun intersects(other: Segment): Bool =
+	def intersects(other: Segment): Bool =
       xRange.overlaps(other.xRange) && yRange.overlaps(other.yRange)
 
-	fun steps(position: Vector2): Int =
+	def steps(position: Vector2): Int =
 		startStepCount + abs(position.x - start.x) + abs(position.y - start.y)
 }
 
-val instructions = input().lines().map {
+def instructions = input().lines().map {
 	it.components(separatedBy = ",").map(::Instruction)
 }
 
-val paths: [[Segment]] = instructions.map { (path) ->
-	var position = Vector2.Zero
-	var stepCount = 0
+def paths: [[Segment]] = instructions.map { (path) ->
+	let mut position = Vector2.Zero
+	let mut stepCount = 0
 	return path.map { (segment) ->
-		val endPosition = position + segment.vector
+		let endPosition = position + segment.vector
 		defer {
 			position = endPosition
 			stepCount += segment.length
@@ -60,22 +60,22 @@ val paths: [[Segment]] = instructions.map { (path) ->
 	}
 }
 
-val path1 = paths[0]
-val path2 = paths[1]
+let path1 = paths[0]
+let path2 = paths[1]
 
-val intersections = path1
+def intersections = path1
 	.flatMap { path2.flatMap(it.intersections()) }
 	.filter { it.position != Vector2.Zero }
 
-val closestIntersection = intersections
+def closestIntersection = intersections
 	.map { it.position.absolute }
 	.min()!
 
-val bestIntersection = intersections
+def bestIntersection = intersections
 	.map { it.stepCount }
 	.min()!
 
-fun main() {
+def main() = do {
   println("closest intersection: ${'$'}closestIntersection")
   println("best intersection: ${'$'}bestIntersection")
 }

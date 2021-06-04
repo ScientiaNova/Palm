@@ -25,7 +25,7 @@ fun Parser.identToDecMod(string: String): Positioned<DecModifier>? = when (strin
             parenthesizedOf(maybeParens.tokens).parseModifierParam { type, path ->
                 DecModifier.Private(type, path).end(startPos)
             }
-        else DecModifier.Private(PathType.Module, emptyList()).at(startPos, endPos)
+        else DecModifier.Private(null, emptyList()).at(startPos, endPos)
     }
     "abstract" -> DecModifier.Abstract.end()
     "data" -> DecModifier.Data.end()
@@ -37,7 +37,7 @@ fun Parser.identToDecMod(string: String): Positioned<DecModifier>? = when (strin
             parenthesizedOf(maybeParens.tokens).parseModifierParam { type, path ->
                 DecModifier.Sealed(type, path).end(startPos)
             }
-        else DecModifier.Sealed(PathType.Module, emptyList()).at(startPos, endPos)
+        else DecModifier.Sealed(null, emptyList()).at(startPos, endPos)
     }
     "const" -> DecModifier.Const.end()
     "lateinit" -> DecModifier.Lateinit.end()

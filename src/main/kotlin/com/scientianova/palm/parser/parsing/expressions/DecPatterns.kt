@@ -7,9 +7,15 @@ import com.scientianova.palm.parser.data.expressions.DecPattern
 import com.scientianova.palm.parser.data.expressions.PDecPattern
 import com.scientianova.palm.parser.parseIdent
 import com.scientianova.palm.util.PString
+import com.scientianova.palm.util.at
 import com.scientianova.palm.util.recBuildList
 
 fun Parser.parseDecPattern(): PDecPattern? = when (val token = current) {
+    is Token.Mut -> {
+        val start = pos
+        val nested = advance().requireDecPattern()
+        DecPattern.Mut(nested).at(start, nested.next)
+    }
     is Token.Ident -> DecPattern.Name(token.name).end()
     is Token.Parens -> parseComponents(token.tokens)
     is Token.Brackets -> parseDecObject(token.tokens)

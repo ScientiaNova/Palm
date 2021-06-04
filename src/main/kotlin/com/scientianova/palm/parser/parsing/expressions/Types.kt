@@ -2,6 +2,7 @@ package com.scientianova.palm.parser.parsing.expressions
 
 import com.scientianova.palm.lexer.PToken
 import com.scientianova.palm.lexer.Token
+import com.scientianova.palm.lexer.inIdent
 import com.scientianova.palm.lexer.outIdent
 import com.scientianova.palm.parser.Parser
 import com.scientianova.palm.parser.data.expressions.*
@@ -128,19 +129,8 @@ private fun Parser.parseNamedType(): PType = withPos { start ->
     return Type.Named(path, args).at(start, next)
 }
 
-private tailrec fun Parser.parseTypeNullability(type: PType): PType =
-    if (current == Token.QuestionMark) {
-        advance().parseTypeNullability(
-            if (type.value !is Type.Nullable) {
-                Type.Nullable(type).at(type.start, pos)
-            } else {
-                type
-            }
-        )
-    } else {
-        type
-    }
-
+private fun Parser.parseTypeNullability(type: PType): PType =
+    if (current == Token.QuestionMark && currentPostfix()) Type.Nullable(type).at(type.start, pos).also { advance() } else type
 
 private fun Parser.parseTypeTupleBody(list: MutableList<PType> = mutableListOf()): List<PType> = recBuildList(list) {
     if (current == Token.End) {
@@ -194,8 +184,8 @@ private fun Parser.parseFunType(context: List<PType>): PType = withPos { start -
 }
 
 private fun Parser.parseNestedType(): PNestedType = when (current) {
-    Token.Times -> NestedType.Wildcard.end()
-    Token.In -> parseNormalNestedType(VarianceMod.In)
+    Token.Times -> NestedType.Star.end()
+    inIdent -> parseNormalNestedType(VarianceMod.In)
     outIdent -> parseNormalNestedType(VarianceMod.Out)
     else -> {
         val type = requireType()

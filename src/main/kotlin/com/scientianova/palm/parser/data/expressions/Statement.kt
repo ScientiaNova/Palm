@@ -1,12 +1,20 @@
-package com.scientianova.palm.parser.data.top
+package com.scientianova.palm.parser.data.expressions
 
-import com.scientianova.palm.parser.data.expressions.Arg
-import com.scientianova.palm.parser.data.expressions.PExpr
-import com.scientianova.palm.parser.data.expressions.PExprScope
-import com.scientianova.palm.parser.data.expressions.PType
+import com.scientianova.palm.parser.data.top.*
 import com.scientianova.palm.util.PString
+import com.scientianova.palm.util.Positioned
 
-sealed class ItemKind {
+sealed class Statement {
+    data class Expr(val value: PExpr) : Statement()
+    data class Defer(val body: PScope) : Statement()
+
+    data class Var(
+        val modifiers: List<PDecMod>,
+        val pattern: PDecPattern,
+        val type: PType?,
+        val expr: PExpr?
+    ) : Statement()
+
     data class Property(
         val name: PString,
         val modifiers: List<PDecMod>,
@@ -18,9 +26,10 @@ sealed class ItemKind {
         val getter: Getter?,
         val setterModifiers: List<PDecMod>,
         val setter: Setter?
-    ) : ItemKind()
+    ) : Statement()
 
     data class Function(
+        val local: Boolean,
         val name: PString,
         val modifiers: List<PDecMod>,
         val typeParams: List<PTypeParam>,
@@ -29,7 +38,7 @@ sealed class ItemKind {
         val params: List<FunParam>,
         val type: PType?,
         val expr: PExpr?
-    ) : ItemKind()
+    ) : Statement()
 
     data class Class(
         val name: PString,
@@ -39,8 +48,8 @@ sealed class ItemKind {
         val typeParams: List<PTypeParam>,
         val typeConstraints: WhereClause,
         val superTypes: List<PSuperType>,
-        val items: List<ItemKind>
-    ) : ItemKind()
+        val items: List<Statement>
+    ) : Statement()
 
     data class Interface(
         val name: PString,
@@ -48,15 +57,15 @@ sealed class ItemKind {
         val typeParams: List<PTypeParam>,
         val typeConstraints: WhereClause,
         val superTypes: List<PType>,
-        val items: List<ItemKind>
-    ) : ItemKind()
+        val items: List<Statement>
+    ) : Statement()
 
     data class Object(
         val name: PString,
         val modifiers: List<PDecMod>,
         val superTypes: List<PSuperType>,
-        val statements: List<ItemKind>
-    ) : ItemKind()
+        val statements: List<Statement>
+    ) : Statement()
 
     data class TypeClass(
         val name: PString,
@@ -64,8 +73,8 @@ sealed class ItemKind {
         val typeParams: List<PTypeParam>,
         val typeConstraints: WhereClause,
         val superTypes: List<PType>,
-        val items: List<ItemKind>
-    ) : ItemKind()
+        val items: List<Statement>
+    ) : Statement()
 
     data class Implementation(
         val type: PType,
@@ -73,7 +82,7 @@ sealed class ItemKind {
         val typeConstraints: WhereClause,
         val context: List<FunParam>,
         val kind: ImplementationKind
-    ) : ItemKind()
+    ) : Statement()
 
     data class TypeAlias(
         val name: PString,
@@ -81,14 +90,15 @@ sealed class ItemKind {
         val params: List<PString>,
         val bound: List<PType>,
         val actual: PType?
-    ) : ItemKind()
+    ) : Statement()
 
     data class Constructor(
         val modifiers: List<PDecMod>,
         val params: List<FunParam>,
         val primaryCall: List<Arg<PExpr>>?,
-        val body: PExprScope?
-    ) : ItemKind()
-
-    data class Initializer(val scope: PExprScope) : ItemKind()
+        val body: PScope?
+    ) : Statement()
 }
+
+typealias Scope = List<Statement>
+typealias PScope = Positioned<Scope>

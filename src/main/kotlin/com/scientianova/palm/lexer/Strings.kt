@@ -19,7 +19,7 @@ internal tailrec fun Lexer.lexString(
                 val nested = nestedLexerAt(interPos + 1).lexNested( '}')
                 lexString(
                      nested.pos,
-                    parts + StringPartL.Expr(interPos, nested.tokens),
+                    parts + StringPartL.Scope(interPos, nested.tokens),
                     builder.clear(), hashes
                 )
             }
@@ -27,7 +27,7 @@ internal tailrec fun Lexer.lexString(
                 val nested = nestedLexerAt(interPos + 1).lexTickedIdent(interPos + 1, StringBuilder()).endHere()
                 lexString(
                      nested.pos,
-                    parts + StringPartL.Expr(interPos, nested.tokens),
+                    parts + StringPartL.Scope(interPos, nested.tokens),
                     builder.clear(), hashes
                 )
             }
@@ -35,7 +35,7 @@ internal tailrec fun Lexer.lexString(
                 val nested = nestedLexerAt(interPos + 1).lexNormalIdent(interPos + 1, StringBuilder()).endHere()
                 lexString(
                      nested.pos,
-                    parts + StringPartL.Expr(interPos, nested.tokens),
+                    parts + StringPartL.Scope(interPos, nested.tokens),
                     builder.clear(), hashes
                 )
             }

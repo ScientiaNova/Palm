@@ -14,12 +14,10 @@ private fun matchIdentToken(ident: String) = when (ident) {
     "class" -> Token.Class
     "object" -> Token.Object
     "interface" -> Token.Interface
-    "val" -> Token.Val
-    "var" -> Token.Var
-    "fun" -> Token.Fun
+    "def" -> Token.Def
+    "let" -> Token.Let
+    "mut" -> Token.Mut
     "when" -> Token.When
-    "if" -> Token.If
-    "else" -> Token.Else
     "break" -> Token.Break
     "return" -> Token.Return
     "throw" -> Token.Throw
@@ -28,17 +26,18 @@ private fun matchIdentToken(ident: String) = when (ident) {
     "defer" -> Token.Defer
     "import" -> Token.Import
     "is" -> Token.Is
-    "in" -> Token.In
     "as" -> Token.As
     "null" -> Token.NullLit
     "super" -> Token.Super
     "mod" -> Token.Mod
+    "type" -> Token.Type
+    "constructor" -> Token.Constructor
+    "impl" -> Token.Impl
     "true" -> trueToken
     "false" -> falseToken
     "where" -> whereIdent
+    "in" -> inIdent
     "out" -> outIdent
-    "init" -> initIdent
-    "type" -> typeIdent
     "file" -> fileIdent
     "get" -> getIdent
     "set" -> setIdent
@@ -70,10 +69,8 @@ internal tailrec fun Lexer.lexTickedIdent(
 }
 
 val whereIdent = Token.Ident("where", false)
+val inIdent = Token.Ident("in", false)
 val outIdent = Token.Ident("out", false)
-val initIdent = Token.Ident("init", false)
-val typeIdent = Token.Ident("type", false)
-val implIdent = Token.Ident("impl", false)
 val fileIdent = Token.Ident("file", false)
 val getIdent = Token.Ident("get", false)
 val setIdent = Token.Ident("set", false)

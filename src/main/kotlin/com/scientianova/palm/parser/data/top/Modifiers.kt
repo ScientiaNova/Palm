@@ -21,8 +21,8 @@ sealed class DecModifier {
     object Data : DecModifier()
     object NoInline : DecModifier()
     object CrossInline : DecModifier()
-    data class Private(val pathType: PathType, val path: Path) : DecModifier()
-    data class Sealed(val pathType: PathType, val path: Path) : DecModifier()
+    data class Private(val pathType: PathType?, val path: Path) : DecModifier()
+    data class Sealed(val pathType: PathType?, val path: Path) : DecModifier()
     data class Annotation(val annotation: com.scientianova.palm.parser.data.top.Annotation) : DecModifier()
 }
 

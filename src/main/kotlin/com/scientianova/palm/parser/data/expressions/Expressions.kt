@@ -11,18 +11,16 @@ sealed class Expr {
 
     data class Safe(val expr: Expr) : Expr()
     data class Call(val expr: PExpr, val args: CallArgs) : Expr()
-    data class Lambda(val label: PString?, val header: LambdaHeader?, val scope: ExprScope) : Expr()
+    data class Lambda(val label: PString?, val header: LambdaHeader?, val scope: Scope) : Expr()
 
-    data class If(val cond: PExpr, val ifTrue: PExpr, val ifFalse: PExpr?) : Expr()
+    data class Ternary(val cond: PExpr, val ifTrue: PExpr, val ifFalse: PExpr) : Expr()
     data class When(val comparing: PExpr?, val branches: List<WhenBranch>) : Expr()
 
     data class Break(val label: PString, val expr: PExpr?) : Expr()
     data class Return(val label: PString?, val expr: PExpr?) : Expr()
 
     data class Throw(val expr: PExpr) : Expr()
-    data class Do(val scope: PExprScope, val catches: List<Catch>) : Expr()
-
-    data class Scope(val scope: ExprScope) : Expr()
+    data class Do(val scope: PScope, val catches: List<Catch>) : Expr()
 
     data class Byte(val value: kotlin.Byte) : Expr()
     data class Short(val value: kotlin.Short) : Expr()
@@ -63,13 +61,13 @@ sealed class Expr {
 
 sealed class StringPartP {
     data class String(val string: kotlin.String) : StringPartP()
-    data class Expr(val expr: PExpr) : StringPartP()
+    data class Scope(val scope: PScope) : StringPartP()
 }
 
 data class Arg<T>(val name: PString?, val value: T)
 data class CallArgs(val args: List<Arg<PExpr>> = emptyList(), val trailing: List<Arg<PExpr>> = emptyList())
 
-data class Catch(val dec: PDecPattern, val type: PType, val body: PExprScope)
+data class Catch(val dec: PDecPattern, val type: PType, val body: PScope)
 
 data class LambdaHeader(
     val context: List<Pair<PDecPattern, PType?>>,
@@ -83,6 +81,3 @@ sealed class BranchRes {
     data class Branching(val on: PExpr?, val branches: List<WhenBranch>) : BranchRes()
     data class Single(val expr: PExpr) : BranchRes()
 }
-
-typealias ExprScope = List<ScopeStmt>
-typealias PExprScope = Positioned<ExprScope>

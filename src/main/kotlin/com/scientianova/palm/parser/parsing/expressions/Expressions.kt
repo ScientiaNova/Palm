@@ -68,7 +68,6 @@ private fun Parser.parseTerm(): PExpr? = when (val token = current) {
     Token.Mod -> Expr.Module.end()
     Token.Return -> parseReturn()
     Token.Break -> parseBreak()
-    Token.If -> parseIf()
     Token.When -> parseWhen()
     Token.Throw -> withPos { advance().requireExpr().let { expr -> Expr.Throw(expr).at(it, expr.next) } }
     Token.Do -> withPos { advance().requireScope().let { scope -> Expr.Do(scope, parseCatches()).at(it, scope.next) } }
@@ -163,7 +162,7 @@ private tailrec fun Parser.parsePostfix(term: PExpr): PExpr = when (val token = 
     )
     Token.QuestionMark -> {
         val startIndex = index
-        when (val afterQ = advance().current) {
+        if (advance().currentPostfix()) when (val afterQ = current) {
             is Token.Dot -> {
                 val ident = advance().parseIdent()
                 parsePostfix(Expr.Safe(Expr.MemberAccess(term, ident)).at(term.start, ident.next))
@@ -174,6 +173,11 @@ private tailrec fun Parser.parsePostfix(term: PExpr): PExpr = when (val token = 
                 index = startIndex
                 term
             }
+        } else {
+            val thenExpr = requireExpr()
+            if (current == Token.Colon) advance() else err("Missing colon")
+            val elseExpr = requireExpr()
+            Expr.Ternary(term, thenExpr, elseExpr).at(term.start, elseExpr.next)
         }
     }
     Token.DoubleColon -> {
@@ -230,11 +234,11 @@ private inline fun Parser.parseLambdaOr(or: () -> PExpr) = when (val curr = curr
 fun Parser.parseSubExpr() = parseTerm()?.let { parsePostfix(it) }
 fun Parser.requireSubExpr() = parseSubExpr() ?: expectedExpression()
 
-fun Parser.parseBinOps(): PExpr? = parseSubExpr()?.let { first ->
+fun Parser.parseExpr(): PExpr? = parseSubExpr()?.let { first ->
     parseBinOps(first, parseOp() ?: return first, -1).first
 }
 
-fun Parser.parseBinOpsOnLine(): PExpr? = if (lastNewline) null else parseBinOps()
+fun Parser.parseBinOpsOnLine(): PExpr? = if (lastNewline) null else parseExpr()
 
 fun Parser.parseOp(): PBinOp? {
     val token = current
@@ -263,17 +267,13 @@ fun Parser.parseOp(): PBinOp? {
             else -> As.end()
         }
         token == Token.Is && !lastNewline -> Is.end()
-        token == Token.In && !lastNewline -> In.end()
-        token == Token.QuestionMark && rawLookup(1) == Token.Colon -> {
-            advance()
-            Elvis.end(pos - 1)
-        }
+        token == Token.Elvis -> Elvis.end(pos - 1)
         token == Token.Greater -> Greater.end()
         token == Token.Less -> Less.end()
         token == Token.GreaterOrEq -> GreaterOrEq.end()
         token == Token.LessOrEq -> LessOrEq.end()
-        token == Token.And -> And.end()
-        token == Token.Or -> Or.end()
+        token == Token.LogicalAnd -> And.end()
+        token == Token.LogicalOr -> Or.end()
         token == Token.Assign -> Assign.end()
         token == Token.PlusAssign -> PlusAssign.end()
         token == Token.MinusAssign -> MinusAssign.end()
@@ -285,11 +285,6 @@ fun Parser.parseOp(): PBinOp? {
                 val start = pos
                 advance()
                 Is.end().let { Not(it).at(start, it.next) }
-            }
-            is Token.In -> {
-                val start = pos
-                advance()
-                In.end().let { Not(it).at(start, it.next) }
             }
             is Token.Ident -> {
                 val start = pos
@@ -311,15 +306,15 @@ tailrec fun Parser.parseBinOps(left: PExpr, op: PBinOp, minPrecedence: Int): Pai
 }
 
 fun Parser.requireExpr(): PExpr =
-    parseBinOps() ?: expectedExpression()
-
-fun Parser.requireScopeOrBinOps(): PExpr = parseScope()?.map(Expr::Scope) ?: requireExpr()
+    parseExpr() ?: expectedExpression()
 
 fun Parser.parseEqExpr(): PExpr? = if (current == Token.Assign) {
     advance().requireExpr()
 } else {
     null
 }
+
+fun Parser.requireEqExpr(): PExpr = if (current == Token.Assign) advance().requireExpr() else expectedExpression()
 
 private fun Parser.parseTupleBody(): Expr = recBuildListN<PExpr> {
     if (current == Token.End)
@@ -338,7 +333,7 @@ private fun Parser.parseTuple(tokens: List<PToken>): PExpr =
 
 private fun Parser.parseWhenBranch(): WhenBranch {
     val pattern = parsePattern()
-    val guard = if (current == Token.If) BranchGuard(advance().requireExpr()) else null
+    val guard = if (current == Token.Pipe) BranchGuard(advance().requireExpr()) else null
     val res = when (current) {
         Token.When -> {
             val expr = advance().inParensOr(Parser::requireExpr) { null }
@@ -348,8 +343,8 @@ private fun Parser.parseWhenBranch(): WhenBranch {
             }
             BranchRes.Branching(expr, branches)
         }
-        Token.Arrow -> BranchRes.Single(advance().requireScopeOrBinOps())
-        else -> BranchRes.Single(err("Missing arrow").requireScopeOrBinOps())
+        Token.Arrow -> BranchRes.Single(advance().requireExpr())
+        else -> BranchRes.Single(err("Missing arrow").requireExpr())
     }
     return WhenBranch(pattern, guard, res)
 }
@@ -382,22 +377,6 @@ private fun Parser.parseWhen(): PExpr = withPos { start ->
     }
 
     Expr.When(expr, branches).at(start, afterBranches)
-}
-
-
-private fun Parser.parseIf(): PExpr = withPos { start ->
-    val condition = advance().inParensOr(Parser::requireExpr) {
-        err("Missing condition")
-        Expr.Error.noPos()
-    }
-    val ifScope = requireScopeOrBinOps()
-    val elseScope = if (current == Token.Else) {
-        advance().requireScopeOrBinOps()
-    } else {
-        null
-    }
-
-    return Expr.If(condition, ifScope, elseScope).at(start, elseScope?.next ?: ifScope.next)
 }
 
 private fun Parser.parseListBody(list: MutableList<PExpr>): Expr = recBuildListN(list) {
