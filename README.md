@@ -1,2 +1,2 @@
 # Palm
-A configuration language extending upon the functionality and syntax of JSON with expressions and types.
+A modern, concise and powerful programming language for the JVM.
