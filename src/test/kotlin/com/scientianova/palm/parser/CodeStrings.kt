@@ -133,7 +133,7 @@ fun DecModifier.toCodeString(indent: Int): String = when (this) {
             it.toCodeString() + (if (it == PathType.Root || path.isEmpty()) "" else ".") + path.path()
         })"
     }
-    DecModifier.Lateinit -> "lateinit"
+    DecModifier.Local -> "local"
     DecModifier.Inline -> "inline"
     DecModifier.Ann -> "annotation"
     DecModifier.Abstract -> "abstract"
@@ -177,8 +177,8 @@ fun List<PSuperType>.toCodeString(indent: Int) =
 
 fun PrimaryParam.toCodeString(indent: Int): String = modifiers.toCodeString(indent) + when (decHandling) {
     DecHandling.None -> ""
-    DecHandling.Umm -> "def "
-    DecHandling.Mut -> "def mut "
+    DecHandling.Umm -> "let "
+    DecHandling.Mut -> "let mut "
 } + "$name: ${type.toCodeString(indent)}${eqExpr(default, indent)}"
 
 private fun WhereClause.toCodeString(indent: Int) = if (isEmpty()) "" else " where " +
@@ -368,14 +368,13 @@ fun ImplementationKind.toCodeString(indent: Int) = when (this) {
 fun Statement.toCodeString(indent: Int): String = when (this) {
     is Statement.Expr -> value.toCodeString(indent)
     is Statement.Defer -> "defer " + body.toCodeString(indent)
-    is Statement.Var -> "let " + pattern.toCodeString() + typeAnn(type, indent) + eqExpr(expr, indent)
-    is Statement.Property -> modifiers.toCodeString(indent) + "def " + (if (mutable) "mut " else "") + "$name" +
+    is Statement.Property -> modifiers.toCodeString(indent) + "let " + pattern.toCodeString() +
             context.contextParams(indent) + typeAnn(type, indent) + eqExpr(expr, indent) +
             (if (getterModifiers.isEmpty() && getter == null) "" else '\n' + indent(indent + 1) +
                     getterModifiers.toCodeString(indent) + "get") + getter.toCodeString(indent) +
             (if (setterModifiers.isEmpty() && setter == null) "" else '\n' + indent(indent + 1) +
                     setterModifiers.toCodeString(indent) + "set") + setter.toCodeString(indent)
-    is Statement.Function -> modifiers.toCodeString(indent) + (if (local) "let " else "def ") + name +
+    is Statement.Function -> modifiers.toCodeString(indent) + "let " + name +
             typeParams.toCodeString(indent) +
             context.contextParams(indent) +
             "(${params.toCodeString(indent)})" +
@@ -407,8 +406,8 @@ fun Statement.toCodeString(indent: Int): String = when (this) {
                 kind.toCodeString(indent)
     is Statement.TypeAlias -> modifiers.toCodeString(indent) + "type $name${params.typeParams()}" +
             typeBound(bound, indent) + eqType(actual, indent)
-    is Statement.Constructor -> modifiers.toCodeString(indent) + "init" + params.toCodeString(indent) + " " +
-            primaryCall.mapTo { ": init${it.toCodeString(indent)} " } + body.mapTo { it.toCodeString(indent) }
+    is Statement.Constructor -> modifiers.toCodeString(indent) + "constructor" + params.toCodeString(indent) + " " +
+            primaryCall.mapTo { ": (${it.toCodeString(indent)}) " } + body.mapTo { it.toCodeString(indent) }
 }
 
 fun List<FunParam>.contextParams(indent: Int) =

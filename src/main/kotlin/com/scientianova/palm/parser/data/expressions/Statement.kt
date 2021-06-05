@@ -8,17 +8,9 @@ sealed class Statement {
     data class Expr(val value: PExpr) : Statement()
     data class Defer(val body: PScope) : Statement()
 
-    data class Var(
-        val modifiers: List<PDecMod>,
-        val pattern: PDecPattern,
-        val type: PType?,
-        val expr: PExpr?
-    ) : Statement()
-
     data class Property(
-        val name: PString,
+        val pattern: PDecPattern,
         val modifiers: List<PDecMod>,
-        val mutable: Boolean,
         val type: PType?,
         val context: List<FunParam>,
         val expr: PExpr?,
@@ -29,7 +21,6 @@ sealed class Statement {
     ) : Statement()
 
     data class Function(
-        val local: Boolean,
         val name: PString,
         val modifiers: List<PDecMod>,
         val typeParams: List<PTypeParam>,

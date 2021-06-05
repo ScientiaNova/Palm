@@ -6,6 +6,8 @@ import com.scientianova.palm.lexer.Token
 import com.scientianova.palm.parser.Parser
 import com.scientianova.palm.parser.data.expressions.*
 import com.scientianova.palm.parser.parseIdent
+import com.scientianova.palm.parser.parsing.top.parseStatements
+import com.scientianova.palm.parser.parsing.top.requireScope
 import com.scientianova.palm.util.*
 
 private fun Parser.parseTerm(): PExpr? = when (val token = current) {

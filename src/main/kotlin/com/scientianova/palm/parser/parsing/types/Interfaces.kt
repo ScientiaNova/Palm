@@ -6,7 +6,7 @@ import com.scientianova.palm.parser.data.expressions.PType
 import com.scientianova.palm.parser.data.expressions.Statement
 import com.scientianova.palm.parser.data.top.PDecMod
 import com.scientianova.palm.parser.parseIdent
-import com.scientianova.palm.parser.parsing.expressions.parseStatements
+import com.scientianova.palm.parser.parsing.top.parseStatements
 import com.scientianova.palm.parser.parsing.expressions.requireType
 import com.scientianova.palm.util.recBuildList
 

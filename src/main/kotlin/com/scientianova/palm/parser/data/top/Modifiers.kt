@@ -9,7 +9,7 @@ import com.scientianova.palm.util.Positioned
 sealed class DecModifier {
     object Public : DecModifier()
     object Protected : DecModifier()
-    object Lateinit : DecModifier()
+    object Local : DecModifier()
     object Inline : DecModifier()
     object Ann : DecModifier()
     object Abstract : DecModifier()

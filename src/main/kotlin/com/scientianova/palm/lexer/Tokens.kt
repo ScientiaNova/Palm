@@ -2,7 +2,7 @@ package com.scientianova.palm.lexer
 
 import com.scientianova.palm.parser.Parser
 import com.scientianova.palm.parser.data.expressions.StringPartP
-import com.scientianova.palm.parser.parsing.expressions.parseStatements
+import com.scientianova.palm.parser.parsing.top.parseStatements
 import com.scientianova.palm.util.Positioned
 import com.scientianova.palm.util.StringPos
 import com.scientianova.palm.util.at

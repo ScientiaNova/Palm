@@ -1,4 +1,4 @@
-private def mapping: [Char: Direction] = [
+private let mapping: [Char: Direction] = [
 	"U": Direction.Up,
 	"R": Direction.Right,
 	"D": Direction.Down,
@@ -8,21 +8,21 @@ private def mapping: [Char: Direction] = [
 def directionFromChar(raw: Char) = mapping[raw]!
 
 data class Instruction(
-	def direction: Direction,
-	def length: Int,
-	def vector: Vector2,
+	let direction: Direction,
+	let length: Int,
+	let vector: Vector2,
 )
 
 data class Segment(
-	def start: Vector2,
-	def end: Vector2,
-	def startStepCount: Int,
-	def minX: Int = min(start.x, end.x),
-	def maxX: Int = max(start.x, end.x),
-	def xRange: ClosedRange<Int> = minX..maxX,
-	def minY: Int = min(start.y, end.y),
-	def maxY: Int = max(start.y, end.y),
-	def yRange: ClosedRange<Int> = minY..maxY,
+	let start: Vector2,
+	let end: Vector2,
+	let startStepCount: Int,
+	let minX: Int = min(start.x, end.x),
+	let maxX: Int = max(start.x, end.x),
+	let xRange: ClosedRange<Int> = minX..maxX,
+	let minY: Int = min(start.y, end.y),
+	let maxY: Int = max(start.y, end.y),
+	let yRange: ClosedRange<Int> = minY..maxY,
 )
 
 impl Segment {
@@ -43,11 +43,11 @@ impl Segment {
 		startStepCount + abs(position.x - start.x) + abs(position.y - start.y)
 }
 
-def instructions = input().lines().map {
+let instructions = input().lines().map {
 	it.components(separatedBy = ",").map(::Instruction)
 }
 
-def paths: [[Segment]] = instructions.map { (path) ->
+let paths: [[Segment]] = instructions.map { (path) ->
 	let mut position = Vector2.Zero
 	let mut stepCount = 0
 	return path.map { (segment) ->
@@ -63,15 +63,15 @@ def paths: [[Segment]] = instructions.map { (path) ->
 let path1 = paths[0]
 let path2 = paths[1]
 
-def intersections = path1
+let intersections = path1
 	.flatMap { path2.flatMap(it.intersections()) }
 	.filter { it.position != Vector2.Zero }
 
-def closestIntersection = intersections
+let closestIntersection = intersections
 	.map { it.position.absolute }
 	.min()!
 
-def bestIntersection = intersections
+let bestIntersection = intersections
 	.map { it.stepCount }
 	.min()!
 

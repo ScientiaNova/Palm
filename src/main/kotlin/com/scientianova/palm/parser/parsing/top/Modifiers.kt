@@ -40,7 +40,7 @@ fun Parser.identToDecMod(string: String): Positioned<DecModifier>? = when (strin
         else DecModifier.Sealed(null, emptyList()).at(startPos, endPos)
     }
     "const" -> DecModifier.Const.end()
-    "lateinit" -> DecModifier.Lateinit.end()
+    "local" -> DecModifier.Local.end()
     "noinline" -> DecModifier.NoInline.end()
     "crossinline" -> DecModifier.CrossInline.end()
     "leaf" -> DecModifier.Leaf.end()

@@ -5,7 +5,7 @@ import com.scientianova.palm.parser.Parser
 import com.scientianova.palm.parser.data.expressions.Statement
 import com.scientianova.palm.parser.data.top.ImplementationCase
 import com.scientianova.palm.parser.data.top.ImplementationKind
-import com.scientianova.palm.parser.parsing.expressions.parseStatements
+import com.scientianova.palm.parser.parsing.top.parseStatements
 import com.scientianova.palm.parser.parsing.expressions.requireType
 import com.scientianova.palm.parser.parsing.top.parseContextParams
 import com.scientianova.palm.util.recBuildList

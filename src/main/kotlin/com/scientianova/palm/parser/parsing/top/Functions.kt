@@ -7,13 +7,13 @@ import com.scientianova.palm.parser.data.top.DecModifier
 import com.scientianova.palm.parser.data.top.FunParam
 import com.scientianova.palm.parser.data.top.OptionallyTypedFunParam
 import com.scientianova.palm.parser.data.top.PDecMod
+import com.scientianova.palm.parser.parseIdent
 import com.scientianova.palm.parser.parsing.expressions.parseEqExpr
 import com.scientianova.palm.parser.parsing.expressions.parseTypeAnn
 import com.scientianova.palm.parser.parsing.expressions.requireDecPattern
 import com.scientianova.palm.parser.parsing.expressions.requireTypeAnn
 import com.scientianova.palm.parser.parsing.types.parseTypeParams
 import com.scientianova.palm.parser.parsing.types.parseWhere
-import com.scientianova.palm.util.PString
 import com.scientianova.palm.util.map
 import com.scientianova.palm.util.recBuildList
 
@@ -60,7 +60,8 @@ fun Parser.parseFunParams(): List<FunParam> =
 
 fun Parser.parseContextParams(): List<FunParam> = inBracketsOrEmpty(Parser::parseFunParams)
 
-fun Parser.parseFun(modifiers: List<PDecMod>, local: Boolean, name: PString): Statement {
+fun Parser.parseFun(modifiers: List<PDecMod>): Statement {
+    val name = parseIdent()
     val typeParams = parseTypeParams()
     val context = parseContextParams()
 
@@ -72,5 +73,5 @@ fun Parser.parseFun(modifiers: List<PDecMod>, local: Boolean, name: PString): St
     val constrains = parseWhere()
     val expr = parseEqExpr()
 
-    return Statement.Function(local, name, modifiers, typeParams, constrains, context, params, type, expr)
+    return Statement.Function(name, modifiers, typeParams, constrains, context, params, type, expr)
 }

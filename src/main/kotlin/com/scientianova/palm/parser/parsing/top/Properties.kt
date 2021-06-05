@@ -10,10 +10,11 @@ import com.scientianova.palm.parser.data.top.PDecMod
 import com.scientianova.palm.parser.data.top.Setter
 import com.scientianova.palm.parser.parsing.expressions.parseEqExpr
 import com.scientianova.palm.parser.parsing.expressions.parseTypeAnn
+import com.scientianova.palm.parser.parsing.expressions.requireDecPattern
 import com.scientianova.palm.parser.parsing.expressions.requireEqExpr
-import com.scientianova.palm.util.PString
 
-fun Parser.parseProperty(modifiers: List<PDecMod>, mutable: Boolean, name: PString): Statement {
+fun Parser.parseProperty(modifiers: List<PDecMod>): Statement {
+    val pattern = requireDecPattern()
     val context = parseContextParams()
     val type = parseTypeAnn()
 
@@ -74,9 +75,8 @@ fun Parser.parseProperty(modifiers: List<PDecMod>, mutable: Boolean, name: PStri
     }
 
     return Statement.Property(
-        name,
+        pattern,
         modifiers,
-        mutable,
         type,
         context,
         expr,

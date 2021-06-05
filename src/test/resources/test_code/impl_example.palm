@@ -1,14 +1,14 @@
 data class Builder(
-    private def kind: Kind,
-    private def enableIO: Bool,
-    private def enableTime: Bool,
-    private def workerThreads: Option<Int>,
-    private def maxThreads: Int,
-    private def threadName: ThreadNameFn,
-    private def threadStackSize: Option<Int>,
-    private def afterStart: Option<Callback>,
-    private def beforeStop: Option<Callback>,
-    private def keepAlive: Option<Duration>,
+    private let kind: Kind,
+    private let enableIO: Bool,
+    private let enableTime: Bool,
+    private let workerThreads: Option<Int>,
+    private let maxThreads: Int,
+    private let threadName: ThreadNameFn,
+    private let threadStackSize: Option<Int>,
+    private let afterStart: Option<Callback>,
+    private let beforeStop: Option<Callback>,
+    private let keepAlive: Option<Duration>,
 )
 
 type ThreadNameFn = () -> String
@@ -68,7 +68,7 @@ def build[this: Builder](): Result<Runtime> = when (kind) {
     }
 }
 
-def cfg[this: Builder]: driver.Cfg get() = driver.Cfg(
+let cfg[this: Builder]: driver.Cfg get() = driver.Cfg(
     enableIO: enableIO,
     enableTime: enableTime,
 )

@@ -6,9 +6,7 @@ import com.scientianova.palm.parser.data.expressions.Statement
 import com.scientianova.palm.parser.data.top.*
 import com.scientianova.palm.parser.parseIdent
 import com.scientianova.palm.parser.parsing.expressions.*
-import com.scientianova.palm.parser.parsing.top.parseDecModifiers
-import com.scientianova.palm.parser.parsing.top.parseFunParams
-import com.scientianova.palm.parser.parsing.top.parseParamModifiers
+import com.scientianova.palm.parser.parsing.top.*
 import com.scientianova.palm.util.at
 import com.scientianova.palm.util.recBuildList
 
@@ -40,7 +38,7 @@ fun Parser.parseClassSuperTypes(): List<PSuperType> = if (current == Token.Colon
 private fun Parser.parsePrimaryParam(): PrimaryParam {
     val modifiers = parseParamModifiers()
     val decHandling =
-        if (current == Token.Def)
+        if (current == Token.Let)
             if (advance().current == Token.Mut) DecHandling.Mut.also { advance() }
             else DecHandling.Umm
         else DecHandling.None

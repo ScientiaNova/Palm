@@ -1,4 +1,4 @@
-package com.scientianova.palm.parser.parsing.expressions
+package com.scientianova.palm.parser.parsing.top
 
 import com.scientianova.palm.lexer.PToken
 import com.scientianova.palm.lexer.Token
@@ -6,11 +6,7 @@ import com.scientianova.palm.parser.Parser
 import com.scientianova.palm.parser.data.expressions.PScope
 import com.scientianova.palm.parser.data.expressions.Scope
 import com.scientianova.palm.parser.data.expressions.Statement
-import com.scientianova.palm.parser.data.top.PDecMod
-import com.scientianova.palm.parser.parseIdent
-import com.scientianova.palm.parser.parsing.top.parseDecModifiers
-import com.scientianova.palm.parser.parsing.top.parseFun
-import com.scientianova.palm.parser.parsing.top.parseProperty
+import com.scientianova.palm.parser.parsing.expressions.requireExpr
 import com.scientianova.palm.parser.parsing.types.*
 import com.scientianova.palm.util.recBuildList
 
@@ -18,8 +14,8 @@ private fun Parser.parseStatement(): Statement {
     val startIndex = index
     val modifiers = parseDecModifiers()
     return when (current) {
-        Token.Let -> advance().parseLet(modifiers)
-        Token.Def -> advance().parseDef(modifiers)
+        Token.Let -> advance().parseProperty(modifiers)
+        Token.Def -> advance().parseFun(modifiers)
         Token.Type -> when (advance().current) {
             Token.Class -> advance().parseTypeClass(modifiers)
             else -> parseTpeAlias(modifiers)
@@ -39,34 +35,6 @@ private fun Parser.parseStatement(): Statement {
     }
 }
 
-private fun Parser.parseLet(modifiers: List<PDecMod>) = current.let { curr ->
-    if (curr is Token.Ident) {
-        when (next) {
-            Token.Less, is Token.Parens, is Token.Brackets -> parseFun(modifiers, true, curr.name.end())
-            else -> parseVarDec(modifiers)
-        }
-    } else parseVarDec(modifiers)
-}
-
-private fun Parser.parseDef(modifiers: List<PDecMod>) =
-    if (current == Token.Mut) parseProperty(modifiers, true, advance().parseIdent())
-    else {
-        val name = parseIdent()
-        when (current) {
-            is Token.Brackets ->
-                if (next is Token.Parens) parseFun(modifiers, false, name)
-                else parseProperty(modifiers, false, name)
-            Token.Less, is Token.Parens -> parseFun(modifiers, false, name)
-            else -> parseProperty(modifiers, false, name)
-        }
-    }
-
-private fun Parser.parseVarDec(modifiers: List<PDecMod>): Statement {
-    val pattern = requireDecPattern()
-    val type = parseTypeAnn()
-    val expr = parseEqExpr()
-    return Statement.Var(modifiers, pattern, type, expr)
-}
 
 fun Parser.parseStatements(): Scope = recBuildList {
     when (current) {
