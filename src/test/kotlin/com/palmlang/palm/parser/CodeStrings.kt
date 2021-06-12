@@ -397,11 +397,6 @@ fun Statement.toCodeString(indent: Int): String = when (this) {
     is Statement.Object -> modifiers.toCodeString(indent) + "object $name " +
             superTypes.toCodeString(indent) +
             scopeCodeStringOrNone(statements, indent) { it.toCodeString(indent + 1) }
-    is Statement.TypeClass ->
-        modifiers.toCodeString(indent) + "type class $name${typeParams.toCodeString(indent)} " +
-                (if (superTypes.isEmpty()) "" else ": ") + superTypes.joinToString { it.toCodeString(indent) } +
-                typeConstraints.toCodeString(indent) +
-                scopeCodeStringOrNone(items, indent) { it.toCodeString(indent + 1) }
     is Statement.Implementation ->
         "impl " + (if (typeParams.isEmpty()) "" else typeParams.toCodeString(indent) + " ") +
                 type.toCodeString(indent) +

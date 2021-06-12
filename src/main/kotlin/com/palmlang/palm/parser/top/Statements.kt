@@ -16,10 +16,7 @@ private fun Parser.parseStatement(): Statement {
     return when (current) {
         Token.Let -> advance().parseProperty(modifiers)
         Token.Def -> advance().parseFun(modifiers)
-        Token.Type -> when (advance().current) {
-            Token.Class -> advance().parseTypeClass(modifiers)
-            else -> parseTpeAlias(modifiers)
-        }
+        Token.Type -> parseTpeAlias(modifiers)
         Token.Class -> advance().parseClass(modifiers)
         Token.Object -> advance().parseObject(modifiers)
         Token.Interface -> advance().parseInterface(modifiers)

@@ -57,15 +57,6 @@ sealed class Statement {
         val statements: List<Statement>
     ) : Statement()
 
-    data class TypeClass(
-        val name: PString,
-        val modifiers: List<PDecMod>,
-        val typeParams: List<PTypeParam>,
-        val typeConstraints: WhereClause,
-        val superTypes: List<PType>,
-        val items: List<Statement>
-    ) : Statement()
-
     data class Implementation(
         val type: PType,
         val typeParams: List<PTypeParam>,
