@@ -16,9 +16,7 @@ sealed class Expr {
     data class Ternary(val cond: PExpr, val ifTrue: PExpr, val ifFalse: PExpr) : Expr()
     data class When(val comparing: PExpr?, val branches: List<WhenBranch>) : Expr()
 
-    data class Break(val label: PString, val expr: PExpr?) : Expr()
     data class Return(val label: PString?, val expr: PExpr?) : Expr()
-
     data class Throw(val expr: PExpr) : Expr()
     data class Do(val scope: PScope, val catches: List<Catch>) : Expr()
 

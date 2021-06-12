@@ -18,12 +18,10 @@ private fun matchIdentToken(ident: String) = when (ident) {
     "let" -> Token.Let
     "mut" -> Token.Mut
     "when" -> Token.When
-    "break" -> Token.Break
     "return" -> Token.Return
     "throw" -> Token.Throw
     "do" -> Token.Do
     "catch" -> Token.Catch
-    "defer" -> Token.Defer
     "import" -> Token.Import
     "is" -> Token.Is
     "as" -> Token.As

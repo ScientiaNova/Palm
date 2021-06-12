@@ -27,10 +27,7 @@ private fun Parser.parseStatement(): Statement {
         Token.Constructor -> advance().parseConstructor(modifiers)
         else -> {
             index = startIndex
-            when (current) {
-                Token.Defer -> Statement.Defer(advance().requireScope())
-                else -> Statement.Expr(requireExpr())
-            }
+            Statement.Expr(requireExpr())
         }
     }
 }

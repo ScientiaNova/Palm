@@ -69,7 +69,6 @@ private fun Parser.parseTerm(): PExpr? = when (val token = current) {
     Token.Super -> Expr.Super.end()
     Token.Mod -> Expr.Module.end()
     Token.Return -> parseReturn()
-    Token.Break -> parseBreak()
     Token.When -> parseWhen()
     Token.Throw -> withPos { advance().requireExpr().let { expr -> Expr.Throw(expr).at(it, expr.next) } }
     Token.Do -> withPos { advance().requireScope().let { scope -> Expr.Do(scope, parseCatches()).at(it, scope.next) } }
@@ -105,15 +104,6 @@ private fun Parser.parseReturn(): PExpr = withPos { start ->
     val label = advance().parseLabelRef()
     val expr = parseBinOpsOnLine()
     Expr.Return(label, expr).at(start, expr?.next ?: label?.next ?: nextPos.also { advance() })
-}
-
-private fun Parser.parseBreak(): PExpr = withPos { start ->
-    val label = advance().parseLabelRef() ?: run {
-        err("Missing label", nextPos, nextPos)
-        "".noPos(nextPos).also { advance() }
-    }
-    val expr = parseBinOpsOnLine()
-    Expr.Break(label, expr).at(start, expr?.next ?: label.next)
 }
 
 private fun Parser.parseLabelRef(): PString? = if (current == Token.At) {

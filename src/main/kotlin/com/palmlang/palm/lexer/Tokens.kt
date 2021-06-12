@@ -117,8 +117,6 @@ sealed class Token {
     object When : Token()
     object Do : Token()
     object Catch : Token()
-    object Defer : Token()
-    object Break : Token()
     object Return : Token()
     object Throw : Token()
 

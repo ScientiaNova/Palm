@@ -257,7 +257,6 @@ fun Expr.toCodeString(indent: Int): String = when (this) {
             "${it.first.toCodeString(indent)}: ${it.second.toCodeString(indent)}"
         }
     }]"
-    is Expr.Break -> "break" + label.mapTo { "@$it" } + expr.mapTo { " ${it.toCodeString(indent)}" }
     is Expr.Return -> "return" + label.mapTo { "@$it" } + expr.mapTo { " ${it.toCodeString(indent)}" }
     is Expr.Call -> expr.toCodeString(indent) + args.toCodeString(indent)
     is Expr.Lambda ->
@@ -373,7 +372,6 @@ fun ImplementationKind.toCodeString(indent: Int) = when (this) {
 
 fun Statement.toCodeString(indent: Int): String = when (this) {
     is Statement.Expr -> value.toCodeString(indent)
-    is Statement.Defer -> "defer " + body.toCodeString(indent)
     is Statement.Property -> modifiers.toCodeString(indent) + "let " + pattern.toCodeString() +
             context.contextParams(indent) + typeAnn(type, indent) + eqExpr(expr, indent) +
             (if (getterModifiers.isEmpty() && getter == null) "" else '\n' + indent(indent + 1) +

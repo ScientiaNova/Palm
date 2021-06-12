@@ -6,7 +6,6 @@ import com.palmlang.palm.util.Positioned
 
 sealed class Statement {
     data class Expr(val value: PExpr) : Statement()
-    data class Defer(val body: PScope) : Statement()
 
     data class Property(
         val pattern: PDecPattern,
