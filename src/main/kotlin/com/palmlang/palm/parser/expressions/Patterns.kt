@@ -41,12 +41,12 @@ private fun Parser.parseObjectPatternBody(): List<Pair<PString, Pattern>> = recB
             val ident = advance().parseIdent()
             add(
                 ident to Pattern.Dec(
-                    com.palmlang.palm.ast.expressions.DecPattern.Mut(ident.map(com.palmlang.palm.ast.expressions.DecPattern::Name)).at(mutStart, ident.next)
+                    DecPattern.Mut(ident.map(DecPattern::Name)).at(mutStart, ident.next)
                 )
             )
         } else {
             val ident = parseIdent()
-            add(ident to Pattern.Dec(ident.map(com.palmlang.palm.ast.expressions.DecPattern::Name)))
+            add(ident to Pattern.Dec(ident.map(DecPattern::Name)))
         }
         else -> {
             val ident = parseIdent()

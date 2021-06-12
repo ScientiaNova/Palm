@@ -18,6 +18,50 @@ fun Parser.parseType(): PType? {
         is Token.Ident -> parseNamedType()
         is Token.Parens -> parseTypeTuple(token.tokens)
         is Token.Brackets -> parseTypeList(token.tokens)
+        is Token.IntLit -> {
+            val start = pos
+            val maybeType = rawLookup(1)
+            when {
+                maybeType is Token.Ident && !maybeType.backticked -> {
+                    advance()
+                    when (maybeType.name) {
+                        "b", "B" -> Type.Byte(token.value.toByte()).end(start)
+                        "s", "S" -> Type.Short(token.value.toShort()).end(start)
+                        "l", "L" -> Type.Long(token.value).end(start)
+                        else -> {
+                            err("Unknown literal suffix")
+                            when (token.value) {
+                                in Int.MIN_VALUE..Int.MAX_VALUE -> Type.Int(token.value.toInt()).end(start)
+                                else -> Type.Long(token.value).end(start)
+                            }
+                        }
+                    }
+                }
+                token.value in Int.MIN_VALUE..Int.MAX_VALUE -> Type.Int(token.value.toInt()).end(start)
+                else -> Type.Long(token.value).end(start)
+            }
+        }
+        is Token.FloatLit -> {
+            val start = pos
+            val maybeType = rawLookup(1)
+            when {
+                maybeType is Token.Ident && !maybeType.backticked -> {
+                    advance()
+                    when (maybeType.name) {
+                        "f", "F" -> Type.Float(token.value.toFloat()).end(start)
+                        else -> {
+                            err("Unknown literal suffix")
+                            Type.Double(token.value).end(start)
+                        }
+                    }
+                }
+                else -> Type.Double(token.value).end(start)
+            }
+        }
+        is Token.BoolLit -> Type.Bool(token.value).end()
+        is Token.CharLit -> Type.Char(token.value).end()
+        is Token.StrLit -> Type.Str(token.parts.map { it.parse(this) }).end()
+        Token.NullLit -> Type.Null.end()
         Token.At -> return parseAnnotatedType()
         else -> return null
     }

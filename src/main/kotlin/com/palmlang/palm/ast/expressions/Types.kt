@@ -14,6 +14,16 @@ sealed class Type {
     data class Nullable(val type: PType) : Type()
     data class Annotated(val annotation: Positioned<Annotation>, val type: PType) : Type()
     data class Parenthesized(val nested: PType) : Type()
+    data class Byte(val value: kotlin.Byte) : Type()
+    data class Short(val value: kotlin.Short) : Type()
+    data class Int(val value: kotlin.Int) : Type()
+    data class Long(val value: kotlin.Long) : Type()
+    data class Float(val value: kotlin.Float) : Type()
+    data class Double(val value: kotlin.Double) : Type()
+    data class Char(val value: kotlin.Char) : Type()
+    data class Str(val parts: List<StringPartP>) : Type()
+    data class Bool(val value: Boolean) : Type()
+    object Null : Type()
 }
 
 val emptyType = Type.Named(emptyList(), emptyList())

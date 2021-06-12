@@ -29,8 +29,8 @@ sealed class Expr {
     data class Char(val value: kotlin.Char) : Expr()
     data class Str(val parts: List<StringPartP>) : Expr()
     data class Bool(val value: Boolean) : Expr()
-
     object Null : Expr()
+
     object Super : Expr()
 
     data class Parenthesized(val nested: PExpr) : Expr()

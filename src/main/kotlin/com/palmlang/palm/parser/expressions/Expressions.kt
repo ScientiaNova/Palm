@@ -27,13 +27,13 @@ private fun Parser.parseTerm(): PExpr? = when (val token = current) {
                 when (maybeType.name) {
                     "b", "B" -> Expr.Byte(token.value.toByte()).end(start)
                     "s", "S" -> Expr.Short(token.value.toShort()).end(start)
-                    "i", "I" -> Expr.Int(token.value.toInt()).end(start)
                     "l", "L" -> Expr.Long(token.value).end(start)
-                    "f", "F" -> Expr.Float(token.value.toFloat()).end(start)
-                    "d", "D" -> Expr.Double(token.value.toDouble()).end(start)
                     else -> {
                         err("Unknown literal suffix")
-                        Expr.Error.end(start)
+                        when (token.value) {
+                            in Int.MIN_VALUE..Int.MAX_VALUE -> Expr.Int(token.value.toInt()).end(start)
+                            else -> Expr.Long(token.value).end(start)
+                        }
                     }
                 }
             }
@@ -49,10 +49,9 @@ private fun Parser.parseTerm(): PExpr? = when (val token = current) {
                 advance()
                 when (maybeType.name) {
                     "f", "F" -> Expr.Float(token.value.toFloat()).end(start)
-                    "d", "D" -> Expr.Double(token.value).end(start)
                     else -> {
                         err("Unknown literal suffix")
-                        Expr.Error.end(start)
+                        Expr.Double(token.value).end(start)
                     }
                 }
             }

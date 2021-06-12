@@ -85,6 +85,16 @@ fun Type.toCodeString(indent: Int): String = when (this) {
     is Type.Dict -> "[${key.toCodeString(indent)}: ${value.toCodeString(indent)}]"
     is Type.Tuple -> "(${types.joinToString { it.toCodeString(indent) }}${if (types.size == 1) "," else ""})"
     is Type.Parenthesized -> "(${nested.toCodeString(indent)})"
+    is Type.Bool -> value.toString()
+    is Type.Byte -> "${value}b"
+    is Type.Char -> "'$value'"
+    is Type.Double -> value.toString()
+    is Type.Float -> "${value}f"
+    is Type.Int -> value.toString()
+    is Type.Long -> "${value}l"
+    Type.Null -> "null"
+    is Type.Short -> "${value}s"
+    is Type.Str -> "\"${parts.joinToString("") { it.toCodeString(indent) }}\""
 }
 
 private fun typeAnn(type: PType?, indent: Int) = type.mapTo { ": ${it.toCodeString(indent)}" }
@@ -238,11 +248,11 @@ fun Expr.toCodeString(indent: Int): String = when (this) {
     is Expr.Bool -> value.toString()
     is Expr.Null -> "null"
     is Expr.Super -> "super"
-    is Expr.Byte -> value.toString()
-    is Expr.Short -> value.toString()
+    is Expr.Byte -> "${value}b"
+    is Expr.Short -> "${value}s"
     is Expr.Int -> value.toString()
-    is Expr.Long -> value.toString()
-    is Expr.Float -> value.toString()
+    is Expr.Long -> "${value}l"
+    is Expr.Float -> "${value}f"
     is Expr.Double -> value.toString()
     is Expr.Char -> "'$value'"
     is Expr.Str -> "\"${parts.joinToString("") { it.toCodeString(indent) }}\""
