@@ -1,7 +1,5 @@
 package com.palmlang.palm.parser.top
 
-import com.palmlang.palm.ast.expressions.PScope
-import com.palmlang.palm.ast.expressions.Scope
 import com.palmlang.palm.ast.expressions.Statement
 import com.palmlang.palm.lexer.Token
 import com.palmlang.palm.parser.Parser
@@ -15,7 +13,7 @@ private fun Parser.parseStatement(): Statement {
     return when (current) {
         Token.Let -> advance().parseProperty(modifiers)
         Token.Def -> advance().parseFun(modifiers)
-        Token.Type -> parseTpeAlias(modifiers)
+        Token.Type -> advance().parseTpeAlias(modifiers)
         Token.Class -> advance().parseClass(modifiers)
         Token.Object -> advance().parseObject(modifiers)
         Token.Interface -> advance().parseInterface(modifiers)
