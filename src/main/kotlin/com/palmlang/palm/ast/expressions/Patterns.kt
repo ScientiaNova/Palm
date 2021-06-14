@@ -1,8 +1,9 @@
 package com.palmlang.palm.ast.expressions
 
+import com.palmlang.palm.ast.ASTNode
 import com.palmlang.palm.util.PString
 
-sealed class Pattern {
+sealed class Pattern : ASTNode {
     data class Expr(val expr: PExpr) : Pattern()
     data class Type(val type: PType, val inverted: Boolean, val destructuring: Destructuring?) : Pattern()
     data class Tuple(val patterns: List<Pattern>) : Pattern()

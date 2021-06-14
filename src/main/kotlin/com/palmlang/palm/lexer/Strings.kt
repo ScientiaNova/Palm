@@ -7,10 +7,10 @@ internal tailrec fun Lexer.lexString(
     parts: List<StringPartL>,
     builder: StringBuilder,
     hashes: Int
-): Lexer = when (val char = code.getOrNull(pos)) {
-    null -> addErr("Missing double quote", this.pos + 1, pos)
+): PToken = when (val char = code.getOrNull(pos)) {
+    null -> createErr("Missing double quote", this.pos + 1, pos)
     '"' -> if (hashNumEq(code, pos + 1, hashes)) {
-        Token.StrLit(parts + StringPartL.String(builder.toString())).add(pos + hashes + 1)
+        Token.StrLit(parts + StringPartL.String(builder.toString())).end(pos + hashes + 1)
     } else lexString( pos + 1, parts, builder.append('"'), hashes)
     '$' -> {
         val interPos = pos + 1
@@ -19,23 +19,23 @@ internal tailrec fun Lexer.lexString(
                 val nested = nestedLexerAt(interPos + 1).lexNested( '}')
                 lexString(
                      nested.pos,
-                    parts + StringPartL.Scope(interPos, nested.tokens),
+                    parts + StringPartL.Expr(interPos, nested.tokens),
                     builder.clear(), hashes
                 )
             }
             '`' -> {
-                val nested = nestedLexerAt(interPos + 1).lexTickedIdent(interPos + 1, StringBuilder()).endHere()
+                val nested = lexTickedIdent(interPos + 1, StringBuilder())
                 lexString(
-                     nested.pos,
-                    parts + StringPartL.Scope(interPos, nested.tokens),
+                     nested.next,
+                    parts + StringPartL.Expr(interPos, listOf(nested)),
                     builder.clear(), hashes
                 )
             }
             in identStartChars -> {
-                val nested = nestedLexerAt(interPos + 1).lexNormalIdent(interPos + 1, StringBuilder()).endHere()
+                val nested = lexNormalIdent(interPos + 1, StringBuilder())
                 lexString(
-                     nested.pos,
-                    parts + StringPartL.Scope(interPos, nested.tokens),
+                     nested.next,
+                    parts + StringPartL.Expr(interPos, listOf(nested)),
                     builder.clear(), hashes
                 )
             }

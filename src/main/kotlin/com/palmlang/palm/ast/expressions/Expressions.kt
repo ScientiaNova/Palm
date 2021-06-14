@@ -1,24 +1,24 @@
 package com.palmlang.palm.ast.expressions
 
+import com.palmlang.palm.ast.ASTNode
 import com.palmlang.palm.util.PString
 import com.palmlang.palm.util.Positioned
 
 typealias PExpr = Positioned<Expr>
 
-sealed class Expr {
+sealed class Expr : ASTNode {
     object Error : Expr()
     data class Ident(val name: String) : Expr()
 
     data class Safe(val expr: Expr) : Expr()
     data class Call(val expr: PExpr, val args: CallArgs) : Expr()
-    data class Lambda(val label: PString?, val header: LambdaHeader?, val scope: Scope) : Expr()
+    data class Lambda(val scope: Scope) : Expr()
 
     data class Ternary(val cond: PExpr, val ifTrue: PExpr, val ifFalse: PExpr) : Expr()
     data class When(val comparing: PExpr?, val branches: List<WhenBranch>) : Expr()
 
+    object Super : Expr()
     data class Return(val label: PString?, val expr: PExpr?) : Expr()
-    data class Throw(val expr: PExpr) : Expr()
-    data class Do(val scope: PScope, val catches: List<Catch>) : Expr()
 
     data class Byte(val value: kotlin.Byte) : Expr()
     data class Short(val value: kotlin.Short) : Expr()
@@ -30,8 +30,6 @@ sealed class Expr {
     data class Str(val parts: List<StringPartP>) : Expr()
     data class Bool(val value: Boolean) : Expr()
     object Null : Expr()
-
-    object Super : Expr()
 
     data class Parenthesized(val nested: PExpr) : Expr()
     data class Tuple(val elements: List<PExpr>) : Expr()
@@ -60,13 +58,11 @@ sealed class Expr {
 
 sealed class StringPartP {
     data class String(val string: kotlin.String) : StringPartP()
-    data class Scope(val scope: PScope) : StringPartP()
+    data class Expr(val scope: PScope) : StringPartP()
 }
 
 data class Arg<T>(val name: PString?, val value: T)
 data class CallArgs(val args: List<Arg<PExpr>> = emptyList(), val trailing: List<Arg<PExpr>> = emptyList())
-
-data class Catch(val dec: PDecPattern, val type: PType, val body: PScope)
 
 data class LambdaHeader(
     val context: List<Pair<PDecPattern, PType?>>,

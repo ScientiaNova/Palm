@@ -52,7 +52,6 @@ fun Token.toCodeString(indent: Int): String = when (this) {
     Token.Super -> "super"
     Token.NullLit -> "null"
     Token.When -> "when"
-    Token.Do -> "do"
     Token.Return -> "return"
     Token.As -> "as"
     Token.EOL -> "EOL"
@@ -68,8 +67,6 @@ fun Token.toCodeString(indent: Int): String = when (this) {
     Token.ExclamationMark -> "!"
     Token.Class -> "class"
     Token.Interface -> "interface"
-    Token.Catch -> "catch"
-    Token.Throw -> "throw"
     Token.Import -> "import"
     Token.Whitespace -> "*Whitespace*"
     Token.Comment -> "// Comment"
@@ -86,7 +83,7 @@ fun Token.toCodeString(indent: Int): String = when (this) {
 
 fun StringPartL.toCodeString(indent: Int) = when (this) {
     is StringPartL.String -> "\"$string\""
-    is StringPartL.Scope -> "\${\n" + indent(indent + 1) +
+    is StringPartL.Expr -> "\${\n" + indent(indent + 1) +
             tokens.joinToString("\n" + indent(indent + 1)) { it.value.toCodeString(indent + 1) } +
             "\n${indent(indent)}}"
 }

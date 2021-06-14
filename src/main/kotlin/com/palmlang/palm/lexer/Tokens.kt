@@ -1,5 +1,6 @@
 package com.palmlang.palm.lexer
 
+import com.palmlang.palm.ast.expressions.Scope
 import com.palmlang.palm.parser.Parser
 import com.palmlang.palm.ast.expressions.StringPartP
 import com.palmlang.palm.parser.top.parseStatements
@@ -13,9 +14,9 @@ sealed class StringPartL {
         override fun parse(parser: Parser) = StringPartP.String(string)
     }
 
-    data class Scope(val startPos: StringPos, val tokens: List<PToken>) : StringPartL() {
-        override fun parse(parser: Parser): StringPartP = StringPartP.Scope(
-            parser.scopedOf(tokens).parseStatements().at(startPos, tokens.last().next)
+    data class Expr(val startPos: StringPos, val tokens: List<PToken>) : StringPartL() {
+        override fun parse(parser: Parser): StringPartP = StringPartP.Expr(
+            parser.scopedOf(tokens).parseStatements().let { Scope(null, null, it) }.at(startPos, tokens.last().next)
         )
     }
 }
@@ -115,10 +116,7 @@ sealed class Token {
 
     object Super : Token()
     object When : Token()
-    object Do : Token()
-    object Catch : Token()
     object Return : Token()
-    object Throw : Token()
 
     object Import : Token()
     object Mod : Token()

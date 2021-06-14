@@ -1,11 +1,10 @@
 package com.palmlang.palm.parser.top
 
-import com.palmlang.palm.lexer.PToken
-import com.palmlang.palm.lexer.Token
-import com.palmlang.palm.parser.Parser
 import com.palmlang.palm.ast.expressions.PScope
 import com.palmlang.palm.ast.expressions.Scope
 import com.palmlang.palm.ast.expressions.Statement
+import com.palmlang.palm.lexer.Token
+import com.palmlang.palm.parser.Parser
 import com.palmlang.palm.parser.expressions.requireExpr
 import com.palmlang.palm.parser.types.*
 import com.palmlang.palm.util.recBuildList
@@ -30,7 +29,7 @@ private fun Parser.parseStatement(): Statement {
 }
 
 
-fun Parser.parseStatements(): Scope = recBuildList {
+fun Parser.parseStatements(): List<Statement> = recBuildList {
     when (current) {
         Token.End -> return this
         Token.Semicolon -> advance()
@@ -44,23 +43,5 @@ fun Parser.parseStatements(): Scope = recBuildList {
                 }
             }
         }
-    }
-}
-
-fun Parser.parseScopeBody(tokens: List<PToken>): PScope = scopedOf(tokens).parseStatements().end()
-
-fun Parser.parseScope(): PScope? = current.let { braces ->
-    if (braces is Token.Braces) {
-        parseScopeBody(braces.tokens)
-    } else {
-        null
-    }
-}
-
-fun Parser.requireScope() = current.let { braces ->
-    if (braces is Token.Braces) {
-        parseScopeBody(braces.tokens)
-    } else {
-        emptyList<Statement>().noPos()
     }
 }

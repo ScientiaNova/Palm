@@ -1,15 +1,16 @@
 package com.palmlang.palm.ast.expressions
 
+import com.palmlang.palm.ast.ASTNode
 import com.palmlang.palm.util.PString
 import com.palmlang.palm.util.Positioned
 
-typealias PDecPattern = Positioned<com.palmlang.palm.ast.expressions.DecPattern>
+typealias PDecPattern = Positioned<DecPattern>
 
-sealed class DecPattern {
-    data class Mut(val pattern: com.palmlang.palm.ast.expressions.PDecPattern) : com.palmlang.palm.ast.expressions.DecPattern()
-    data class Name(val name: String) : com.palmlang.palm.ast.expressions.DecPattern()
-    data class Components(val elements: List<com.palmlang.palm.ast.expressions.PDecPattern>) : com.palmlang.palm.ast.expressions.DecPattern()
-    data class Object(val elements: List<Pair<PString, com.palmlang.palm.ast.expressions.PDecPattern?>>) : com.palmlang.palm.ast.expressions.DecPattern()
-    data class Parenthesized(val nested: com.palmlang.palm.ast.expressions.PDecPattern) : com.palmlang.palm.ast.expressions.DecPattern()
-    object Wildcard : com.palmlang.palm.ast.expressions.DecPattern()
+sealed class DecPattern : ASTNode {
+    data class Mut(val pattern: PDecPattern) : DecPattern()
+    data class Name(val name: String) : DecPattern()
+    data class Components(val elements: List<PDecPattern>) : DecPattern()
+    data class Object(val elements: List<Pair<PString, PDecPattern?>>) : DecPattern()
+    data class Parenthesized(val nested: PDecPattern) : DecPattern()
+    object Wildcard : DecPattern()
 }

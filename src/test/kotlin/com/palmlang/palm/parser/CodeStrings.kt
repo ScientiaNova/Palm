@@ -4,7 +4,6 @@ import com.palmlang.palm.ast.expressions.*
 import com.palmlang.palm.ast.top.*
 import com.palmlang.palm.ast.top.Annotation
 import com.palmlang.palm.ast.top.AnnotationType.*
-import com.palmlang.palm.ast.top.AnnotationType.Set
 import com.palmlang.palm.util.PString
 import com.palmlang.palm.util.Path
 import com.palmlang.palm.util.PathType
@@ -26,8 +25,12 @@ fun PNestedType.toCodeString(indent: Int) = value.toCodeString(indent)
 fun Annotation.toCodeString(indent: Int) =
     "@${type.toCodeString()}$path${args.toCodeString(indent)}"
 
-@JvmName("pExprScopeToCodeString")
-fun PScope.toCodeString(indent: Int) = scopeCodeString(this.value, indent) { it.toCodeString(indent + 1) }
+@JvmName("scopeToCodeString")
+fun Scope.toCodeString(indent: Int): String = """
+${label.mapTo { "$it@" }}{${header.mapTo { " ${it.toCodeString(indent + 1)}" }}
+${indent(indent + 1)}${statements.joinToString("\n" + indent(indent + 1)) { it.toCodeString(indent + 2) }}
+${indent(indent)}}
+""".trimIndent()
 
 fun AnnotationType.toCodeString() = when (this) {
     Normal -> ""
@@ -238,9 +241,9 @@ private inline fun <T> scopeCodeStringOrNone(
 
 fun indent(count: Int) = "    ".repeat(count)
 
-fun StringPartP.toCodeString(indent: Int) = when (this) {
+fun StringPartP.toCodeString(indent: Int): String = when (this) {
     is StringPartP.String -> string
-    is StringPartP.Scope -> "$${scope.toCodeString(indent)}"
+    is StringPartP.Expr -> "$${scope.value.toCodeString(indent)}"
 }
 
 fun Expr.toCodeString(indent: Int): String = when (this) {
@@ -269,12 +272,7 @@ fun Expr.toCodeString(indent: Int): String = when (this) {
     }]"
     is Expr.Return -> "return" + label.mapTo { "@$it" } + expr.mapTo { " ${it.toCodeString(indent)}" }
     is Expr.Call -> expr.toCodeString(indent) + args.toCodeString(indent)
-    is Expr.Lambda ->
-        """
-{ ${header.mapTo { it.toCodeString(indent) }}
-${indent(indent + 1)}${scope.joinToString("\n" + indent(indent + 1)) { it.toCodeString(indent + 1) }}
-${indent(indent)}}
-        """.trimIndent()
+    is Expr.Lambda -> scope.toCodeString(indent)
     is Expr.Tuple -> "(${elements.joinToString { it.toCodeString(indent) }}${if (elements.size == 1) "," else ""})"
     is Expr.TypeCheck -> "${expr.toCodeString(indent)} ${if (not) "!" else ""}is ${type.toCodeString(indent)}" +
             destructuring.mapTo { it.toCodeString(indent) }
@@ -291,10 +289,6 @@ ${indent(indent)}}
     is Expr.FunRef -> on.mapTo { it.toCodeString(indent) } + "::$value"
     is Expr.Spread -> "*${expr.toCodeString(indent)}"
     is Expr.Get -> expr.toCodeString(indent) + "[${arg.toCodeString(indent)}]"
-    is Expr.Throw -> "throw ${expr.toCodeString(indent)}"
-    is Expr.Do -> "do ${scope.toCodeString(indent)}" + if (catches.isEmpty()) "" else " " + catches.joinToString(" ") {
-        it.toCodeString(indent)
-    }
     is Expr.Turbofish -> ".${expr.toCodeString(indent)}[${args.toCodeString { it.toCodeString(indent) }}]"
     Expr.Error -> "!!!error!!!"
     is Expr.ContextCall -> ".[${args.toCodeString(indent)}]"
@@ -317,8 +311,7 @@ fun LambdaHeader.toCodeString(indent: Int) =
                 indent
             )
         }
-    }]") +
-            "(${explicit.joinToString { it.first.toCodeString() + typeAnn(it.second, indent) }}) ->"
+    }]") + "(${explicit.joinToString { it.first.toCodeString() + typeAnn(it.second, indent) }}) ->"
 
 fun UnOp.toCodeString(expr: String) = when (this) {
     UnOp.Not -> "!$expr"
@@ -361,9 +354,6 @@ fun <T> List<Arg<T>>.toCodeString(fn: (T) -> String) = joinToString { it.toCodeS
 
 @JvmName("exprArgsToCodeString")
 fun List<Arg<PExpr>>.toCodeString(indent: Int) = toCodeString { it.toCodeString(indent) }
-
-fun Catch.toCodeString(indent: Int) =
-    "catch ${dec.toCodeString()}: ${type.toCodeString(indent)} ${body.toCodeString(indent)}"
 
 fun CallArgs.toCodeString(indent: Int): String =
     (if (args.isEmpty() && trailing.isNotEmpty()) "" else "(${args.toCodeString(indent)})") +
@@ -416,7 +406,7 @@ fun Statement.toCodeString(indent: Int): String = when (this) {
     is Statement.TypeAlias -> modifiers.toCodeString(indent) + "type $name${params.typeParams()}" +
             typeBound(bound, indent) + eqType(actual, indent)
     is Statement.Constructor -> modifiers.toCodeString(indent) + "constructor" + params.toCodeString(indent) + " " +
-            primaryCall.mapTo { ": (${it.toCodeString(indent)}) " } + body.mapTo { it.toCodeString(indent) }
+            primaryCall.mapTo { ": (${it.toCodeString(indent)}) " } + body.mapTo { it.value.toCodeString(indent) }
 }
 
 fun List<FunParam>.contextParams(indent: Int) =

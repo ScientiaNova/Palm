@@ -2,31 +2,49 @@ package com.palmlang.palm.lexer
 
 import com.palmlang.palm.errors.PalmError
 import com.palmlang.palm.util.StringPos
-import com.palmlang.palm.util.alsoAdd
 import java.net.URL
 
 data class Lexer(
     val code: String,
     val filePath: URL,
-    val pos: StringPos = 0,
+    var pos: StringPos = 0,
     val tokens: MutableList<PToken> = mutableListOf(),
     val errors: MutableList<PalmError>,
 ) {
-    fun Token.add(next: StringPos = pos + 1) =
-        Lexer(code, filePath, next, tokens.alsoAdd(PToken(this, pos, next)), errors)
+    fun Token.end(next: StringPos = pos + 1) = PToken(this, pos, next)
 
-    fun err(error: String, start: StringPos, next: StringPos = start + 1) =
-        Lexer(code, filePath, next, tokens, errors.alsoAdd(PalmError(error, filePath, start, next)))
+    fun Token.add(next: StringPos = pos + 1) = this@Lexer.also {
+        pos = next
+        tokens.add(PToken(this, pos, next))
+    }
 
-    fun err(error: PalmError) =
-        Lexer(code, filePath, pos, tokens, errors.alsoAdd(error))
+    fun PToken.add() = this@Lexer.also {
+        pos = next
+        tokens.add(this)
+    }
 
-    fun addErr(error: String, start: StringPos, next: StringPos = start + 1) =
-        Lexer(code, filePath, next, tokens.alsoAdd(PToken(Token.Error(error), pos, next)), errors.alsoAdd(PalmError(error, filePath, start, next)))
+    fun err(error: String, start: StringPos, next: StringPos = start + 1) = also {
+        pos = next
+        errors.add(PalmError(error, filePath, start, next))
+    }
+
+    fun err(error: PalmError) = apply {
+        errors.add(error)
+    }
+
+    fun addErr(error: String, start: StringPos, next: StringPos = start + 1) = also {
+        pos = next
+        tokens.add(PToken(Token.Error(error), pos, next))
+        errors.add(PalmError(error, filePath, start, next))
+    }
+
+    fun createErr(error: String, start: StringPos, next: StringPos = start + 1) = run {
+        pos = next
+        errors.add(PalmError(error, filePath, start, next))
+        PToken(Token.Error(error), pos, next)
+    }
 
     fun end(): Lexer = Token.End.add()
-
-    fun endHere(): Lexer = Token.End.add(pos)
 
     fun nestedLexerAt(pos: StringPos) = Lexer(code, filePath, pos, mutableListOf(), errors)
 

@@ -1,10 +1,11 @@
 package com.palmlang.palm.ast.expressions
 
+import com.palmlang.palm.ast.ASTNode
 import com.palmlang.palm.ast.top.*
 import com.palmlang.palm.util.PString
 import com.palmlang.palm.util.Positioned
 
-sealed class Statement {
+sealed class Statement : ASTNode {
     data class Expr(val value: PExpr) : Statement()
 
     data class Property(
@@ -81,5 +82,5 @@ sealed class Statement {
     ) : Statement()
 }
 
-typealias Scope = List<Statement>
+data class Scope(val label: PString?, val header: LambdaHeader?, val statements: List<Statement>) : ASTNode
 typealias PScope = Positioned<Scope>

@@ -1,5 +1,6 @@
 package com.palmlang.palm.parser.types
 
+import com.palmlang.palm.ast.expressions.Scope
 import com.palmlang.palm.lexer.Token
 import com.palmlang.palm.parser.Parser
 import com.palmlang.palm.ast.expressions.Statement
@@ -116,7 +117,11 @@ fun Parser.parseConstructor(modifiers: List<PDecMod>): Statement {
         null
     }
 
-    val body = parseScope()
+    val body = when (val braces = current) {
+        is Token.Braces ->
+            Scope(null, null, scopedOf(braces.tokens).parseStatements()).end()
+        else -> null
+    }
 
     return Statement.Constructor(modifiers, params, primaryCall, body)
 }

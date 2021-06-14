@@ -3,11 +3,11 @@ package com.palmlang.palm.lexer
 import com.palmlang.palm.util.StringPos
 
 tailrec fun Lexer.lexFile(): Lexer {
-    return when (val char = code.getOrNull(pos)) {
+   return  when (val char = code.getOrNull(pos)) {
         null -> return this.end()
         '\n' -> Token.EOL.add()
         '\t', ' ', '\r' -> lexWhitespace(pos + 1)
-        '#' -> lexRawString(pos + 1)
+        '#' -> lexRawString(pos + 1).add()
         '(' -> {
             val nested = nestedLexerAt(pos + 1).lexNested(')')
             Token.Parens(nested.tokens).add(nested.pos)
@@ -40,14 +40,14 @@ tailrec fun Lexer.lexFile(): Lexer {
         }
         in '1'..'9' -> lexNumber(pos + 1, StringBuilder().append(char))
         '\'' -> lexChar(pos + 1)
-        '\"' -> lexString(pos + 1, emptyList(), StringBuilder(), 0)
-        '`' -> lexTickedIdent(pos + 1, StringBuilder())
+        '\"' -> lexString(pos + 1, emptyList(), StringBuilder(), 0).add()
+        '`' -> lexTickedIdent(pos + 1, StringBuilder()).add()
         '/' -> when (code.getOrNull(pos + 1)) {
             '/' -> lexSingleLineComment(pos + 2)
             '*' -> lexMultiLineComment(pos + 2)
             else -> lexSymbol(pos + 1, '/')
         }
-        in identStartChars -> lexNormalIdent(pos + 1, StringBuilder().append(char))
+        in identStartChars -> lexNormalIdent(pos + 1, StringBuilder().append(char)).add()
         in symbolChars -> lexSymbol(pos + 1, char)
         in confusables -> {
             val confusable = confusables[char]!!
@@ -63,7 +63,7 @@ internal tailrec fun Lexer.lexNested(endDelim: Char): Lexer {
         null -> return err("Missing $endDelim", pos, pos)
         '\n' -> Token.EOL.add()
         '\t', ' ', '\r' -> lexWhitespace(pos + 1)
-        '#' -> lexRawString(pos + 1)
+        '#' -> lexRawString(pos + 1).add()
         '(' -> {
             val nested = nestedLexerAt(pos + 1).lexNested(')')
             Token.Parens(nested.tokens).add(nested.pos)
@@ -102,8 +102,8 @@ internal tailrec fun Lexer.lexNested(endDelim: Char): Lexer {
         }
         in '1'..'9' -> lexNumber(pos + 1, StringBuilder().append(char))
         '\'' -> lexChar(pos + 1)
-        '\"' -> lexString(pos + 1, emptyList(), StringBuilder(), 0)
-        '`' -> lexTickedIdent(pos + 1, StringBuilder())
+        '\"' -> lexString(pos + 1, emptyList(), StringBuilder(), 0).add()
+        '`' -> lexTickedIdent(pos + 1, StringBuilder()).add()
         '*' -> when (code.getOrNull(pos + 1)) {
             '=' -> Token.TimesAssign.add(pos + 2)
             else -> Token.Times.add()
@@ -114,7 +114,7 @@ internal tailrec fun Lexer.lexNested(endDelim: Char): Lexer {
             '=' -> Token.DivAssign.add(pos + 2)
             else -> Token.Div.add()
         }
-        in identStartChars -> lexNormalIdent(pos + 1, StringBuilder().append(char))
+        in identStartChars -> lexNormalIdent(pos + 1, StringBuilder().append(char)).add()
         in symbolChars -> lexSymbol(pos + 1, char)
         in confusables -> {
             val confusable = confusables[char]!!
@@ -124,11 +124,11 @@ internal tailrec fun Lexer.lexNested(endDelim: Char): Lexer {
     }.lexNested(endDelim)
 }
 
-private tailrec fun Lexer.lexRawString(pos: StringPos, hashes: Int = 1): Lexer =
+private tailrec fun Lexer.lexRawString(pos: StringPos, hashes: Int = 1): PToken =
     when (code.getOrNull(pos)) {
         '#' -> lexRawString(pos + 1, hashes + 1)
         '"' -> lexString(pos, emptyList(), StringBuilder(), hashes)
-        else -> addErr("Expected a double colon", this.pos + 1, pos)
+        else -> createErr("Expected a double colon", this.pos + 1, pos)
     }
 
 private fun Lexer.lexSymbolChars(pos: StringPos, builder: StringBuilder): StringBuilder =

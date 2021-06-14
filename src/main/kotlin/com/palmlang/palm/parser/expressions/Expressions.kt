@@ -7,7 +7,6 @@ import com.palmlang.palm.lexer.Token
 import com.palmlang.palm.parser.Parser
 import com.palmlang.palm.parser.parseIdent
 import com.palmlang.palm.parser.top.parseStatements
-import com.palmlang.palm.parser.top.requireScope
 import com.palmlang.palm.util.*
 
 private fun Parser.parseTerm(): PExpr? = when (val token = current) {
@@ -69,8 +68,6 @@ private fun Parser.parseTerm(): PExpr? = when (val token = current) {
     Token.Mod -> Expr.Module.end()
     Token.Return -> parseReturn()
     Token.When -> parseWhen()
-    Token.Throw -> withPos { advance().requireExpr().let { expr -> Expr.Throw(expr).at(it, expr.next) } }
-    Token.Do -> withPos { advance().requireScope().let { scope -> Expr.Do(scope, parseCatches()).at(it, scope.next) } }
     Token.Spread -> withPos { advance().requireSubExpr().let { expr -> Expr.Spread(expr).at(it, expr.next) } }
     Token.DoubleColon -> parseFreeFunRef()
     Token.Plus -> parsePrefix(UnOp.Not)
@@ -117,17 +114,6 @@ private fun Parser.parseLabelRef(): PString? = if (current == Token.At) {
     }
 } else {
     null
-}
-
-private fun Parser.parseCatches(): List<Catch> = recBuildList {
-    if (current == Token.Catch) {
-        val pattern = advance().requireDecPattern()
-        val type = requireTypeAnn()
-        val scope = requireScope()
-        add(Catch(pattern, type, scope))
-    } else {
-        return this
-    }
 }
 
 private tailrec fun Parser.parsePostfix(term: PExpr): PExpr = when (val token = current) {
@@ -186,29 +172,25 @@ private tailrec fun Parser.parsePostfix(term: PExpr): PExpr = when (val token = 
             term
         } else {
             parsePostfix(
-                Expr.Call(term,
+                Expr.Call(
+                    term,
                     CallArgs(emptyList(), lambdas)
-                ).at(term.start, lambdas.last().value.next))
+                ).at(term.start, lambdas.last().value.next)
+            )
         }
     }
 }
 
-fun Parser.parsePostfixLambdas(): List<Arg<PExpr>> {
-    val list = mutableListOf(
-        Arg(
-            null,
-            parseLambdaOr { return emptyList() })
-    )
-    return recBuildList(list) {
+fun Parser.parsePostfixLambdas(): List<Arg<PExpr>> =
+    recBuildList(mutableListOf(Arg(null, parseLambdaOr { return emptyList() }))) {
         val ident = current
         if (ident is Token.Ident && next == Token.Colon) {
             add(Arg(ident.name.end(), advance().parseLambdaOr {
                 err("Missing lambda")
                 Expr.Error.noPos()
             }))
-        } else return list
+        } else return this
     }
-}
 
 private inline fun Parser.parseLambdaOr(or: () -> PExpr) = when (val curr = current) {
     is Token.Ident -> if (rawLookup(1) == Token.At) {
@@ -471,7 +453,7 @@ private fun Parser.parseLambdaHeader(): LambdaHeader? {
 private fun Parser.parseLambda(label: PString?, tokens: List<PToken>): PExpr = with(scopedOf(tokens)) {
     val params = parseLambdaHeader()
     val body = parseStatements()
-    Expr.Lambda(label, params, body)
+    Expr.Lambda(Scope(label, params, body))
 }.end()
 
 fun Parser.parseCallArgs(): List<Arg<PExpr>> =
@@ -501,7 +483,8 @@ private fun Parser.parseCall(on: PExpr, tokens: List<PToken>): PExpr {
     val list = parenthesizedOf(tokens).parseCallArgs()
     val after = advance().parsePostfixLambdas()
 
-    return Expr.Call(on,
+    return Expr.Call(
+        on,
         CallArgs(list, after)
     ).at(on.start, after.lastOrNull()?.value?.next ?: afterParens)
 }

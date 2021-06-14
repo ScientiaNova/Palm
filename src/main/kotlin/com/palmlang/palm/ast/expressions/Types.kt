@@ -1,10 +1,11 @@
 package com.palmlang.palm.ast.expressions
 
+import com.palmlang.palm.ast.ASTNode
 import com.palmlang.palm.ast.top.Annotation
 import com.palmlang.palm.util.Path
 import com.palmlang.palm.util.Positioned
 
-sealed class Type {
+sealed class Type : ASTNode {
     object Infer : Type()
     data class Named(val path: Path, val generics: List<Arg<PNestedType>>) : Type()
     data class Lis(val type: PType) : Type()
