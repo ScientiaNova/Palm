@@ -1,12 +1,12 @@
 package com.palmlang.palm.parser.top
 
 import com.palmlang.palm.lexer.Token
-import com.palmlang.palm.lexer.fileIdent
 import com.palmlang.palm.parser.Parser
 import com.palmlang.palm.ast.top.Annotation
 import com.palmlang.palm.ast.top.AnnotationType
 import com.palmlang.palm.ast.top.DecModifier
 import com.palmlang.palm.ast.top.PDecMod
+import com.palmlang.palm.lexer.fileIdent
 import com.palmlang.palm.parser.parseIdent
 import com.palmlang.palm.parser.expressions.parseCallArgs
 import com.palmlang.palm.util.*
@@ -39,11 +39,10 @@ fun Parser.identToDecMod(string: String): Positioned<DecModifier>? = when (strin
             }
         else DecModifier.Sealed(null, emptyList()).at(startPos, endPos)
     }
-    "const" -> DecModifier.Const.end()
     "local" -> DecModifier.Local.end()
     "noinline" -> DecModifier.NoInline.end()
     "crossinline" -> DecModifier.CrossInline.end()
-    "leaf" -> DecModifier.Leaf.end()
+    "operator" -> DecModifier.Operator.end()
     else -> null
 }
 
@@ -61,7 +60,7 @@ fun Parser.parseDecModifiers(): List<PDecMod> = recBuildList {
 inline fun Parser.parseModifierParam(fn: (PathType, Path) -> Positioned<DecModifier>): Positioned<DecModifier>? =
     when (val curr = current) {
         Token.Mod -> advance().parseModifierPath(mutableListOf())?.let { path -> fn(PathType.Module, path) }
-        Token.Super -> advance().parseModifierPath(mutableListOf())?.let { path -> fn(PathType.Super, path) }
+        Token.SuMod -> advance().parseModifierPath(mutableListOf())?.let { path -> fn(PathType.Super, path) }
         is Token.Ident -> parseModifierPath(mutableListOf(curr.name.end()))?.let { path -> fn(PathType.Root, path) }
         else -> null
     }

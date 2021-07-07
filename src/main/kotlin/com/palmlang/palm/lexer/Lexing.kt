@@ -26,11 +26,7 @@ tailrec fun Lexer.lexFile(): Lexer {
         ',' -> Token.Comma.add()
         ';' -> Token.Semicolon.add()
         '@' -> Token.At.add()
-        '.' -> if (code.getOrNull(pos + 1) == '.') {
-            Token.RangeTo.add(pos + 2)
-        } else {
-            Token.Dot.add()
-        }
+        '.' -> Token.Dot.add()
         '0' -> when (code.getOrNull(pos + 1)) {
             'b', 'B' -> lexBinaryNumber(pos + 2, StringBuilder())
             'o', 'O' -> lexOctalNumber(pos + 2, StringBuilder())
@@ -47,6 +43,7 @@ tailrec fun Lexer.lexFile(): Lexer {
             '*' -> lexMultiLineComment(pos + 2)
             else -> lexSymbol(pos + 1, '/')
         }
+       '\\' -> Token.Backslash.add()
         in identStartChars -> lexNormalIdent(pos + 1, StringBuilder().append(char)).add()
         in symbolChars -> lexSymbol(pos + 1, char)
         in confusables -> {
@@ -88,11 +85,7 @@ internal tailrec fun Lexer.lexNested(endDelim: Char): Lexer {
         ',' -> Token.Comma.add()
         ';' -> Token.Semicolon.add()
         '@' -> Token.At.add()
-        '.' -> if (code.getOrNull(pos + 1) == '.') {
-            Token.RangeTo.add(pos + 2)
-        } else {
-            Token.Dot.add()
-        }
+        '.' -> Token.Dot.add()
         '0' -> when (code.getOrNull(pos + 1)) {
             'b', 'B' -> lexBinaryNumber(pos + 2, StringBuilder())
             'o', 'O' -> lexOctalNumber(pos + 2, StringBuilder())
@@ -106,7 +99,7 @@ internal tailrec fun Lexer.lexNested(endDelim: Char): Lexer {
         '`' -> lexTickedIdent(pos + 1, StringBuilder()).add()
         '*' -> when (code.getOrNull(pos + 1)) {
             '=' -> Token.TimesAssign.add(pos + 2)
-            else -> Token.Times.add()
+            else -> Token.Asterisk.add()
         }
         '/' -> when (code.getOrNull(pos + 1)) {
             '/' -> lexSingleLineComment(pos + 2)
@@ -114,6 +107,7 @@ internal tailrec fun Lexer.lexNested(endDelim: Char): Lexer {
             '=' -> Token.DivAssign.add(pos + 2)
             else -> Token.Div.add()
         }
+        '\\' -> Token.Backslash.add()
         in identStartChars -> lexNormalIdent(pos + 1, StringBuilder().append(char)).add()
         in symbolChars -> lexSymbol(pos + 1, char)
         in confusables -> {

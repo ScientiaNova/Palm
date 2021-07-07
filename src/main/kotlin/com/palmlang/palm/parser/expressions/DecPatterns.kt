@@ -1,5 +1,6 @@
 package com.palmlang.palm.parser.expressions
 
+import com.palmlang.palm.ast.expressions.ASTCommon
 import com.palmlang.palm.ast.expressions.DecPattern
 import com.palmlang.palm.ast.expressions.PDecPattern
 import com.palmlang.palm.lexer.PToken
@@ -19,13 +20,13 @@ fun Parser.parseDecPattern(): PDecPattern? = when (val token = current) {
     is Token.Ident -> DecPattern.Name(token.name).end()
     is Token.Parens -> parseComponents(token.tokens)
     is Token.Brackets -> parseDecObject(token.tokens)
-    Token.Wildcard -> DecPattern.Wildcard.end()
+    Token.Wildcard -> ASTCommon.Wildcard.end()
     else -> null
 }
 
 fun Parser.requireDecPattern() = parseDecPattern() ?: run {
     err("Invalid pattern")
-    DecPattern.Wildcard.noPos().also { advance() }
+    ASTCommon.Wildcard.noPos().also { advance() }
 }
 
 private fun Parser.parseComponents(tokens: List<PToken>): PDecPattern =

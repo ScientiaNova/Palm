@@ -87,7 +87,7 @@ fun Parser.parseClass(modifiers: List<PDecMod>): Statement {
     val primaryConstructor = inParensOr(Parser::parsePrimaryParams) { null }
     val superTypes = parseClassSuperTypes()
     val constraints = parseWhere()
-    val body = inBracesOrEmpty { parseStatements() }
+    val body = parseScope(name)
 
     return Statement.Class(
         name,

@@ -1,5 +1,6 @@
 package com.palmlang.palm.parser.expressions
 
+import com.palmlang.palm.ast.expressions.ASTCommon
 import com.palmlang.palm.ast.expressions.DecPattern
 import com.palmlang.palm.ast.expressions.Destructuring
 import com.palmlang.palm.ast.expressions.Pattern
@@ -13,7 +14,7 @@ import com.palmlang.palm.util.map
 import com.palmlang.palm.util.recBuildList
 
 fun Parser.parsePattern(): Pattern = when (val token = current) {
-    Token.Wildcard -> Pattern.Wildcard.also { advance() }
+    Token.Wildcard -> ASTCommon.Wildcard.also { advance() }
     Token.Let -> Pattern.Dec(advance().requireDecPattern())
     Token.Is -> Pattern.Type(advance().requireType(), false, parseDestructuring())
     Token.ExclamationMark -> when (next) {

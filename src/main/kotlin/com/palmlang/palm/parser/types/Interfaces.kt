@@ -8,6 +8,7 @@ import com.palmlang.palm.ast.top.PDecMod
 import com.palmlang.palm.parser.parseIdent
 import com.palmlang.palm.parser.top.parseStatements
 import com.palmlang.palm.parser.expressions.requireType
+import com.palmlang.palm.parser.top.parseScope
 import com.palmlang.palm.util.recBuildList
 
 fun Parser.parseInterfaceSuperTypes(): List<PType> = if (current == Token.Colon) {
@@ -28,7 +29,7 @@ fun Parser.parseInterface(modifiers: List<PDecMod>): Statement {
     val typeParams = parseTypeParams()
     val superTypes = parseInterfaceSuperTypes()
     val constraints = parseWhere()
-    val body = inBracesOrEmpty { parseStatements() }
+    val body = parseScope(name)
 
     return Statement.Interface(name, modifiers, typeParams, constraints, superTypes, body)
 }

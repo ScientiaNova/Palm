@@ -64,15 +64,15 @@ private fun Parser.parseTerm(): PExpr? = when (val token = current) {
     is Token.Brackets -> parseListOrMap(token.tokens)
     is Token.Parens -> parseParenthesized(token.tokens)
     Token.NullLit -> Expr.Null.end()
-    Token.Super -> Expr.Super.end()
-    Token.Mod -> Expr.Module.end()
+    Token.SuMod -> Expr.SuMod.end()
+    Token.Mod -> Expr.Mod.end()
     Token.Return -> parseReturn()
     Token.When -> parseWhen()
-    Token.Spread -> withPos { advance().requireSubExpr().let { expr -> Expr.Spread(expr).at(it, expr.next) } }
     Token.DoubleColon -> parseFreeFunRef()
-    Token.Plus -> parsePrefix(UnOp.Not)
+    Token.Plus -> parsePrefix(UnOp.Plus)
     Token.Minus -> parsePrefix(UnOp.Plus)
     Token.ExclamationMark -> parsePrefix(UnOp.Not)
+    Token.Asterisk -> withPos { advance().requireSubExpr().let { expr -> Expr.Spread(expr).at(it, expr.next) } }
     else -> null
 }
 
@@ -223,10 +223,9 @@ fun Parser.parseBinOpsOnLine(): PExpr? = if (lastNewline) null else parseExpr()
 fun Parser.parseOp(): PBinOp? = when (val token = current) {
     Token.Plus -> if (currentInfix()) Plus.end() else null
     Token.Minus -> if (currentInfix()) Minus.end() else null
-    Token.Times -> Times.end()
+    Token.Asterisk -> if (currentInfix()) Times.end() else null
     Token.Div -> Div.end()
     Token.Rem -> Rem.end()
-    Token.RangeTo -> RangeTo.end()
     Token.Eq -> Eq.end()
     Token.RefEq -> RefEq.end()
     Token.NotEq -> NotEq.end()
@@ -413,11 +412,8 @@ private fun Parser.parseListOrMap(tokens: List<PToken>): PExpr =
         }
     }.end()
 
-private fun Parser.parseGet(on: PExpr, tokens: List<PToken>): PExpr {
-    val arg = parenthesizedOf(tokens).requireExpr()
-
-    return Expr.Get(on, arg).end(on.start)
-}
+private fun Parser.parseGet(on: PExpr, tokens: List<PToken>): PExpr =
+    Expr.Get(on, parenthesizedOf(tokens).parseCallArgs()).end(on.start)
 
 private fun Parser.parseOptionallyTypedParams() = recBuildList<Pair<PDecPattern, PType?>> {
     if (current == Token.End) return this
@@ -450,11 +446,13 @@ private fun Parser.parseLambdaHeader(): LambdaHeader? {
     return LambdaHeader(contextParams, mainParams, returnType)
 }
 
-private fun Parser.parseLambda(label: PString?, tokens: List<PToken>): PExpr = with(scopedOf(tokens)) {
+fun Parser.parseScope(label: PString?, tokens: List<PToken>): PScope = with(scopedOf(tokens)) {
     val params = parseLambdaHeader()
     val body = parseStatements()
-    Expr.Lambda(Scope(label, params, body))
+    Scope(label, params, body)
 }.end()
+
+private fun Parser.parseLambda(label: PString?, tokens: List<PToken>): PExpr = parseScope(label, tokens).map(Expr::Lambda)
 
 fun Parser.parseCallArgs(): List<Arg<PExpr>> =
     recBuildList {

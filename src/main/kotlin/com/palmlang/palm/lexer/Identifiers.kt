@@ -23,7 +23,7 @@ private fun matchIdentToken(ident: String) = when (ident) {
     "is" -> Token.Is
     "as" -> Token.As
     "null" -> Token.NullLit
-    "super" -> Token.Super
+    "sumod" -> Token.SuMod
     "mod" -> Token.Mod
     "type" -> Token.Type
     "constructor" -> Token.Constructor
@@ -33,11 +33,8 @@ private fun matchIdentToken(ident: String) = when (ident) {
     "where" -> whereIdent
     "in" -> inIdent
     "out" -> outIdent
-    "file" -> fileIdent
     "get" -> getIdent
     "set" -> setIdent
-    "show" -> showIdent
-    "hide" -> hideIdent
     else -> if (ident.all('_'::equals)) {
         Token.Wildcard
     } else {
@@ -63,11 +60,9 @@ internal tailrec fun Lexer.lexTickedIdent(
     else -> lexTickedIdent(pos + 1, builder.append(char))
 }
 
+val fileIdent = Token.Ident("file", false)
 val whereIdent = Token.Ident("where", false)
 val inIdent = Token.Ident("in", false)
 val outIdent = Token.Ident("out", false)
-val fileIdent = Token.Ident("file", false)
 val getIdent = Token.Ident("get", false)
 val setIdent = Token.Ident("set", false)
-val showIdent = Token.Ident("show", false)
-val hideIdent = Token.Ident("show", false)

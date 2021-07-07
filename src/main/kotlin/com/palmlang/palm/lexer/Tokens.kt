@@ -21,123 +21,120 @@ sealed class StringPartL {
     }
 }
 
-sealed class Token {
-    open fun canIgnore() = false
-    open fun afterPostfix() = canIgnore()
-    open fun beforePrefix() = canIgnore()
+sealed interface Token {
+    fun canIgnore() = false
+    fun afterPostfix() = canIgnore()
+    fun beforePrefix() = canIgnore()
 
-    data class Ident(val name: String, val backticked: Boolean) : Token()
+    data class Ident(val name: String, val backticked: Boolean) : Token
 
-    object NullLit : Token()
-    data class BoolLit(val value: Boolean) : Token()
-    data class CharLit(val value: Char) : Token()
-    data class IntLit(val value: Long) : Token()
-    data class FloatLit(val value: Double) : Token()
-    data class StrLit(val parts: List<StringPartL>) : Token()
+    object NullLit : Token
+    data class BoolLit(val value: Boolean) : Token
+    data class CharLit(val value: Char) : Token
+    data class IntLit(val value: Long) : Token
+    data class FloatLit(val value: Double) : Token
+    data class StrLit(val parts: List<StringPartL>) : Token
 
-    data class Parens(val tokens: List<PToken>) : Token()
-    data class Brackets(val tokens: List<PToken>) : Token()
-    data class Braces(val tokens: List<PToken>) : Token()
+    data class Parens(val tokens: List<PToken>) : Token
+    data class Brackets(val tokens: List<PToken>) : Token
+    data class Braces(val tokens: List<PToken>) : Token
 
-    object At : Token()
+    object At : Token
 
-    object Dot : Token() {
+    object Dot : Token {
         override fun afterPostfix() = true
     }
 
-    object Colon : Token() {
+    object Colon : Token {
         override fun afterPostfix() = true
     }
 
-    object DoubleColon : Token() {
+    object DoubleColon : Token {
         override fun afterPostfix() = true
     }
 
-    object Semicolon : Token() {
-        override fun afterPostfix() = true
-        override fun beforePrefix() = true
-    }
-
-    object Comma : Token() {
+    object Semicolon : Token {
         override fun afterPostfix() = true
         override fun beforePrefix() = true
     }
 
-    object Pipe : Token()
-    object And : Token()
-    object LogicalOr : Token()
-    object LogicalAnd : Token()
-    object Eq : Token()
-    object NotEq : Token()
-    object RefEq : Token()
-    object NotRefEq : Token()
-    object Less : Token()
-    object Greater : Token()
-    object LessOrEq : Token()
-    object GreaterOrEq : Token()
-    object Is : Token()
-    object RangeTo : Token() {
+    object Comma : Token {
         override fun afterPostfix() = true
         override fun beforePrefix() = true
     }
 
-    object Elvis : Token()
+    object Pipe : Token
+    object And : Token
+    object LogicalOr : Token
+    object LogicalAnd : Token
+    object Eq : Token
+    object NotEq : Token
+    object RefEq : Token
+    object NotRefEq : Token
+    object Less : Token
+    object Greater : Token
+    object LessOrEq : Token
+    object GreaterOrEq : Token
+    object Is : Token
 
-    object Plus : Token()
-    object Minus : Token()
-    object Times : Token()
-    object Div : Token()
-    object Rem : Token()
-    object As : Token()
+    object Elvis : Token
 
-    object Assign : Token()
-    object PlusAssign : Token()
-    object MinusAssign : Token()
-    object TimesAssign : Token()
-    object DivAssign : Token()
-    object RemAssign : Token()
+    object Plus : Token
+    object Minus : Token
+    object Asterisk : Token
+    object Div : Token
+    object Rem : Token
+    object As : Token
 
-    object QuestionMark : Token()
-    object ExclamationMark : Token()
+    object Assign : Token
+    object PlusAssign : Token
+    object MinusAssign : Token
+    object TimesAssign : Token
+    object DivAssign : Token
+    object RemAssign : Token
 
-    object Arrow : Token()
-    object Spread : Token()
-    object Wildcard : Token()
+    object QuestionMark : Token
+    object ExclamationMark : Token
 
-    object Def : Token()
-    object Let : Token()
-    object Mut : Token()
-    object Class : Token()
-    object Object : Token()
-    object Interface : Token()
-    object Type : Token()
-    object Constructor : Token()
-    object Impl : Token()
+    object Arrow : Token
+    object Wildcard : Token
+    object Backslash : Token
 
-    object Super : Token()
-    object When : Token()
-    object Return : Token()
+    object Def : Token
+    object Let : Token
+    object Mut : Token
+    object Class : Token
+    object Object : Token
+    object Interface : Token
+    object Type : Token
+    object Constructor : Token
+    object Impl : Token
 
-    object Import : Token()
-    object Mod : Token()
+    object When : Token
+    object Return : Token
 
-    object Whitespace : Token() {
+    object Import : Token
+
+    object Mod : Token
+    object SuMod : Token
+
+    object Whitespace : Token {
         override fun canIgnore() = true
     }
 
-    object Comment : Token() {
+    object Comment : Token {
         override fun canIgnore() = true
     }
 
-    object EOL : Token() {
+    object EOL : Token {
         override fun canIgnore() = true
     }
 
-    object End : Token() {
+    object End : Token {
         override fun afterPostfix() = true
     }
 
-    data class Error(val error: String) : Token()
+    data class Error(val error: String) : Token
 }
 
 typealias PToken = Positioned<Token>

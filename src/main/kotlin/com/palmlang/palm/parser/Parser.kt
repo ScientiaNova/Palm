@@ -4,8 +4,10 @@ import com.palmlang.palm.errors.PalmError
 import com.palmlang.palm.lexer.Lexer
 import com.palmlang.palm.lexer.PToken
 import com.palmlang.palm.lexer.Token
-import com.palmlang.palm.parser.expressions.requireDecPattern
-import com.palmlang.palm.util.*
+import com.palmlang.palm.util.PString
+import com.palmlang.palm.util.Positioned
+import com.palmlang.palm.util.StringPos
+import com.palmlang.palm.util.recBuildListN
 import java.net.URL
 
 sealed class Parser(private val filePath: URL, protected val stream: List<PToken>, val errors: MutableList<PalmError>) {
@@ -29,11 +31,13 @@ sealed class Parser(private val filePath: URL, protected val stream: List<PToken
     fun err(error: String, startPos: StringPos = pos, nextPos: StringPos = this.nextPos): Parser =
         also { errors += PalmError(error, filePath, startPos, nextPos) }
 
-    private tailrec fun nextIndex(newIndex: Int): Int = if (stream[newIndex].value.canIgnore()) {
-        nextIndex(newIndex + 1)
-    } else {
-        newIndex
-    }
+    private tailrec fun nextIndex(newIndex: Int): Int =
+        if (stream[newIndex].value.canIgnore()) nextIndex(newIndex + 1) else newIndex
+
+    private tailrec fun lastIndex(oldIndex: Int): Int =
+        if (oldIndex != 0 && stream[oldIndex - 1].value.canIgnore()) lastIndex(oldIndex - 1) else oldIndex
+
+    val lastPos = stream[lastIndex(index)].start
 
     abstract val lastNewline: Boolean
 

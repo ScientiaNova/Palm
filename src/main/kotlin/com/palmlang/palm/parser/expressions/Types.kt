@@ -18,50 +18,6 @@ fun Parser.parseType(): PType? {
         is Token.Ident -> parseNamedType()
         is Token.Parens -> parseTypeTuple(token.tokens)
         is Token.Brackets -> parseTypeList(token.tokens)
-        is Token.IntLit -> {
-            val start = pos
-            val maybeType = rawLookup(1)
-            when {
-                maybeType is Token.Ident && !maybeType.backticked -> {
-                    advance()
-                    when (maybeType.name) {
-                        "b", "B" -> Type.Byte(token.value.toByte()).end(start)
-                        "s", "S" -> Type.Short(token.value.toShort()).end(start)
-                        "l", "L" -> Type.Long(token.value).end(start)
-                        else -> {
-                            err("Unknown literal suffix")
-                            when (token.value) {
-                                in Int.MIN_VALUE..Int.MAX_VALUE -> Type.Int(token.value.toInt()).end(start)
-                                else -> Type.Long(token.value).end(start)
-                            }
-                        }
-                    }
-                }
-                token.value in Int.MIN_VALUE..Int.MAX_VALUE -> Type.Int(token.value.toInt()).end(start)
-                else -> Type.Long(token.value).end(start)
-            }
-        }
-        is Token.FloatLit -> {
-            val start = pos
-            val maybeType = rawLookup(1)
-            when {
-                maybeType is Token.Ident && !maybeType.backticked -> {
-                    advance()
-                    when (maybeType.name) {
-                        "f", "F" -> Type.Float(token.value.toFloat()).end(start)
-                        else -> {
-                            err("Unknown literal suffix")
-                            Type.Double(token.value).end(start)
-                        }
-                    }
-                }
-                else -> Type.Double(token.value).end(start)
-            }
-        }
-        is Token.BoolLit -> Type.Bool(token.value).end()
-        is Token.CharLit -> Type.Char(token.value).end()
-        is Token.StrLit -> Type.Str(token.parts.map { it.parse(this) }).end()
-        Token.NullLit -> Type.Null.end()
         Token.At -> return parseAnnotatedType()
         else -> return null
     }
@@ -174,7 +130,8 @@ private fun Parser.parseNamedType(): PType = withPos { start ->
 }
 
 private fun Parser.parseTypeNullability(type: PType): PType =
-    if (current == Token.QuestionMark && currentPostfix()) Type.Nullable(type).at(type.start, pos).also { advance() } else type
+    if (current == Token.QuestionMark && currentPostfix()) Type.Nullable(type).at(type.start, pos)
+        .also { advance() } else type
 
 private fun Parser.parseTypeTupleBody(list: MutableList<PType> = mutableListOf()): List<PType> = recBuildList(list) {
     if (current == Token.End) {
@@ -228,7 +185,7 @@ private fun Parser.parseFunType(context: List<PType>): PType = withPos { start -
 }
 
 private fun Parser.parseNestedType(): PNestedType = when (current) {
-    Token.Times -> NestedType.Star.end()
+    Token.Asterisk -> NestedType.Star.end()
     inIdent -> parseNormalNestedType(VarianceMod.In)
     outIdent -> parseNormalNestedType(VarianceMod.Out)
     else -> {

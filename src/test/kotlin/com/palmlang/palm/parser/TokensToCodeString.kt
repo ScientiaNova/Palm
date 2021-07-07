@@ -5,8 +5,8 @@ import com.palmlang.palm.lexer.Token
 
 fun Token.toCodeString(indent: Int): String = when (this) {
     is Token.Braces -> "{\n" + indent(indent + 1) +
-                tokens.joinToString("\n" + indent(indent + 1)) { it.value.toCodeString(indent + 1) } +
-                "\n${indent(indent)}}"
+            tokens.joinToString("\n" + indent(indent + 1)) { it.value.toCodeString(indent + 1) } +
+            "\n${indent(indent)}}"
     is Token.Brackets -> "[\n" + indent(indent + 1) +
             tokens.joinToString("\n" + indent(indent + 1)) { it.value.toCodeString(indent + 1) } +
             "\n${indent(indent)}]"
@@ -14,7 +14,6 @@ fun Token.toCodeString(indent: Int): String = when (this) {
             tokens.joinToString("\n" + indent(indent + 1)) { it.value.toCodeString(indent + 1) } +
             "\n${indent(indent)})"
     Token.Dot -> "."
-    Token.RangeTo -> ".."
     Token.Colon -> ":"
     Token.DoubleColon -> "::"
     Token.Semicolon -> ";"
@@ -26,7 +25,7 @@ fun Token.toCodeString(indent: Int): String = when (this) {
     Token.GreaterOrEq -> ">="
     Token.Plus -> "+"
     Token.Minus -> "-"
-    Token.Times -> "*"
+    Token.Asterisk -> "*"
     Token.Div -> "/"
     Token.Rem -> "%"
     Token.Eq -> "=="
@@ -41,7 +40,6 @@ fun Token.toCodeString(indent: Int): String = when (this) {
     Token.RemAssign -> "%="
     Token.QuestionMark -> "?"
     Token.Arrow -> "->"
-    Token.Spread -> "*"
     Token.Wildcard -> "_"
     Token.Comma -> ","
     Token.At -> "@"
@@ -49,7 +47,7 @@ fun Token.toCodeString(indent: Int): String = when (this) {
     Token.Let -> "let"
     Token.Mut -> "mut"
     Token.Object -> "object"
-    Token.Super -> "super"
+    Token.SuMod -> "sumod"
     Token.NullLit -> "null"
     Token.When -> "when"
     Token.Return -> "return"
@@ -79,6 +77,7 @@ fun Token.toCodeString(indent: Int): String = when (this) {
     Token.Impl -> "impl"
     Token.Pipe -> "|"
     Token.Type -> "type"
+    Token.Backslash -> "\\"
 }
 
 fun StringPartL.toCodeString(indent: Int) = when (this) {

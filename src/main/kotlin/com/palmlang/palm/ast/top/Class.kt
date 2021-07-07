@@ -11,9 +11,9 @@ enum class DecHandling {
     None, Umm, Mut
 }
 
-sealed class SuperType {
-    data class Class(val type: PType, val args: List<Arg<PExpr>>) : SuperType()
-    data class Interface(val type: PType) : SuperType()
+sealed interface SuperType {
+    data class Class(val type: PType, val args: List<Arg<PExpr>>) : SuperType
+    data class Interface(val type: PType) : SuperType
 }
 
 typealias PSuperType = Positioned<SuperType>
